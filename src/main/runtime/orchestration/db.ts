@@ -1429,12 +1429,22 @@ export class OrchestrationDb {
   }
 
   private createUndeliveredInboxIndexIfPossible(): void {
-    if (!this.hasColumn('messages', 'delivered_at')) {
+    const hasDeliveredAt = this.hasColumn('messages', 'delivered_at')
+    if (hasDeliveredAt) {
+      this.db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_messages_undelivered_inbox
+          ON messages(to_handle, read, delivered_at, sequence)
+      `)
+    }
+
+    if (
+      !hasDeliveredAt ||
+      !this.hasColumn('messages', 'run_id') ||
+      !this.hasColumn('messages', 'delivery_contract')
+    ) {
       return
     }
     this.db.exec(`
-      CREATE INDEX IF NOT EXISTS idx_messages_undelivered_inbox
-        ON messages(to_handle, read, delivered_at, sequence);
       CREATE INDEX IF NOT EXISTS idx_messages_undelivered_direct_run
         ON messages(run_id, to_handle, sequence)
         WHERE read = 0 AND delivered_at IS NULL
