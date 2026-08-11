@@ -328,6 +328,9 @@ describe('OrchestrationDb worker Dispatch state', () => {
     expect(d.findActiveRemoteAttachmentForPane(`tab_reminted:${leafId}`)?.dispatch_id).toBe(
       'ctx_valid_new'
     )
+    expect(d.findActiveRemoteAttachmentForPane(`tab_old:${leafId}`)?.dispatch_id).toBe(
+      'ctx_valid_new'
+    )
   })
 
   it('returns already-settled when completion wins before stop', () => {

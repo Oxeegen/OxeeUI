@@ -108,8 +108,8 @@ export class DegradedDaemonPtyProvider implements IPtyProvider {
       this.sessionProviders.get(ptyId) ?? this.findProviderForExistingSession(ptyId)
     )?.providesAgentSessionOwnerListings?.(ptyId) === true
 
-  write(id: string, data: string): void {
-    this.providerFor(id).write(id, data)
+  write(id: string, data: string): boolean | void {
+    return this.providerFor(id).write(id, data)
   }
 
   resize(id: string, cols: number, rows: number): void {

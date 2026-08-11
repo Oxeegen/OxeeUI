@@ -741,6 +741,14 @@ export const ORCHESTRATION_METHODS: RpcMethod[] = [
         const generation = run.consumer_generation
         const address = `run:${run.id}`
         runtime.ensureOrchestrationFederationRelay(run.id)
+        const routedDirect = db.routeUnreadDirectMessagesToRunMailbox(run.id, handle)
+        if (
+          routedDirect.routedCount === 0 &&
+          run.coordinator_handle &&
+          run.coordinator_handle !== handle
+        ) {
+          db.routeUnreadDirectMessagesToRunMailbox(run.id, run.coordinator_handle)
+        }
 
         const acknowledged = params.ack
           ? db.acknowledgeRunDelivery({
@@ -909,6 +917,24 @@ export const ORCHESTRATION_METHODS: RpcMethod[] = [
           : undefined
       if (workerMailbox) {
         const address = `dispatch:${workerMailbox.dispatchId}`
+        if (activeDispatch) {
+          const routedDirect = db.routeUnreadDirectMessagesToDispatchMailbox(
+            activeDispatch.id,
+            activeDispatch.run_id,
+            handle
+          )
+          if (
+            routedDirect.routedCount === 0 &&
+            activeDispatch.assignee_handle &&
+            activeDispatch.assignee_handle !== handle
+          ) {
+            db.routeUnreadDirectMessagesToDispatchMailbox(
+              activeDispatch.id,
+              activeDispatch.run_id,
+              activeDispatch.assignee_handle
+            )
+          }
+        }
         const showAll = params.all === true || (params.unread === false && params.peek !== true)
         const messages = showAll
           ? db.getAllMessagesForHandle(address, 100, typeFilter)
