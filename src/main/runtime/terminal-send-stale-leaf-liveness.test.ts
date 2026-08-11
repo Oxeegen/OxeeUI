@@ -489,18 +489,22 @@ describe('push-on-idle orchestration delivery absence gate', () => {
       await vi.advanceTimersByTimeAsync(0)
       expect(pointerWrites()).toHaveLength(1)
 
-      // Enter settles the flight and re-runs the parked trigger, arming a fresh
-      // probe for the newer sequence.
+      // The submit-time liveness probe settles the flight, then the parked
+      // trigger arms its own delivery probe for the newer sequence.
       await vi.advanceTimersByTimeAsync(500)
+      resolveProbe(null)
+      await vi.advanceTimersByTimeAsync(0)
       resolveProbe(null)
       await vi.advanceTimersByTimeAsync(0)
 
       expect(pointerWrites()).toHaveLength(2)
-      expect(pointerWrites()[1]?.[1]).toContain('You have 2 orchestration messages')
+      expect(pointerWrites()[1]?.[1]).toContain('You have 1 orchestration message')
 
       await vi.advanceTimersByTimeAsync(500)
-      expect(stub.markAsDelivered).not.toHaveBeenCalled()
-      expect(stub.rows.every((row) => row.delivered_at === null)).toBe(true)
+      resolveProbe(null)
+      await vi.advanceTimersByTimeAsync(0)
+      expect(stub.markAsDelivered).toHaveBeenCalledTimes(2)
+      expect(stub.rows.every((row) => row.delivered_at !== null)).toBe(true)
     } finally {
       vi.useRealTimers()
     }
@@ -533,11 +537,11 @@ describe('push-on-idle orchestration delivery absence gate', () => {
       // while the newer sequence authorizes exactly one fresh pointer.
       await vi.advanceTimersByTimeAsync(500)
       expect(pointerWrites()).toHaveLength(2)
-      expect(pointerWrites()[1]?.[1]).toContain('You have 2 orchestration messages')
+      expect(pointerWrites()[1]?.[1]).toContain('You have 1 orchestration message')
 
       await vi.advanceTimersByTimeAsync(500)
-      expect(stub.markAsDelivered).not.toHaveBeenCalled()
-      expect(stub.rows.every((row) => row.delivered_at === null)).toBe(true)
+      expect(stub.markAsDelivered).toHaveBeenCalledTimes(2)
+      expect(stub.rows.every((row) => row.delivered_at !== null)).toBe(true)
     } finally {
       vi.useRealTimers()
     }
@@ -582,8 +586,8 @@ describe('push-on-idle orchestration delivery absence gate', () => {
       expect(payloadWrites).toHaveLength(2)
       await vi.advanceTimersByTimeAsync(500)
       expect(write.mock.calls.filter(([, data]) => data === '\r')).toHaveLength(1)
-      expect(stub.markAsDelivered).not.toHaveBeenCalled()
-      expect(stub.rows[0].delivered_at).toBeNull()
+      expect(stub.markAsDelivered).toHaveBeenCalledOnce()
+      expect(stub.rows[0].delivered_at).not.toBeNull()
     } finally {
       vi.useRealTimers()
     }

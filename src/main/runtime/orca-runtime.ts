@@ -118,7 +118,7 @@ import { isAbsolute, join, resolve } from 'node:path'
 import { mkdir, readFile, readdir, rm, stat } from 'node:fs/promises'
 import { resolveWorktreeCreateBase } from '../worktree-create-base'
 import { resolveWorktreeAddBaseRef } from '../../shared/worktree/base-ref'
-import { OrchestrationDb } from './orchestration/db'
+import { ORCHESTRATION_DELIVERY_BATCH_LIMIT, OrchestrationDb } from './orchestration/db'
 import { reconcileRequestedWorkerTerminalReleases } from './orchestration/worker-terminal-release-reconciliation'
 import {
   classifyWorkerTerminalProcessIncarnation,
@@ -32139,13 +32139,24 @@ export class OrcaRuntimeService {
     let terminalHandle = handle
     if (!this.handles.has(terminalHandle)) {
       const runId = handle.startsWith('run:') ? handle.slice('run:'.length) : ''
-      const coordinatorHandle = runId
+      const dispatchId = handle.startsWith('dispatch:') ? handle.slice('dispatch:'.length) : ''
+      const dispatch = dispatchId
+        ? this._orchestrationDb?.getDispatchContextById?.(dispatchId)
+        : undefined
+      const remoteAttachment =
+        dispatchId && !dispatch
+          ? this._orchestrationDb?.getRemoteDispatchAttachment?.(dispatchId)
+          : undefined
+      const ownerPaneKey = dispatch?.assignee_pane_key ?? remoteAttachment?.pane_key
+      const ownerHandle = runId
         ? this._orchestrationDb?.getRun(runId)?.coordinator_handle
-        : null
-      if (!coordinatorHandle || !this.handles.has(coordinatorHandle)) {
+        : ((ownerPaneKey ? this.getTerminalHandleForPaneKey(ownerPaneKey) : null) ??
+          dispatch?.assignee_handle ??
+          remoteAttachment?.terminal_handle)
+      if (!ownerHandle || !this.handles.has(ownerHandle)) {
         return
       }
-      terminalHandle = coordinatorHandle
+      terminalHandle = ownerHandle
     }
     try {
       const { leaf } = this.getLiveLeafForHandle(terminalHandle)
@@ -32155,7 +32166,10 @@ export class OrcaRuntimeService {
       // would type a message plus Enter into a working agent. Seeded state waits
       // for a live observation to authorize it.
       if (leaf.lastAgentStatus === 'idle' && leaf.lastAgentStatusObservedLive) {
-        this.deliverPendingMessages(leaf, { mailboxHandle: handle, reservedTypes })
+        const mailboxHandle = this.resolveActionableMailboxForLeaf(leaf, handle)
+        if (mailboxHandle) {
+          this.deliverPendingMessages(leaf, { mailboxHandle, reservedTypes })
+        }
       }
     } catch {
       // Unknown/stale handles can't be pointed now; the persisted message stays available via explicit check or future idle delivery.
@@ -32180,13 +32194,129 @@ export class OrcaRuntimeService {
   }
 
   private deliverPendingMessagesForLeaf(leaf: RuntimeLeafRecord): void {
-    this.deliverPendingMessages(leaf)
-    if (!this._orchestrationDb) {
-      return
+    const mailboxHandle = this.resolveActionableMailboxForLeaf(leaf)
+    if (mailboxHandle) {
+      this.deliverPendingMessages(leaf, { mailboxHandle })
     }
-    const run = this._orchestrationDb.getCurrentRunForPane?.(`${leaf.tabId}:${leaf.leafId}`)
+  }
+
+  private resolveActionableMailboxForLeaf(
+    leaf: RuntimeLeafRecord,
+    requestedMailbox?: string,
+    options: { requireRequestedMail?: boolean; routeDirectMail?: boolean } = {}
+  ): string | null {
+    if (!this._orchestrationDb) {
+      return null
+    }
+    const terminalHandle = this.handleByLeafKey.get(this.getLeafKey(leaf.tabId, leaf.leafId))
+    if (!terminalHandle) {
+      return null
+    }
+    const paneKey = `${leaf.tabId}:${leaf.leafId}`
+    const run = this._orchestrationDb.getCurrentRunForPane?.(paneKey)
     if (run) {
-      this.deliverPendingMessages(leaf, { mailboxHandle: `run:${run.id}` })
+      const runMailbox = `run:${run.id}`
+      if (
+        requestedMailbox &&
+        requestedMailbox !== terminalHandle &&
+        requestedMailbox !== runMailbox
+      ) {
+        return null
+      }
+      const hasDirectRunMail =
+        this._orchestrationDb.hasUndeliveredDirectMessageForRun?.(run.id, terminalHandle) ?? false
+      if (
+        options.requireRequestedMail &&
+        requestedMailbox === terminalHandle &&
+        !hasDirectRunMail
+      ) {
+        return null
+      }
+      if (hasDirectRunMail && options.routeDirectMail !== false) {
+        this._orchestrationDb.routeUnreadDirectMessagesToRunMailbox?.(run.id, terminalHandle)
+      }
+      return runMailbox
+    }
+
+    const dispatch = this._orchestrationDb.getActiveDispatchForIdentity?.(terminalHandle, paneKey)
+    if (dispatch) {
+      const dispatchMailbox = `dispatch:${dispatch.id}`
+      if (
+        requestedMailbox &&
+        requestedMailbox !== terminalHandle &&
+        requestedMailbox !== dispatchMailbox
+      ) {
+        return null
+      }
+      const hasDirectDispatchMail =
+        this._orchestrationDb.hasUndeliveredDirectMessageForRun?.(
+          dispatch.run_id,
+          terminalHandle
+        ) ?? false
+      if (
+        options.requireRequestedMail &&
+        requestedMailbox === terminalHandle &&
+        !hasDirectDispatchMail
+      ) {
+        return null
+      }
+      if (hasDirectDispatchMail && options.routeDirectMail !== false) {
+        this._orchestrationDb.routeUnreadDirectMessagesToDispatchMailbox?.(
+          dispatch.id,
+          dispatch.run_id,
+          terminalHandle
+        )
+      }
+      return dispatchMailbox
+    }
+
+    const remoteAttachment = this._orchestrationDb.findActiveRemoteAttachmentForPane?.(paneKey)
+    if (remoteAttachment) {
+      const isCurrent = this._orchestrationDb.isRemoteAttachmentProcessCurrent?.({
+        dispatchId: remoteAttachment.dispatch_id,
+        paneKey,
+        processIncarnation: this.getTerminalProcessIncarnation(terminalHandle)
+      })
+      if (!isCurrent || (options.requireRequestedMail && requestedMailbox === terminalHandle)) {
+        return null
+      }
+      const dispatchMailbox = `dispatch:${remoteAttachment.dispatch_id}`
+      return !requestedMailbox || requestedMailbox === dispatchMailbox ? dispatchMailbox : null
+    }
+
+    return !requestedMailbox || requestedMailbox === terminalHandle ? terminalHandle : null
+  }
+
+  private resolveArrivedMessageMailboxes(handle: string): {
+    mailboxHandle: string | null
+    forwarded: { runId: string; types: string[] }[]
+  } {
+    if (!this.handles.has(handle) || !this._orchestrationDb) {
+      return { mailboxHandle: handle, forwarded: [] }
+    }
+    try {
+      const { leaf } = this.getLiveLeafForHandle(handle)
+      const ownerMailbox = this.resolveActionableMailboxForLeaf(leaf, undefined, {
+        routeDirectMail: false
+      })
+      const ownerRunId = ownerMailbox?.startsWith('run:')
+        ? ownerMailbox.slice('run:'.length)
+        : ownerMailbox?.startsWith('dispatch:')
+          ? this._orchestrationDb.getDispatchContextById?.(ownerMailbox.slice('dispatch:'.length))
+              ?.run_id
+          : undefined
+      const forwarded = ownerRunId
+        ? (this._orchestrationDb.routeForeignDirectMessagesToRunMailboxes?.(handle, ownerRunId) ??
+          [])
+        : []
+      return {
+        mailboxHandle: this.resolveActionableMailboxForLeaf(leaf, handle, {
+          requireRequestedMail: true
+        }),
+        forwarded
+      }
+    } catch {
+      return { mailboxHandle: null, forwarded: [] }
     }
   }
 
@@ -32194,6 +32324,15 @@ export class OrcaRuntimeService {
   notifyMessageArrived(handle: string, messageType?: string): void {
     if (!handle.startsWith('dispatch:')) {
       this.mailPointerRepointScheduler.schedule(handle)
+    }
+    const { mailboxHandle, forwarded } = this.resolveArrivedMessageMailboxes(handle)
+    for (const routed of forwarded) {
+      for (const routedType of routed.types) {
+        this.notifyMessageArrived(`run:${routed.runId}`, routedType)
+      }
+    }
+    if (!mailboxHandle) {
+      return
     }
     // Why: push-on-idle is driven by status transitions; a message that
     // arrives while the recipient is already idle never sees a transition, so
@@ -32206,7 +32345,7 @@ export class OrcaRuntimeService {
     // never returns this row — check re-reads under the same filter on timeout
     // — so treating it as the consumer strands the message in exactly the
     // already-idle state #12536 is about.
-    const waiters = this.messageWaitersByHandle.get(handle)
+    const waiters = this.messageWaitersByHandle.get(mailboxHandle)
     // Why: don't wake a coordinator waiting for worker_done/escalation on heartbeat noise it would misread as idleness.
     const consumers = waiters
       ? [...waiters].filter(
@@ -32227,7 +32366,7 @@ export class OrcaRuntimeService {
       // synchronous push would inject rows the resolved check is about to return.
       // Deferring one hop puts the push behind any already-queued check, and it
       // re-reads undelivered rows when it runs so nothing strands.
-      queueMicrotask(() => this.deliverPendingMessagesForHandle(handle, reservedTypes))
+      queueMicrotask(() => this.deliverPendingMessagesForHandle(mailboxHandle, reservedTypes))
       return
     }
     for (const waiter of consumers) {
@@ -32877,7 +33016,33 @@ export class OrcaRuntimeService {
     }
   }
 
-  // Why: normal delivery stays event-driven; the bounded mailbox retry only repairs missed liveness edges.
+  private canSubmitMessagePointer(
+    leaf: RuntimeLeafRecord,
+    mailboxHandle: string,
+    messages: readonly { id: string; type: string }[]
+  ): boolean {
+    if (this.resolveActionableMailboxForLeaf(leaf) !== mailboxHandle) {
+      return false
+    }
+    if (
+      mailboxHandle.startsWith('run:') &&
+      this._orchestrationDb?.hasOutstandingRunDelivery?.(mailboxHandle.slice('run:'.length))
+    ) {
+      return false
+    }
+    const waiters = this.messageWaitersByHandle.get(mailboxHandle)
+    if (messages.some((message) => messageTypeHasLiveWaiter(waiters, message.type))) {
+      return false
+    }
+    return (
+      this._orchestrationDb?.areUndeliveredUnreadMessages?.(
+        mailboxHandle,
+        messages.map((message) => message.id)
+      ) ?? true
+    )
+  }
+
+  // Why: push-on-idle delivery is event-driven (no polling) because the runtime owns both the message store and terminal status detection.
   private deliverPendingMessages(
     leaf: RuntimeLeafRecord,
     options: {
@@ -32895,6 +33060,13 @@ export class OrcaRuntimeService {
       return
     }
     const mailboxHandle = options.mailboxHandle ?? handle
+
+    if (
+      mailboxHandle.startsWith('run:') &&
+      this._orchestrationDb.hasOutstandingRunDelivery?.(mailboxHandle.slice('run:'.length))
+    ) {
+      return
+    }
 
     if (leaf.ptyId && this.messageDeliveryFlightsByPtyId.has(leaf.ptyId)) {
       let parked = this.parkedMessageRedeliveriesByPtyId.get(leaf.ptyId)
@@ -32917,7 +33089,19 @@ export class OrcaRuntimeService {
     // still-blocked case; reservedTypes carries the notify-time snapshot for a
     // waiter resolved later in the same drain, which is already gone from the map.
     const waiters = this.messageWaitersByHandle.get(mailboxHandle)
-    const pending = this._orchestrationDb.getUndeliveredUnreadMessages(mailboxHandle)
+    if ([...(waiters ?? [])].some((waiter) => !waiter.typeFilter)) {
+      return
+    }
+    const excludedTypes = new Set(options.reservedTypes)
+    for (const waiter of waiters ?? []) {
+      for (const type of waiter.typeFilter ?? []) {
+        excludedTypes.add(type)
+      }
+    }
+    const pending = this._orchestrationDb.getUndeliveredUnreadMessages(mailboxHandle, undefined, {
+      excludeTypes: [...excludedTypes],
+      limit: ORCHESTRATION_DELIVERY_BATCH_LIMIT
+    })
     const pendingIds = new Set(pending.map((message) => message.id))
     const pointedIds = this.pointedMessageIdsByHandle.get(mailboxHandle)
     if (pointedIds) {
@@ -32930,11 +33114,13 @@ export class OrcaRuntimeService {
         this.pointedMessageIdsByHandle.delete(mailboxHandle)
       }
     }
-    const unread = pending.filter(
-      (message) =>
-        !options.reservedTypes?.has(message.type) &&
-        !messageTypeHasLiveWaiter(waiters, message.type)
-    )
+    const unread = pending
+      .filter(
+        (message) =>
+          !options.reservedTypes?.has(message.type) &&
+          !messageTypeHasLiveWaiter(waiters, message.type)
+      )
+      .slice(0, ORCHESTRATION_DELIVERY_BATCH_LIMIT)
     if (unread.length === 0) {
       return
     }
@@ -33038,30 +33224,39 @@ export class OrcaRuntimeService {
       const tabTitle = this.tabs.get(leaf.tabId)?.title
       if (isCursorAgentOrchestrationTarget(leaf, tabTitle)) {
         // Why: Cursor Agent treats injected PTY text as editable prompt input, so submitting must stay under user control.
+        this._orchestrationDb.markAsDelivered(unread.map((message) => message.id))
         return
       }
 
       // Why: agent TUIs can swallow a \r in the same PTY write; submit separately after a delay.
       flight.enterTimer = setTimeout(() => {
-        try {
-          // Why current state, not the closure: graph resync replaces leaf
-          // objects, so the captured record can read writable=true after the
-          // pty died, and an exit retire may have superseded this flight.
-          if (this.messageDeliveryFlightsByPtyId.get(deliveryPtyId) !== flight) {
-            return
-          }
-          const currentLeaf = this.leaves.get(this.getLeafKey(leaf.tabId, leaf.leafId))
-          if (!currentLeaf || currentLeaf.ptyId !== deliveryPtyId || !currentLeaf.writable) {
-            return
-          }
-          this.ptyController?.write(deliveryPtyId, '\r')
-        } catch {
-          // Terminal may have closed during the delay; mail remains queued for check.
-        } finally {
-          // Why finally: every outcome — submit, refusal, throw — ends the flight,
-          // and settle re-runs any trigger parked during it so nothing strands.
-          this.settlePendingMessageDelivery(deliveryPtyId, flight)
-        }
+        void this.isLeafPtyProvenAbsent(deliveryPtyId)
+          .then((absent) => {
+            // Why current state, not the closure: ownership, graph records, or the
+            // process can change during the Enter delay and liveness probe.
+            if (absent || this.messageDeliveryFlightsByPtyId.get(deliveryPtyId) !== flight) {
+              return
+            }
+            const currentLeaf = this.leaves.get(this.getLeafKey(leaf.tabId, leaf.leafId))
+            if (
+              !currentLeaf ||
+              currentLeaf.ptyId !== deliveryPtyId ||
+              !currentLeaf.writable ||
+              currentLeaf.lastAgentStatus !== 'idle' ||
+              !currentLeaf.lastAgentStatusObservedLive ||
+              !this.canSubmitMessagePointer(currentLeaf, mailboxHandle, unread)
+            ) {
+              return
+            }
+            const submitted = this.ptyController?.write(deliveryPtyId, '\r') ?? false
+            if (submitted) {
+              this._orchestrationDb?.markAsDelivered(unread.map((message) => message.id))
+            }
+          })
+          .catch(() => {
+            // Terminal liveness is uncertain; mail remains queued for explicit check.
+          })
+          .finally(() => this.settlePendingMessageDelivery(deliveryPtyId, flight))
       }, 500)
       settlesInEnterCallback = true
     } finally {

@@ -87,12 +87,16 @@ function parseWorkerTerminalPriorOwnerIds(value: string): string[] | null {
   }
 }
 
+const MESSAGE_ID_UPDATE_BATCH_SIZE = 500
+export const ORCHESTRATION_DELIVERY_BATCH_LIMIT = 50
+
 // Why: indexable pre-filter for isEquivalentPaneKey — equal strings and equal leaves both share the
 // text after the first ':', so this narrows candidates without deciding equivalence itself.
 const RUN_PANE_KEY_MATCH_SUFFIX_SQL =
   "substr(coordinator_pane_key, instr(coordinator_pane_key, ':') + 1)"
 const DISPATCH_PANE_KEY_MATCH_SUFFIX_SQL =
   "substr(assignee_pane_key, instr(assignee_pane_key, ':') + 1)"
+const REMOTE_ATTACHMENT_PANE_KEY_MATCH_SUFFIX_SQL = "substr(pane_key, instr(pane_key, ':') + 1)"
 
 function paneKeyMatchSuffix(paneKey: string): string {
   const colon = paneKey.indexOf(':')
@@ -510,6 +514,12 @@ export class OrchestrationDb {
         created_at              TEXT NOT NULL DEFAULT (datetime('now')),
         updated_at              TEXT NOT NULL DEFAULT (datetime('now'))
       );
+      CREATE INDEX IF NOT EXISTS idx_remote_dispatch_attachments_active_pane
+        ON remote_dispatch_attachments(pane_key)
+        WHERE state IN ('starting', 'ready');
+      CREATE INDEX IF NOT EXISTS idx_remote_dispatch_attachments_active_pane_suffix
+        ON remote_dispatch_attachments(${REMOTE_ATTACHMENT_PANE_KEY_MATCH_SUFFIX_SQL})
+        WHERE state IN ('starting', 'ready') AND pane_key IS NOT NULL;
 
       CREATE TABLE IF NOT EXISTS federation_relay_items (
         dispatch_id   TEXT NOT NULL,
@@ -1967,7 +1977,10 @@ export class OrchestrationDb {
     recovery: boolean
   } {
     const principal = this.requireLegacyMailPrincipal(params.principalId)
-    const limit = Math.min(Math.max(params.limit ?? 50, 1), 50)
+    const limit = Math.min(
+      Math.max(params.limit ?? ORCHESTRATION_DELIVERY_BATCH_LIMIT, 1),
+      ORCHESTRATION_DELIVERY_BATCH_LIMIT
+    )
     const addressSql =
       principal.role === 'worker' ? '(m.to_handle = ? OR m.to_handle = ?)' : 'm.to_handle = ?'
     const addressParams =
@@ -2364,6 +2377,13 @@ export class OrchestrationDb {
         )
       }
       this.unbindOtherRunsForPane(params.coordinatorPaneKey, params.runId)
+      for (const handle of new Set(
+        [run.coordinator_handle, params.coordinatorHandle].filter((value): value is string =>
+          Boolean(value)
+        )
+      )) {
+        this.routeUnreadDirectMessagesToRunMailbox(params.runId, handle)
+      }
       if (
         (params.takeoverLegacy && !takeoverAlreadyApplied) ||
         !sameBinding ||
@@ -2470,6 +2490,9 @@ export class OrchestrationDb {
   private unbindOtherRunsForPane(paneKey: string, exceptRunId?: string): void {
     for (const run of this.runsBoundToPane(paneKey)) {
       if (run.id !== exceptRunId) {
+        if (run.coordinator_handle) {
+          this.routeUnreadDirectMessagesToRunMailbox(run.id, run.coordinator_handle)
+        }
         this.db
           .prepare(
             `UPDATE runs
@@ -3494,29 +3517,38 @@ export class OrchestrationDb {
   }
 
   // Why: delivered_at IS NULL filter — push-on-idle delivers each row at most once; read (set only by check) wouldn't prevent replay.
-  getUndeliveredUnreadMessages(toHandle: string, types?: MessageType[]): MessageRow[] {
-    if (types && types.length > 0) {
-      const placeholders = types.map(() => '?').join(',')
-      return exposeMessageListTimestamps(
-        this.db
-          .prepare(
-            `SELECT * FROM messages
-             WHERE to_handle = ? AND read = 0 AND delivered_at IS NULL
-               AND delivery_contract = 'current_delivery'
-               AND type IN (${placeholders}) ORDER BY sequence`
-          )
-          .all(toHandle, ...types) as MessageRow[]
-      )
+  getUndeliveredUnreadMessages(
+    toHandle: string,
+    types?: MessageType[],
+    options?: { excludeTypes?: readonly string[]; limit?: number }
+  ): MessageRow[] {
+    const conditions = [
+      'to_handle = ?',
+      'read = 0',
+      'delivered_at IS NULL',
+      "delivery_contract = 'current_delivery'"
+    ]
+    const params: (string | number)[] = [toHandle]
+    if (types?.length) {
+      conditions.push(`type IN (${types.map(() => '?').join(',')})`)
+      params.push(...types)
+    }
+    if (options?.excludeTypes?.length) {
+      conditions.push(`type NOT IN (${options.excludeTypes.map(() => '?').join(',')})`)
+      params.push(...options.excludeTypes)
+    }
+    const limitSql = options?.limit === undefined ? '' : ' LIMIT ?'
+    if (options?.limit !== undefined) {
+      params.push(Math.max(1, Math.floor(options.limit)))
     }
     return exposeMessageListTimestamps(
       this.db
         .prepare(
           `SELECT * FROM messages
-           WHERE to_handle = ? AND read = 0 AND delivered_at IS NULL
-             AND delivery_contract = 'current_delivery'
-           ORDER BY sequence`
+           WHERE ${conditions.join(' AND ')}
+           ORDER BY sequence${limitSql}`
         )
-        .all(toHandle) as MessageRow[]
+        .all(...params) as MessageRow[]
     )
   }
 
@@ -3530,6 +3562,106 @@ export class OrchestrationDb {
         )
         .all() as { to_handle: string }[]
     ).map((row) => row.to_handle)
+  }
+
+  hasUndeliveredDirectMessageForRun(runId: string, directHandle: string): boolean {
+    return Boolean(
+      this.db
+        .prepare(
+          `SELECT 1 FROM messages
+           WHERE run_id = ? AND to_handle = ? AND read = 0 AND delivered_at IS NULL
+             AND delivery_contract = 'current_delivery'
+           LIMIT 1`
+        )
+        .get(runId, directHandle)
+    )
+  }
+
+  hasOutstandingRunDelivery(runId: string): boolean {
+    return Boolean(
+      this.db
+        .prepare("SELECT 1 FROM deliveries WHERE run_id = ? AND status = 'outstanding' LIMIT 1")
+        .get(runId)
+    )
+  }
+
+  // Why: change mailbox ownership without changing unread or acknowledgment state.
+  routeUnreadDirectMessagesToRunMailbox(runId: string, directHandle: string): number {
+    const result = this.db
+      .prepare(
+        `UPDATE messages
+         SET to_handle = ?
+         WHERE run_id = ? AND to_handle = ? AND read = 0
+           AND delivery_contract = 'current_delivery'`
+      )
+      .run(`run:${runId}`, runId, directHandle)
+    return Number(result.changes)
+  }
+
+  routeUnreadDirectMessagesToDispatchMailbox(
+    dispatchId: string,
+    runId: string,
+    directHandle: string
+  ): number {
+    const result = this.db
+      .prepare(
+        `UPDATE messages
+         SET to_handle = ?
+         WHERE run_id = ? AND to_handle = ? AND read = 0
+           AND delivery_contract = 'current_delivery'`
+      )
+      .run(`dispatch:${dispatchId}`, runId, directHandle)
+    return Number(result.changes)
+  }
+
+  routeForeignDirectMessagesToRunMailboxes(
+    directHandle: string,
+    currentRunId: string
+  ): { runId: string; types: MessageType[] }[] {
+    const routedRows = this.db
+      .prepare(
+        `SELECT DISTINCT messages.run_id, messages.type FROM messages
+         WHERE to_handle = ? AND run_id <> ? AND read = 0 AND delivered_at IS NULL
+           AND delivery_contract = 'current_delivery'
+           AND EXISTS (SELECT 1 FROM runs WHERE runs.id = messages.run_id AND runs.legacy = 0)`
+      )
+      .all(directHandle, currentRunId) as { run_id: string; type: MessageType }[]
+    if (routedRows.length === 0) {
+      return []
+    }
+    this.db
+      .prepare(
+        `UPDATE messages
+         SET to_handle = 'run:' || run_id
+         WHERE to_handle = ? AND run_id <> ? AND read = 0 AND delivered_at IS NULL
+           AND delivery_contract = 'current_delivery'
+           AND EXISTS (SELECT 1 FROM runs WHERE runs.id = messages.run_id AND runs.legacy = 0)`
+      )
+      .run(directHandle, currentRunId)
+    const byRun = new Map<string, Set<MessageType>>()
+    for (const row of routedRows) {
+      const types = byRun.get(row.run_id) ?? new Set<MessageType>()
+      types.add(row.type)
+      byRun.set(row.run_id, types)
+    }
+    return [...byRun].map(([runId, types]) => ({ runId, types: [...types] }))
+  }
+
+  areUndeliveredUnreadMessages(toHandle: string, ids: string[]): boolean {
+    let matched = 0
+    for (let offset = 0; offset < ids.length; offset += MESSAGE_ID_UPDATE_BATCH_SIZE) {
+      const batch = ids.slice(offset, offset + MESSAGE_ID_UPDATE_BATCH_SIZE)
+      const placeholders = batch.map(() => '?').join(',')
+      const row = this.db
+        .prepare(
+          `SELECT COUNT(*) AS count FROM messages INDEXED BY idx_messages_id
+           WHERE to_handle = ? AND read = 0 AND delivered_at IS NULL
+             AND delivery_contract = 'current_delivery' AND id IN (${placeholders})`
+        )
+        .get(toHandle, ...batch) as { count: number }
+      matched += row.count
+    }
+    return matched === ids.length
   }
 
   getAllMessages(toHandle: string, limit = 20): MessageRow[] {
@@ -3557,13 +3689,13 @@ export class OrchestrationDb {
 
   // Why: use datetime('now') so delivered_at matches the space-format UTC shape of the table's other timestamps for correct ordering (§3.2).
   markAsDelivered(ids: string[]): void {
-    if (ids.length === 0) {
-      return
+    for (let offset = 0; offset < ids.length; offset += MESSAGE_ID_UPDATE_BATCH_SIZE) {
+      const batch = ids.slice(offset, offset + MESSAGE_ID_UPDATE_BATCH_SIZE)
+      const placeholders = batch.map(() => '?').join(',')
+      this.db
+        .prepare(`UPDATE messages SET delivered_at = datetime('now') WHERE id IN (${placeholders})`)
+        .run(...batch)
     }
-    const placeholders = ids.map(() => '?').join(',')
-    this.db
-      .prepare(`UPDATE messages SET delivered_at = datetime('now') WHERE id IN (${placeholders})`)
-      .run(...ids)
   }
 
   markAsReadAndDelivered(ids: string[]): void {
@@ -4982,13 +5114,24 @@ export class OrchestrationDb {
   }
 
   findActiveRemoteAttachmentForPane(paneKey: string): RemoteDispatchAttachmentRow | undefined {
+    const exact = this.db
+      .prepare(
+        `SELECT * FROM remote_dispatch_attachments
+         WHERE state IN ('starting', 'ready') AND pane_key = ?
+         ORDER BY rowid DESC LIMIT 1`
+      )
+      .get(paneKey) as RemoteDispatchAttachmentRow | undefined
+    if (exact) {
+      return exact
+    }
     const rows = this.db
       .prepare(
         `SELECT * FROM remote_dispatch_attachments
          WHERE state IN ('starting', 'ready') AND pane_key IS NOT NULL
+           AND ${REMOTE_ATTACHMENT_PANE_KEY_MATCH_SUFFIX_SQL} = ?
          ORDER BY rowid DESC`
       )
-      .all() as RemoteDispatchAttachmentRow[]
+      .all(paneKeyMatchSuffix(paneKey)) as RemoteDispatchAttachmentRow[]
     return rows.find((row) => row.pane_key && isEquivalentPaneKey(row.pane_key, paneKey))
   }
 

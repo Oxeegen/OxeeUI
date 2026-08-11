@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ORCHESTRATION_CONTRACT_VERSION } from '../../shared/protocol-version'
+import type Database from '../sqlite/sync-database'
 import { OrcaRuntimeService } from './orca-runtime'
 import { OrchestrationDb } from './orchestration/db'
 import { RpcDispatcher } from './rpc/dispatcher'
@@ -28,6 +29,10 @@ function createDatabase(prefix: string): OrchestrationDb {
   const directory = mkdtempSync(join(tmpdir(), prefix))
   temporaryDirectories.push(directory)
   return new OrchestrationDb(join(directory, 'orchestration.db'))
+}
+
+function sqliteFor(db: OrchestrationDb): Database.Database {
+  return (db as unknown as { db: Database.Database }).db
 }
 
 function createBoundRun(db: OrchestrationDb, objective: string) {
@@ -243,6 +248,7 @@ describe('orchestration notification mailbox consistency', () => {
         runId: run.id
       })
     )
+    const notificationQuery = vi.spyOn(db, 'getUndeliveredUnreadMessages')
 
     await driveToLiveIdle(harness.runtime)
     await vi.advanceTimersByTimeAsync(500)
@@ -253,6 +259,15 @@ describe('orchestration notification mailbox consistency', () => {
       PTY_ID,
       expect.stringContaining('You have 50 orchestration messages')
     )
+    expect(notificationQuery.mock.results[0]?.value).toHaveLength(50)
+    const revalidationPlan = sqliteFor(db)
+      .prepare(
+        `EXPLAIN QUERY PLAN SELECT COUNT(*) FROM messages INDEXED BY idx_messages_id
+         WHERE to_handle = ? AND read = 0 AND delivered_at IS NULL
+           AND delivery_contract = 'current_delivery' AND id IN (?)`
+      )
+      .all(`run:${run.id}`, messages[0]!.id) as { detail: string }[]
+    expect(revalidationPlan.map((row) => row.detail).join(' ')).toContain('idx_messages_id')
     expect(checked).toMatchObject({ runId: run.id, count: 50 })
     expect(checked.deliveryId).toBeTruthy()
     expect(checked.messages).toEqual(
