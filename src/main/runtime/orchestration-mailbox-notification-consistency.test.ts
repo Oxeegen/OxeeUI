@@ -21,6 +21,12 @@ const LEAF_ID = '22222222-2222-4222-8222-222222222222'
 const PANE_KEY = `${TAB_ID}:${LEAF_ID}`
 const PTY_ID = 'pty-mailbox'
 const TERMINAL_HANDLE = 'term_mailbox_consistency'
+const SECOND_TAB_ID = '33333333-3333-4333-8333-333333333333'
+const SECOND_LEAF_ID = '44444444-4444-4444-8444-444444444444'
+const SECOND_PANE_KEY = `${SECOND_TAB_ID}:${SECOND_LEAF_ID}`
+const SECOND_PTY_ID = 'pty-mailbox-second'
+const SECOND_TERMINAL_HANDLE = 'term_mailbox_consistency_second'
+const SECOND_LAUNCH_TOKEN = 'mailbox-consistency-second-launch'
 const WORKTREE_ID = 'repo-mailbox::/tmp/mailbox'
 const LAUNCH_TOKEN = 'mailbox-consistency-launch'
 const temporaryDirectories: string[] = []
@@ -71,7 +77,9 @@ type CheckResult = {
 function createRuntime(db: OrchestrationDb): Harness {
   const runtime = new OrcaRuntimeService(null, undefined, {
     attestAgentHookCompatibilityAuthority: ({ paneKey }) =>
-      paneKey === PANE_KEY ? { paneKey, source: 'current_hook' } : null
+      paneKey === PANE_KEY || paneKey.startsWith(`${SECOND_TAB_ID}:`)
+        ? { paneKey, source: 'current_hook' }
+        : null
   })
   const write = vi.fn(() => true)
   runtime.setOrchestrationDb(db)
@@ -111,6 +119,62 @@ function createRuntime(db: OrchestrationDb): Harness {
   return { runtime, write }
 }
 
+function registerSecondPane(
+  runtime: OrcaRuntimeService,
+  leafId = SECOND_LEAF_ID,
+  includeFirstPane = true
+): void {
+  runtime.registerPty(SECOND_PTY_ID, WORKTREE_ID, null, {
+    tabId: SECOND_TAB_ID,
+    leafId,
+    incarnationId: 'mailbox-second-incarnation',
+    agentLaunchAuthority: { launchToken: SECOND_LAUNCH_TOKEN, launchAgent: 'codex' }
+  })
+  runtime.registerPreAllocatedHandleForPty(SECOND_PTY_ID, SECOND_TERMINAL_HANDLE)
+  runtime.syncWindowGraph(1, {
+    tabs: [
+      ...(includeFirstPane
+        ? [
+            {
+              tabId: TAB_ID,
+              worktreeId: WORKTREE_ID,
+              title: 'Codex',
+              activeLeafId: LEAF_ID,
+              layout: null
+            }
+          ]
+        : []),
+      {
+        tabId: SECOND_TAB_ID,
+        worktreeId: WORKTREE_ID,
+        title: 'Codex',
+        activeLeafId: leafId,
+        layout: null
+      }
+    ],
+    leaves: [
+      ...(includeFirstPane
+        ? [
+            {
+              tabId: TAB_ID,
+              worktreeId: WORKTREE_ID,
+              leafId: LEAF_ID,
+              paneRuntimeId: 1,
+              ptyId: PTY_ID
+            }
+          ]
+        : []),
+      {
+        tabId: SECOND_TAB_ID,
+        worktreeId: WORKTREE_ID,
+        leafId,
+        paneRuntimeId: 2,
+        ptyId: SECOND_PTY_ID
+      }
+    ]
+  })
+}
+
 async function driveToLiveIdle(runtime: OrcaRuntimeService): Promise<void> {
   await runtime.listTerminals()
   runtime.onPtyData(PTY_ID, '\x1b]0;Codex working\x07', 1)
@@ -126,20 +190,27 @@ function pointerCount(write: ReturnType<typeof vi.fn>): number {
 
 async function checkBoundMailbox(
   runtime: OrcaRuntimeService,
-  options: { ack?: string; wait?: boolean } = {}
+  options: {
+    ack?: string
+    wait?: boolean
+    terminal?: string
+    paneKey?: string
+    launchToken?: string
+  } = {}
 ): Promise<CheckResult> {
+  const terminal = options.terminal ?? TERMINAL_HANDLE
   const response = await new RpcDispatcher({ runtime, methods: ORCHESTRATION_METHODS }).dispatch({
     id: 'req-mailbox-consistency',
     authToken: 'test-auth-token',
     method: 'orchestration.check',
     orchestrationContractVersion: ORCHESTRATION_CONTRACT_VERSION,
     orchestrationCompatibilityEvidence: {
-      terminalHandle: TERMINAL_HANDLE,
-      paneKey: PANE_KEY,
-      launchToken: LAUNCH_TOKEN
+      terminalHandle: terminal,
+      paneKey: options.paneKey ?? PANE_KEY,
+      launchToken: options.launchToken ?? LAUNCH_TOKEN
     },
     params: {
-      terminal: TERMINAL_HANDLE,
+      terminal,
       ...(options.ack ? { ack: options.ack } : {}),
       ...(options.wait ? { wait: true, timeoutMs: 5_000 } : {})
     }
@@ -218,7 +289,91 @@ describe('orchestration notification mailbox consistency', () => {
     restartedDb.close()
   })
 
-  it('does not submit a pointer after the agent becomes working', async () => {
+  it('releases a staged pointer when its Run moves to another live pane', async () => {
+    vi.useFakeTimers()
+    const db = createDatabase('orca-mailbox-live-rebind-')
+    const harness = createRuntime(db)
+    const runA = createBoundRun(db, 'Run A')
+    const message = insertDirectRunMessage(db, runA.id, 'Run A completion')
+    await driveToLiveIdle(harness.runtime)
+    expect(pointerCount(harness.write)).toBe(1)
+
+    createBoundRun(db, 'Run B')
+    registerSecondPane(harness.runtime, SECOND_LEAF_ID, false)
+    db.bindRun({
+      runId: runA.id,
+      coordinatorHandle: SECOND_TERMINAL_HANDLE,
+      coordinatorPaneKey: SECOND_PANE_KEY
+    })
+    harness.runtime.onPtyData(SECOND_PTY_ID, '\x1b]0;Codex working\x07', 1)
+    harness.runtime.onPtyData(SECOND_PTY_ID, '\x1b]0;Codex done\x07', 2)
+    await vi.advanceTimersByTimeAsync(500)
+
+    expect(
+      harness.write.mock.calls.filter(
+        ([ptyId, payload]) =>
+          ptyId === SECOND_PTY_ID && String(payload).includes('orca orchestration check')
+      )
+    ).toHaveLength(1)
+    expect(
+      harness.write.mock.calls.filter(([ptyId, payload]) => ptyId === PTY_ID && payload === '\r')
+    ).toHaveLength(0)
+
+    await vi.advanceTimersByTimeAsync(500)
+    const checked = await checkBoundMailbox(harness.runtime, {
+      terminal: SECOND_TERMINAL_HANDLE,
+      paneKey: SECOND_PANE_KEY,
+      launchToken: SECOND_LAUNCH_TOKEN
+    })
+    expect(checked).toMatchObject({ runId: runA.id, count: 1 })
+    expect(checked.messages).toEqual([expect.objectContaining({ id: message.id })])
+    db.close()
+  })
+
+  it('serializes equivalent panes while newer mail arrives during Enter delay', async () => {
+    vi.useFakeTimers()
+    const db = createDatabase('orca-mailbox-equivalent-pane-flight-')
+    const harness = createRuntime(db)
+    const run = createBoundRun(db, 'Equivalent pane Run')
+    const first = insertDirectRunMessage(db, run.id, 'First status')
+    await driveToLiveIdle(harness.runtime)
+    expect(pointerCount(harness.write)).toBe(1)
+
+    registerSecondPane(harness.runtime, LEAF_ID)
+    const second = db.insertMessage({
+      from: 'term_worker',
+      to: `run:${run.id}`,
+      subject: 'Second status',
+      runId: run.id
+    })
+    harness.runtime.onPtyData(SECOND_PTY_ID, '\x1b]0;Codex working\x07', 1)
+    harness.runtime.onPtyData(SECOND_PTY_ID, '\x1b]0;Codex done\x07', 2)
+    await Promise.resolve()
+    expect(
+      harness.write.mock.calls.filter(
+        ([ptyId, payload]) =>
+          ptyId === SECOND_PTY_ID && String(payload).includes('orca orchestration check')
+      )
+    ).toHaveLength(0)
+
+    await vi.advanceTimersByTimeAsync(500)
+    expect(
+      harness.write.mock.calls.filter(
+        ([ptyId, payload]) =>
+          ptyId === PTY_ID && String(payload).includes('orca orchestration check')
+      )
+    ).toHaveLength(2)
+    await vi.advanceTimersByTimeAsync(500)
+
+    const checked = await checkBoundMailbox(harness.runtime)
+    expect(checked).toMatchObject({ runId: run.id, count: 2 })
+    expect(checked.messages).toEqual(
+      [first, second].map((message) => expect.objectContaining({ id: message.id }))
+    )
+    db.close()
+  })
+
+  it('does not submit or duplicate a pointer after the agent becomes working', async () => {
     vi.useFakeTimers()
     const db = createDatabase('orca-mailbox-working-before-enter-')
     const harness = createRuntime(db)
@@ -232,6 +387,9 @@ describe('orchestration notification mailbox consistency', () => {
 
     expect(harness.write.mock.calls.filter(([, payload]) => payload === '\r')).toHaveLength(0)
     expect(db.getMessageById(message.id)?.delivered_at).toBeNull()
+    harness.runtime.onPtyData(PTY_ID, '\x1b]0;Codex done\x07', 4)
+    await Promise.resolve()
+    expect(pointerCount(harness.write)).toBe(1)
     db.close()
   })
 
@@ -249,6 +407,8 @@ describe('orchestration notification mailbox consistency', () => {
       })
     )
     const notificationQuery = vi.spyOn(db, 'getUndeliveredUnreadMessages')
+    const submitRevalidation = vi.spyOn(db, 'areUndeliveredUnreadMessages')
+    const prepare = vi.spyOn(sqliteFor(db), 'prepare')
 
     await driveToLiveIdle(harness.runtime)
     await vi.advanceTimersByTimeAsync(500)
@@ -260,13 +420,19 @@ describe('orchestration notification mailbox consistency', () => {
       expect.stringContaining('You have 50 orchestration messages')
     )
     expect(notificationQuery.mock.results[0]?.value).toHaveLength(50)
+    expect(submitRevalidation).toHaveBeenCalledWith(
+      `run:${run.id}`,
+      messages.slice(0, 50).map((message) => message.id)
+    )
+    const revalidationSql = prepare.mock.calls
+      .map(([sql]) => sql)
+      .find((sql) => sql.includes('SELECT COUNT(*)') && sql.includes('id IN'))
+    expect(revalidationSql).toContain('INDEXED BY idx_messages_id')
     const revalidationPlan = sqliteFor(db)
-      .prepare(
-        `EXPLAIN QUERY PLAN SELECT COUNT(*) FROM messages INDEXED BY idx_messages_id
-         WHERE to_handle = ? AND read = 0 AND delivered_at IS NULL
-           AND delivery_contract = 'current_delivery' AND id IN (?)`
-      )
-      .all(`run:${run.id}`, messages[0]!.id) as { detail: string }[]
+      .prepare(`EXPLAIN QUERY PLAN ${revalidationSql}`)
+      .all(`run:${run.id}`, ...messages.slice(0, 50).map((message) => message.id)) as {
+      detail: string
+    }[]
     expect(revalidationPlan.map((row) => row.detail).join(' ')).toContain('idx_messages_id')
     expect(checked).toMatchObject({ runId: run.id, count: 50 })
     expect(checked.deliveryId).toBeTruthy()
@@ -384,6 +550,16 @@ describe('orchestration notification mailbox consistency', () => {
       read: 1,
       delivered_at: expect.any(String)
     })
+    const internals = harness.runtime as unknown as {
+      lastPointedMessageSequenceByHandle: Map<string, number>
+      pointedMessageWatermarkOwnerByHandle: Map<string, unknown>
+      pointedMessageMailboxHandlesByPtyId: Map<string, Set<string>>
+    }
+    expect(internals.lastPointedMessageSequenceByHandle.has(`dispatch:${dispatch.id}`)).toBe(false)
+    expect(internals.pointedMessageWatermarkOwnerByHandle.has(`dispatch:${dispatch.id}`)).toBe(
+      false
+    )
+    expect(internals.pointedMessageMailboxHandlesByPtyId.has(PTY_ID)).toBe(false)
     db.close()
   })
 

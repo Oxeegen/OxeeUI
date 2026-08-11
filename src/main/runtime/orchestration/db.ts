@@ -5124,15 +5124,18 @@ export class OrchestrationDb {
     if (exact) {
       return exact
     }
-    const rows = this.db
+    if (!parsePaneKey(paneKey)) {
+      return undefined
+    }
+    return this.db
       .prepare(
         `SELECT * FROM remote_dispatch_attachments
          WHERE state IN ('starting', 'ready') AND pane_key IS NOT NULL
+           AND instr(pane_key, ':') > 1
            AND ${REMOTE_ATTACHMENT_PANE_KEY_MATCH_SUFFIX_SQL} = ?
-         ORDER BY rowid DESC`
+         ORDER BY rowid DESC LIMIT 1`
       )
-      .all(paneKeyMatchSuffix(paneKey)) as RemoteDispatchAttachmentRow[]
-    return rows.find((row) => row.pane_key && isEquivalentPaneKey(row.pane_key, paneKey))
+      .get(paneKeyMatchSuffix(paneKey)) as RemoteDispatchAttachmentRow | undefined
   }
 
   enqueueFederationRelay(params: {

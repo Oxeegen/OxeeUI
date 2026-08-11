@@ -504,7 +504,9 @@ describe('push-on-idle orchestration delivery absence gate', () => {
       resolveProbe(null)
       await vi.advanceTimersByTimeAsync(0)
       expect(stub.markAsDelivered).toHaveBeenCalledTimes(2)
-      expect(stub.rows.every((row) => row.delivered_at !== null)).toBe(true)
+      expect(stub.rows.map((row) => row.delivered_at)).toEqual(
+        stub.rows.map(() => expect.any(String))
+      )
     } finally {
       vi.useRealTimers()
     }
@@ -541,7 +543,9 @@ describe('push-on-idle orchestration delivery absence gate', () => {
 
       await vi.advanceTimersByTimeAsync(500)
       expect(stub.markAsDelivered).toHaveBeenCalledTimes(2)
-      expect(stub.rows.every((row) => row.delivered_at !== null)).toBe(true)
+      expect(stub.rows.map((row) => row.delivered_at)).toEqual(
+        stub.rows.map(() => expect.any(String))
+      )
     } finally {
       vi.useRealTimers()
     }
@@ -587,7 +591,7 @@ describe('push-on-idle orchestration delivery absence gate', () => {
       await vi.advanceTimersByTimeAsync(500)
       expect(write.mock.calls.filter(([, data]) => data === '\r')).toHaveLength(1)
       expect(stub.markAsDelivered).toHaveBeenCalledOnce()
-      expect(stub.rows[0].delivered_at).not.toBeNull()
+      expect(stub.rows[0].delivered_at).toEqual(expect.any(String))
     } finally {
       vi.useRealTimers()
     }

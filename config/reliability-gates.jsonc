@@ -8563,12 +8563,13 @@
       "invariant": "Every injected orchestration pointer must select the same mailbox as the exact check from that pane and expose at least the notified unread messages through that mailbox's acknowledgment semantics. Rebinding cannot let foreign direct mail wake a new owner, newer Run mail cannot be announced behind an outstanding fixed Delivery, and restart cannot replay a successfully submitted pointer. Notification records only a durable pointer cursor; it never marks mail read or globally clears it.",
       "oracle": "Create Run A with unread current-delivery mail addressed directly to its coordinator handle, bind the same pane to Run B, drive a controlled working-to-idle event, and require zero PTY pointers while Run B check returns zero and Run A mail stays unread. Reopen the database and repeat. For same-Run mail, require one submitted pointer, a bound Delivery containing that row, explicit acknowledgment, and no replay after a fresh runtime. Require an active worker's direct mail to route through its Dispatch check, suppress newer Run pointers behind an outstanding Delivery, normalize mail that arrived while its Run was displaced, avoid full mailbox materialization while working, and let bound waiters consume without a duplicate PTY pointer.",
       "commands": [
-        "pnpm exec vitest run --config config/vitest.config.ts src/main/runtime/orchestration-mailbox-notification-consistency.test.ts src/main/runtime/orchestration/orchestration-run-delivery-db.test.ts",
+        "pnpm exec vitest run --config config/vitest.config.ts src/main/runtime/orchestration-mailbox-notification-consistency.test.ts src/main/runtime/orchestration/orchestration-run-delivery-db.test.ts src/main/runtime/orchestration/orchestration-worker-dispatch-db.test.ts",
         "pnpm exec vitest run --config config/vitest.config.ts src/main/runtime/orca-runtime.test.ts src/main/runtime/terminal-send-stale-leaf-liveness.test.ts src/main/runtime/rpc/methods/orchestration.test.ts"
       ],
       "testFiles": [
         "src/main/runtime/orchestration-mailbox-notification-consistency.test.ts",
         "src/main/runtime/orchestration/orchestration-run-delivery-db.test.ts",
+        "src/main/runtime/orchestration/orchestration-worker-dispatch-db.test.ts",
         "src/main/runtime/orca-runtime.test.ts",
         "src/main/runtime/terminal-send-stale-leaf-liveness.test.ts",
         "src/main/runtime/rpc/methods/orchestration.test.ts"
@@ -8580,6 +8581,8 @@
             "Run A direct mail cannot point after the pane binds Run B",
             "a fresh runtime cannot replay the unactionable pointer",
             "a delayed pointer submit cannot press Enter after the agent becomes working",
+            "a staged pointer follows its Run to a new live pane without cross-PTY duplication",
+            "equivalent panes serialize one mailbox while newer mail arrives during Enter delay",
             "same-Run direct mail is delivered and acknowledged through the bound Run",
             "a submitted actionable pointer is durably deduplicated across restart without marking mail read",
             "newer Run mail is not pointed behind an outstanding fixed Delivery",
@@ -8588,6 +8591,12 @@
             "a bound waiter wakes without a duplicate PTY pointer",
             "working-agent arrival uses bounded ownership lookup without a full mailbox scan"
           ]
+        },
+        {
+          "file": "src/main/runtime/orchestration/orchestration-worker-dispatch-db.test.ts",
+          "assertions": [
+            "remote Dispatch attachment lookup remains bounded across pane remints and malformed suffix collisions"
+          ]
         }
       ],
       "evidenceRuns": [
@@ -8595,10 +8604,19 @@
           "date": "2026-08-10",
           "runner": "local",
           "platform": "macos",
-          "command": "pnpm exec vitest run --config config/vitest.config.ts src/main/runtime/orchestration-mailbox-notification-consistency.test.ts src/main/runtime/orchestration/orchestration-run-delivery-db.test.ts",
+          "command": "pnpm exec vitest run --config config/vitest.config.ts src/main/runtime/orchestration-mailbox-notification-consistency.test.ts src/main/runtime/orchestration/orchestration-run-delivery-db.test.ts src/main/runtime/orchestration/orchestration-worker-dispatch-db.test.ts",
           "result": "passed",
           "durationSeconds": 3.1,
-          "summary": "Candidate passed all 10 mailbox-identity, durable restart, submit-race, bounded-batch, outstanding-Delivery, Dispatch, acknowledgment, waiter, and bounded-arrival scenarios. The identical oracle failed 10/10 on origin/main plus the test commit and again with the implementation commit explicitly reverted, including pointerCount > 0 with bound check count 0."
+          "summary": "31 tests passed across mailbox identity, cross-PTY serialization, live ownership transfer, durable restart, submit races, bounded batches, outstanding Deliveries, Dispatch ownership, acknowledgment, waiters, Run Delivery, and remote pane remints. The original 10-scenario mailbox oracle failed 10/10 on origin/main plus the test commit and again with the implementation commit explicitly reverted, including pointerCount > 0 with bound check count 0."
+        },
+        {
+          "date": "2026-08-10",
+          "runner": "local",
+          "platform": "macos",
+          "command": "pnpm exec vitest run --config config/vitest.config.ts src/main/runtime/orca-runtime.test.ts src/main/runtime/terminal-send-stale-leaf-liveness.test.ts src/main/runtime/rpc/methods/orchestration.test.ts",
+          "result": "passed",
+          "durationSeconds": 10.1,
+          "summary": "1,250 tests passed and 1 was skipped across runtime pointer delivery, PTY retirement and respawn, stale-leaf liveness, and orchestration RPC behavior."
         }
       ],
       "runtimeBudget": {

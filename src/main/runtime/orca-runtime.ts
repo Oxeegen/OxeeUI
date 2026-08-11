@@ -2853,13 +2853,22 @@ export class OrcaRuntimeService {
   private handles = new Map<string, TerminalHandleRecord>()
   private handleByLeafKey = new Map<string, string>()
   private handleByPtyId = new Map<string, string>()
-  // Why: pointer state is process-local; one harmless replay after restart avoids a wire or schema change.
+  // Why: provisional pointer state serializes PTY injection before the durable delivered_at commit.
   private readonly lastPointedMessageSequenceByHandle = new Map<string, number>()
   // Why: a waiter can reserve an older row while a newer row advances the sequence watermark.
   private readonly pointedMessageIdsByHandle = new Map<string, Set<string>>()
   private readonly mailPointerRepointScheduler = new MailPointerRepointScheduler((handle) =>
     this.repointPendingMessagesForHandle(handle)
   )
+  private readonly pointedMessageWatermarkOwnerByHandle = new Map<
+    string,
+    { ptyId: string; sequence: number; leafKey: string; active: boolean }
+  >()
+  private readonly pointedMessageMailboxHandlesByPtyId = new Map<string, Set<string>>()
+  private readonly parkedMessageRedeliveryTypesByMailboxHandle = new Map<
+    string,
+    ReadonlySet<string> | null
+  >()
   private syntheticTerminalHandles = new Set<string>()
   private detachedPreAllocatedLeaves = new Map<string, RuntimeLeafRecord>()
   private graphSyncCallbacks: (() => void)[] = []
@@ -32985,11 +32994,112 @@ export class OrcaRuntimeService {
     }
     this.parkedMessageRedeliveriesByPtyId.delete(ptyId)
     for (const [mailboxHandle, delivery] of parked) {
-      this.deliverPendingMessages(delivery.leaf, {
+      const currentLeaf = this.leaves.get(
+        this.getLeafKey(delivery.leaf.tabId, delivery.leaf.leafId)
+      )
+      if (
+        currentLeaf?.ptyId !== ptyId ||
+        this.resolveActionableMailboxForLeaf(currentLeaf, mailboxHandle) !== mailboxHandle
+      ) {
+        this.parkMessageRedeliveryForMailbox(mailboxHandle, delivery.reservedTypes)
+        this.redrivePendingMessageMailbox(mailboxHandle)
+        continue
+      }
+      this.deliverPendingMessages(currentLeaf, {
         mailboxHandle,
         reservedTypes: delivery.reservedTypes
       })
     }
+  }
+
+  private setPointedMessageWatermark(
+    mailboxHandle: string,
+    sequence: number,
+    ptyId: string,
+    leafKey: string
+  ): void {
+    const prior = this.pointedMessageWatermarkOwnerByHandle.get(mailboxHandle)
+    if (prior && prior.ptyId !== ptyId) {
+      const priorMailboxes = this.pointedMessageMailboxHandlesByPtyId.get(prior.ptyId)
+      priorMailboxes?.delete(mailboxHandle)
+      if (priorMailboxes?.size === 0) {
+        this.pointedMessageMailboxHandlesByPtyId.delete(prior.ptyId)
+      }
+    }
+    this.lastPointedMessageSequenceByHandle.set(mailboxHandle, sequence)
+    this.pointedMessageWatermarkOwnerByHandle.set(mailboxHandle, {
+      ptyId,
+      sequence,
+      leafKey,
+      active: true
+    })
+    const mailboxes = this.pointedMessageMailboxHandlesByPtyId.get(ptyId) ?? new Set<string>()
+    mailboxes.add(mailboxHandle)
+    this.pointedMessageMailboxHandlesByPtyId.set(ptyId, mailboxes)
+  }
+
+  private clearPointedMessageWatermark(
+    mailboxHandle: string,
+    sequence: number,
+    ptyId: string
+  ): boolean {
+    const owner = this.pointedMessageWatermarkOwnerByHandle.get(mailboxHandle)
+    if (!owner || owner.ptyId !== ptyId || owner.sequence !== sequence) {
+      return false
+    }
+    this.pointedMessageWatermarkOwnerByHandle.delete(mailboxHandle)
+    if (this.lastPointedMessageSequenceByHandle.get(mailboxHandle) === sequence) {
+      this.lastPointedMessageSequenceByHandle.delete(mailboxHandle)
+    }
+    const mailboxes = this.pointedMessageMailboxHandlesByPtyId.get(ptyId)
+    mailboxes?.delete(mailboxHandle)
+    if (mailboxes?.size === 0) {
+      this.pointedMessageMailboxHandlesByPtyId.delete(ptyId)
+    }
+    return true
+  }
+
+  private deactivatePointedMessageWatermark(
+    mailboxHandle: string,
+    sequence: number,
+    ptyId: string
+  ): boolean {
+    const owner = this.pointedMessageWatermarkOwnerByHandle.get(mailboxHandle)
+    if (!owner || owner.ptyId !== ptyId || owner.sequence !== sequence) {
+      return false
+    }
+    owner.active = false
+    return true
+  }
+
+  private parkMessageRedeliveryForMailbox(
+    mailboxHandle: string,
+    reservedTypes: ReadonlySet<string> | undefined
+  ): void {
+    const prior = this.parkedMessageRedeliveryTypesByMailboxHandle.get(mailboxHandle)
+    if (prior === null || reservedTypes === undefined) {
+      this.parkedMessageRedeliveryTypesByMailboxHandle.set(mailboxHandle, null)
+      return
+    }
+    this.parkedMessageRedeliveryTypesByMailboxHandle.set(
+      mailboxHandle,
+      new Set([...(prior ?? []), ...reservedTypes])
+    )
+  }
+
+  private redrivePendingMessageMailbox(mailboxHandle: string, force = false): void {
+    const parkedTypes = this.parkedMessageRedeliveryTypesByMailboxHandle.get(mailboxHandle)
+    if (!force && parkedTypes === undefined) {
+      return
+    }
+    this.parkedMessageRedeliveryTypesByMailboxHandle.delete(mailboxHandle)
+    queueMicrotask(() => {
+      try {
+        this.deliverPendingMessagesForHandle(mailboxHandle, parkedTypes ?? undefined)
+      } catch {
+        // The durable row remains available to a later idle edge or explicit check.
+      }
+    })
   }
 
   // Why: a dead session's Enter or watermark must not affect a same-id cold restore.
@@ -33014,6 +33124,17 @@ export class OrcaRuntimeService {
         this.mailPointerRepointScheduler.schedule(`run:${run.id}`)
       }
     }
+    const mailboxes = [...(this.pointedMessageMailboxHandlesByPtyId.get(ptyId) ?? [])]
+    for (const mailboxHandle of mailboxes) {
+      const owner = this.pointedMessageWatermarkOwnerByHandle.get(mailboxHandle)
+      if (
+        owner?.ptyId === ptyId &&
+        this.clearPointedMessageWatermark(mailboxHandle, owner.sequence, ptyId)
+      ) {
+        this.redrivePendingMessageMailbox(mailboxHandle, true)
+      }
+    }
+    this.pointedMessageMailboxHandlesByPtyId.delete(ptyId)
   }
 
   private canSubmitMessagePointer(
@@ -33083,6 +33204,11 @@ export class OrcaRuntimeService {
       return
     }
 
+    if (this.pointedMessageWatermarkOwnerByHandle.get(mailboxHandle)?.active) {
+      this.parkMessageRedeliveryForMailbox(mailboxHandle, options.reservedTypes)
+      return
+    }
+
     // Why filter here and not at the trigger: the push reads every pending row,
     // not just the one that woke it, so a row a pull has claimed would be typed
     // into the pane AND returned by that pull's check. Live waiters cover the
@@ -33141,6 +33267,19 @@ export class OrcaRuntimeService {
     const newestSequence = unread.at(-1)?.sequence
     if (newestSequence === undefined) {
       return
+    }
+    const pointedSequence = this.lastPointedMessageSequenceByHandle.get(mailboxHandle) ?? -1
+    if (newestSequence <= pointedSequence) {
+      const owner = this.pointedMessageWatermarkOwnerByHandle.get(mailboxHandle)
+      const leafKey = this.getLeafKey(leaf.tabId, leaf.leafId)
+      if (
+        !owner ||
+        owner.active ||
+        (owner.ptyId === leaf.ptyId && owner.leafKey === leafKey) ||
+        !this.clearPointedMessageWatermark(mailboxHandle, owner.sequence, owner.ptyId)
+      ) {
+        return
+      }
     }
 
     if (
@@ -33220,28 +33359,58 @@ export class OrcaRuntimeService {
         pointedIdsAfterWrite.add(message.id)
       }
       this.pointedMessageIdsByHandle.set(mailboxHandle, pointedIdsAfterWrite)
+      this.setPointedMessageWatermark(
+        mailboxHandle,
+        newestSequence,
+        deliveryPtyId,
+        this.getLeafKey(leaf.tabId, leaf.leafId)
+      )
 
       const tabTitle = this.tabs.get(leaf.tabId)?.title
       if (isCursorAgentOrchestrationTarget(leaf, tabTitle)) {
         // Why: Cursor Agent treats injected PTY text as editable prompt input, so submitting must stay under user control.
-        this._orchestrationDb.markAsDelivered(unread.map((message) => message.id))
+        let delivered = false
+        try {
+          this._orchestrationDb.markAsDelivered(unread.map((message) => message.id))
+          delivered = true
+        } finally {
+          if (delivered) {
+            this.clearPointedMessageWatermark(mailboxHandle, newestSequence, deliveryPtyId)
+          } else {
+            this.deactivatePointedMessageWatermark(mailboxHandle, newestSequence, deliveryPtyId)
+          }
+        }
+        this.redrivePendingMessageMailbox(mailboxHandle)
         return
       }
 
       // Why: agent TUIs can swallow a \r in the same PTY write; submit separately after a delay.
       flight.enterTimer = setTimeout(() => {
+        let clearAndRedrive = false
+        let delivered = false
+        let finalizeReservation = true
         void this.isLeafPtyProvenAbsent(deliveryPtyId)
           .then((absent) => {
             // Why current state, not the closure: ownership, graph records, or the
             // process can change during the Enter delay and liveness probe.
-            if (absent || this.messageDeliveryFlightsByPtyId.get(deliveryPtyId) !== flight) {
+            if (absent) {
+              clearAndRedrive = true
+              return
+            }
+            if (this.messageDeliveryFlightsByPtyId.get(deliveryPtyId) !== flight) {
+              finalizeReservation = false
               return
             }
             const currentLeaf = this.leaves.get(this.getLeafKey(leaf.tabId, leaf.leafId))
+            if (!currentLeaf || currentLeaf.ptyId !== deliveryPtyId || !currentLeaf.writable) {
+              clearAndRedrive = true
+              return
+            }
+            if (this.resolveActionableMailboxForLeaf(currentLeaf) !== mailboxHandle) {
+              clearAndRedrive = true
+              return
+            }
             if (
-              !currentLeaf ||
-              currentLeaf.ptyId !== deliveryPtyId ||
-              !currentLeaf.writable ||
               currentLeaf.lastAgentStatus !== 'idle' ||
               !currentLeaf.lastAgentStatusObservedLive ||
               !this.canSubmitMessagePointer(currentLeaf, mailboxHandle, unread)
@@ -33251,12 +33420,29 @@ export class OrcaRuntimeService {
             const submitted = this.ptyController?.write(deliveryPtyId, '\r') ?? false
             if (submitted) {
               this._orchestrationDb?.markAsDelivered(unread.map((message) => message.id))
+              delivered = true
             }
           })
           .catch(() => {
             // Terminal liveness is uncertain; mail remains queued for explicit check.
           })
-          .finally(() => this.settlePendingMessageDelivery(deliveryPtyId, flight))
+          .finally(() => {
+            let released = false
+            if (finalizeReservation) {
+              released =
+                delivered || clearAndRedrive
+                  ? this.clearPointedMessageWatermark(mailboxHandle, newestSequence, deliveryPtyId)
+                  : this.deactivatePointedMessageWatermark(
+                      mailboxHandle,
+                      newestSequence,
+                      deliveryPtyId
+                    )
+            }
+            this.settlePendingMessageDelivery(deliveryPtyId, flight)
+            if (released) {
+              this.redrivePendingMessageMailbox(mailboxHandle, clearAndRedrive)
+            }
+          })
       }, 500)
       settlesInEnterCallback = true
     } finally {
