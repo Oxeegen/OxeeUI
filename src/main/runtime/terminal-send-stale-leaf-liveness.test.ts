@@ -233,6 +233,7 @@ type StoredMessageRow = {
 
 function makeOrchestrationDbStub(toHandle: () => string) {
   const rows: StoredMessageRow[] = []
+  const runMailbox = 'run:run_test'
   const markAsDelivered = vi.fn((ids: string[]) => {
     for (const row of rows) {
       if (ids.includes(row.id)) {
@@ -240,9 +241,18 @@ function makeOrchestrationDbStub(toHandle: () => string) {
       }
     }
   })
+  const markAsUndelivered = vi.fn((ids: string[]) => {
+    for (const row of rows) {
+      if (ids.includes(row.id) && row.read === 0) {
+        row.delivered_at = null
+      }
+    }
+  })
   return {
     rows,
+    runMailbox,
     markAsDelivered,
+    markAsUndelivered,
     insert(subject: string, type: StoredMessageRow['type'] = 'status'): void {
       rows.push({
         id: `msg_${rows.length + 1}`,
@@ -268,10 +278,34 @@ function makeOrchestrationDbStub(toHandle: () => string) {
         rows.filter((row) => row.to_handle === handle && row.read === 0 && !row.delivered_at),
       getUndeliveredUnreadMailboxHandles: () => [toHandle()],
       getActiveCoordinatorRun: () => null,
-      getCurrentRunForPane: () => undefined,
+      getCurrentRunForPane: () => ({ id: 'run_test' }),
+      getRun: () => ({ id: 'run_test', coordinator_handle: toHandle() }),
+      hasUndeliveredDirectMessageForRun: (runId: string, handle: string) =>
+        rows.some(
+          (row) =>
+            row.run_id === runId && row.to_handle === handle && row.read === 0 && !row.delivered_at
+        ),
+      routeUnreadDirectMessagesToRunMailbox: (runId: string, handle: string) => {
+        const routed = rows.filter(
+          (row) => row.run_id === runId && row.to_handle === handle && row.read === 0
+        )
+        for (const row of routed) {
+          row.to_handle = runMailbox
+        }
+        return {
+          routedCount: routed.length,
+          hasMore: false,
+          types: [...new Set(routed.map((row) => row.type))]
+        }
+      },
+      areUnreadMessages: (handle: string, ids: string[]) =>
+        ids.every((id) =>
+          rows.some((row) => row.id === id && row.to_handle === handle && row.read === 0)
+        ),
       // Consulted by onPtyExit's dispatch-failure path.
       getActiveDispatchForTerminal: () => null,
       markAsDelivered,
+      markAsUndelivered,
       close: () => {}
     }
   }
@@ -345,7 +379,7 @@ describe('push-on-idle orchestration delivery absence gate', () => {
 
     const pulled: string[] = []
     const checkResumed = runtime
-      .waitForMessage(handle, { typeFilter: ['worker_done'], timeoutMs: 60_000 })
+      .waitForMessage(stub.runMailbox, { typeFilter: ['worker_done'], timeoutMs: 60_000 })
       .then(() => {
         for (const row of stub.rows) {
           if (row.type === 'worker_done' && row.read === 0) {
@@ -391,7 +425,7 @@ describe('push-on-idle orchestration delivery absence gate', () => {
         })
     })
 
-    const waitPromise = runtime.waitForMessage(handle, {
+    const waitPromise = runtime.waitForMessage(stub.runMailbox, {
       typeFilter: ['worker_done'],
       timeoutMs: 60_000
     })
@@ -402,7 +436,7 @@ describe('push-on-idle orchestration delivery absence gate', () => {
 
     // The reserving waiter goes away, then its type finally arrives — and the
     // probe dedup drops this notify, so only the continuation can deliver it.
-    runtime.cancelMessageWaiters(handle)
+    runtime.cancelMessageWaiters(stub.runMailbox)
     await expect(waitPromise).resolves.toBe('cancelled')
     stub.insert('late completion', 'worker_done')
     runtime.notifyMessageArrived(handle, 'worker_done')
@@ -570,7 +604,8 @@ describe('push-on-idle orchestration delivery absence gate', () => {
 
       await vi.advanceTimersByTimeAsync(500)
       expect(write.mock.calls.filter(([, data]) => data === '\r')).toHaveLength(0)
-      expect(stub.markAsDelivered).not.toHaveBeenCalled()
+      expect(stub.markAsDelivered).toHaveBeenCalledOnce()
+      expect(stub.markAsUndelivered).toHaveBeenCalledOnce()
       expect(stub.rows[0].delivered_at).toBeNull()
 
       // The replacement's own delivery starts a fresh flight and completes —
@@ -590,7 +625,7 @@ describe('push-on-idle orchestration delivery absence gate', () => {
       expect(payloadWrites).toHaveLength(2)
       await vi.advanceTimersByTimeAsync(500)
       expect(write.mock.calls.filter(([, data]) => data === '\r')).toHaveLength(1)
-      expect(stub.markAsDelivered).toHaveBeenCalledOnce()
+      expect(stub.markAsDelivered).toHaveBeenCalledTimes(2)
       expect(stub.rows[0].delivered_at).toEqual(expect.any(String))
     } finally {
       vi.useRealTimers()
@@ -625,7 +660,8 @@ describe('push-on-idle orchestration delivery absence gate', () => {
 
       await vi.advanceTimersByTimeAsync(500)
       expect(write.mock.calls.filter(([, data]) => data === '\r')).toHaveLength(0)
-      expect(stub.markAsDelivered).not.toHaveBeenCalled()
+      expect(stub.markAsDelivered).toHaveBeenCalledOnce()
+      expect(stub.markAsUndelivered).toHaveBeenCalledOnce()
       // No stray settle flushed the parked trigger into the dead pty.
       expect(write).toHaveBeenCalledTimes(1)
       expect(stub.rows.every((row) => row.delivered_at === null)).toBe(true)
@@ -655,7 +691,8 @@ describe('push-on-idle orchestration delivery absence gate', () => {
 
       await vi.advanceTimersByTimeAsync(500)
       expect(write.mock.calls.filter(([, data]) => data === '\r')).toHaveLength(0)
-      expect(stub.markAsDelivered).not.toHaveBeenCalled()
+      expect(stub.markAsDelivered).toHaveBeenCalledOnce()
+      expect(stub.markAsUndelivered).toHaveBeenCalledOnce()
       expect(stub.rows[0].delivered_at).toBeNull()
     } finally {
       vi.useRealTimers()

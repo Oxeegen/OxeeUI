@@ -3046,7 +3046,7 @@
           "platform": "linux",
           "command": "pnpm exec playwright test tests/e2e/daemon-generation-legacy-close-safety.spec.ts --config tests/playwright.config.ts --project electron-headless --workers=1",
           "result": "passed",
-          "durationSeconds": 5.1,
+          "durationSeconds": 6.6,
           "summary": "Current-head capability-gated oracle passed in E2E run https://github.com/stablyai/orca/actions/runs/30250731941/job/89928386794: capable v25/v26 roots and descendants survived with snapshot republish and post-close I/O, byte-identical legacy closes retained current-main shutdown behavior, and the unrelated fifth-worktree control survived."
         },
         {
@@ -8558,18 +8558,21 @@
       "providers": ["local", "daemon", "ssh", "wsl", "remote-runtime"],
       "coveredPlatforms": ["macos"],
       "coveredProviders": ["local"],
-      "coverageNotes": "A deterministic in-process runtime/SQLite/RPC harness covers two remint-equivalent panes across Run and Dispatch ownership changes, captures mocked PTY-controller writes, executes the production check, reopens a durable production-shape mismatch under a fresh runtime, and verifies Run Delivery acknowledgment plus worker-check consumption. A 151-row backlog proves reconciliation stays within one 50-row page and one coalesced mailbox wake per event-loop turn. The authority decision adds no wire field, renderer state, polling, or provider call. Daemon, paired remote-runtime, SSH, WSL, Linux, Windows, and headed restart evidence remain gaps.",
+      "coverageNotes": "A deterministic in-process runtime/SQLite/RPC harness covers two remint-equivalent panes across Run and Dispatch ownership changes, captures mocked PTY-controller writes, executes the production check, reopens durable production-shape state under a fresh runtime, and verifies Run Delivery acknowledgment plus worker-check consumption. A 151-row backlog proves live-idle reconciliation stays within one 50-row page and one coalesced continuation per event-loop turn; explicit checks cooperatively drain their start-of-check sequence snapshot before filtering or waiting. Controlled setImmediate races prove Run/Dispatch consumers are fenced after ownership changes, split current/stored handles both drain, cancellation stops paging, and a proven-inactive Dispatch transfers unread rows to its reachable Run for supported consumption and acknowledgment both after page routing and filtered wait cancellation. The authority decision adds no wire field, renderer state, polling, or provider call. Daemon, paired remote-runtime, live SSH, WSL, Linux, Windows, and headed restart evidence remain gaps.",
       "motivatingLinks": ["internal incident evidence: improve-vps-setup, 2026-08-10"],
-      "invariant": "Every injected orchestration pointer must select the same mailbox as the exact check from that pane and expose at least the notified unread messages through that mailbox's acknowledgment semantics. Rebinding cannot let foreign direct mail wake a new owner, newer Run mail cannot be announced behind an outstanding fixed Delivery, and restart cannot replay a successfully submitted pointer. Notification records only a durable pointer cursor; it never marks mail read or globally clears it.",
-      "oracle": "Create Run A with unread current-delivery mail addressed directly to its coordinator handle, bind the same pane to Run B, drive a controlled working-to-idle event, and require zero PTY pointers while Run B check returns zero and Run A mail stays unread. Reopen a database already containing that mismatch and require live-idle reconciliation to make the row actionable to Run A without pointing Run B. For same-Run mail, require one Run-pinned pointer, a bound Delivery containing that row, explicit acknowledgment, and no replay after a fresh runtime. Require reminted active-worker mail to retain Dispatch ownership, suppress newer Run pointers behind an outstanding Delivery, preserve waiter reservations, reject absent local PTYs, and reconcile a 151-row mismatch in 50-row pages with one mailbox wake per turn.",
+      "invariant": "Every injected orchestration pointer must select the same mailbox as the exact check from that pane and expose at least the notified unread messages through that mailbox's acknowledgment semantics. Rebinding cannot let foreign direct mail wake a new owner, newer Run mail cannot be announced behind an outstanding fixed Delivery, and restart cannot replay pointer text already accepted by the PTY even if delayed Enter has not fired. Notification records only a durable pointer cursor; it never marks mail read or globally clears it. Direct and Dispatch mail without a mixed-version-compatible pinned consuming action must not synthesize a terminal turn.",
+      "oracle": "Create Run A with unread current-delivery mail addressed directly to its coordinator handle, bind the same pane to Run B, drive a controlled working-to-idle event, and require zero PTY pointers while Run B check returns zero and Run A mail stays unread. Reopen a database already containing that mismatch and require live-idle reconciliation to make the row actionable to Run A without pointing Run B. For same-Run mail, require one Run-pinned pointer, a bound Delivery containing that row, explicit acknowledgment, and no replay after a fresh runtime, including restart between accepted pointer payload and delayed Enter. Require direct and Dispatch mail to remain explicitly checkable without an unpinned pointer, reminted active-worker mail to retain Dispatch ownership, newer Run mail to stay suppressed behind an outstanding fixed Delivery, waiter reservations to remain single-consumer across routing, absent local PTYs to retain mail, and a 151-row mismatch to reconcile in 50-row pages with one continuation per turn. During explicit paging, deterministically rebind the Run or complete the Dispatch and require a fenced response; require the inactive Dispatch's coordinator to consume and acknowledge the preserved rows through two fixed Run Deliveries; split current and stored handles and require one check to route both; add mail beyond the captured sequence and require finite snapshot completion; abort between pages and require paging to stop.",
       "commands": [
-        "pnpm exec vitest run --config config/vitest.config.ts src/main/runtime/orchestration-mailbox-notification-consistency.test.ts src/main/runtime/orchestration/orchestration-run-delivery-db.test.ts src/main/runtime/orchestration/orchestration-worker-dispatch-db.test.ts",
+        "pnpm exec vitest run --config config/vitest.config.ts src/main/runtime/orchestration-mailbox-routing-races.test.ts src/main/runtime/orchestration-mailbox-notification-consistency.test.ts src/main/runtime/orchestration/orchestration-run-delivery-db.test.ts src/main/runtime/orchestration/orchestration-worker-dispatch-db.test.ts src/main/runtime/orchestration/formatter.test.ts src/main/providers/ssh-pty-provider.test.ts",
         "pnpm exec vitest run --config config/vitest.config.ts src/main/runtime/orca-runtime.test.ts src/main/runtime/terminal-send-stale-leaf-liveness.test.ts src/main/runtime/rpc/methods/orchestration.test.ts"
       ],
       "testFiles": [
         "src/main/runtime/orchestration-mailbox-notification-consistency.test.ts",
+        "src/main/runtime/orchestration-mailbox-routing-races.test.ts",
         "src/main/runtime/orchestration/orchestration-run-delivery-db.test.ts",
         "src/main/runtime/orchestration/orchestration-worker-dispatch-db.test.ts",
+        "src/main/runtime/orchestration/formatter.test.ts",
+        "src/main/providers/ssh-pty-provider.test.ts",
         "src/main/runtime/orca-runtime.test.ts",
         "src/main/runtime/terminal-send-stale-leaf-liveness.test.ts",
         "src/main/runtime/rpc/methods/orchestration.test.ts"
@@ -8583,9 +8586,11 @@
             "a fresh runtime reconciles a database that already contains the production mismatch",
             "large persisted mismatches route in 50-row pages with coalesced per-mailbox wakes",
             "Run pointers pin the existing mixed-version-compatible --run identity",
+            "direct and Dispatch mail remain durable without unpinned synthetic terminal turns",
             "a delayed pointer submit cannot press Enter after the agent becomes working",
             "an explicit check releases its staged pointer reservation without redrive",
-            "a provider-refused Enter remains undelivered and retryable",
+            "accepted pointer text is durably deduplicated before delayed Enter and provider Enter refusal",
+            "a known PTY exit releases staged rows for the replacement process",
             "a staged pointer follows its Run to a new live pane without cross-PTY duplication",
             "equivalent panes serialize one mailbox while newer mail arrives during Enter delay",
             "same-Run direct mail is delivered and acknowledged through the bound Run",
@@ -8594,6 +8599,8 @@
             "active worker direct mail is exposed by its Dispatch check after handle remint",
             "late direct mail is normalized when its displaced Run rebinds",
             "a bound waiter wakes without a duplicate PTY pointer",
+            "filtered waiters remain single-consumer when direct rows route into Run or Dispatch mailboxes",
+            "same-owner filtered checks drain later 50-row pages before waiting",
             "working-agent arrival uses bounded ownership lookup without a full mailbox scan"
           ]
         },
@@ -8602,26 +8609,38 @@
           "assertions": [
             "remote Dispatch attachment lookup remains bounded across pane remints and malformed suffix collisions"
           ]
+        },
+        {
+          "file": "src/main/runtime/orchestration-mailbox-routing-races.test.ts",
+          "assertions": [
+            "Run and Dispatch consumers are fenced after ownership changes during a routing-page yield",
+            "current and stored reminted handles both drain in one explicit check",
+            "explicit paging terminates at its indexed start-of-check sequence snapshot and stops on cancellation",
+            "a fenced inactive Dispatch transfers unread rows to its Run for supported consumption and acknowledgment",
+            "filtered Dispatch wait cancellation reconciles unrelated unread types before fencing",
+            "unfiltered and filtered parked reservations union in either arrival order",
+            "reminted Dispatch pane lookup uses a bounded partial expression index while exact legacy keys remain supported"
+          ]
         }
       ],
       "evidenceRuns": [
         {
-          "date": "2026-08-10",
+          "date": "2026-08-11",
           "runner": "local",
           "platform": "macos",
-          "command": "pnpm exec vitest run --config config/vitest.config.ts src/main/runtime/orchestration-mailbox-notification-consistency.test.ts src/main/runtime/orchestration/orchestration-run-delivery-db.test.ts src/main/runtime/orchestration/orchestration-worker-dispatch-db.test.ts",
+          "command": "pnpm exec vitest run --config config/vitest.config.ts src/main/runtime/orchestration-mailbox-routing-races.test.ts src/main/runtime/orchestration-mailbox-notification-consistency.test.ts src/main/runtime/orchestration/orchestration-run-delivery-db.test.ts src/main/runtime/orchestration/orchestration-worker-dispatch-db.test.ts src/main/runtime/orchestration/formatter.test.ts src/main/providers/ssh-pty-provider.test.ts",
           "result": "passed",
           "durationSeconds": 5.1,
-          "summary": "37 tests passed across mailbox identity, persisted-upgrade reconciliation, 50-row paging and coalesced wakes, cross-PTY serialization, live ownership transfer, durable restart, submit races, outstanding Deliveries, reminted Dispatch ownership, acknowledgment, waiters, Run Delivery, and remote pane remints. The original 10-scenario mailbox oracle failed 10/10 on origin/main plus the test commit and again with the implementation commit explicitly reverted, including pointerCount > 0 with bound check count 0."
+          "summary": "127 tests passed across mailbox identity, direct and Dispatch pointer suppression, persisted reconciliation, 50-row paging and filtered waits, cross-PTY serialization, live ownership transfer, restart before delayed Enter, submit races, outstanding Deliveries, reminted Dispatch ownership, acknowledgment, remote pane remints, split-handle drains, ownership-change fencing, inactive-mailbox reachability after paging and filtered waits, snapshot termination, cancellation, reservation ordering, and bounded pane lookup. The original 10-scenario mailbox oracle failed 10/10 on origin/main plus the test commit and again with the implementation commit explicitly reverted, including pointerCount > 0 with bound check count 0."
         },
         {
-          "date": "2026-08-10",
+          "date": "2026-08-11",
           "runner": "local",
           "platform": "macos",
           "command": "pnpm exec vitest run --config config/vitest.config.ts src/main/runtime/orca-runtime.test.ts src/main/runtime/terminal-send-stale-leaf-liveness.test.ts src/main/runtime/rpc/methods/orchestration.test.ts",
           "result": "passed",
-          "durationSeconds": 10.1,
-          "summary": "1,250 tests passed and 1 was skipped across runtime pointer delivery, PTY retirement and respawn, stale-leaf liveness, and orchestration RPC behavior."
+          "durationSeconds": 12.5,
+          "summary": "1,251 tests passed and 1 was skipped across Run-bound pointer delivery, PTY retirement and respawn, stale-leaf liveness, direct-mail routing, filtered waiter ownership, and orchestration RPC behavior."
         }
       ],
       "runtimeBudget": {
@@ -8630,7 +8649,7 @@
       },
       "flakeHistory": {
         "status": "unknown",
-        "evidence": "First deterministic local macOS run only; no sleeps or wall-clock delivery assertions are used."
+        "evidence": "Repeated deterministic local macOS runs passed during four review rounds; controlled fake timers and lifecycle events replace arbitrary sleeps and wall-clock delivery assertions."
       },
       "redGreenEvidence": {
         "status": "complete",
@@ -8638,7 +8657,7 @@
       },
       "performanceBudget": {
         "required": true,
-        "evidence": "Arrival ownership uses indexed identity and SELECT 1 LIMIT 1 probes. Pointer selection and direct-mail reconciliation are capped to 50 rows inside SQLite; a single setImmediate continuation yields between pages and coalesces each mailbox/type wake. Submit-time row revalidation uses the unique message-ID index, durable cursor writes update only the submitted batch in 500-ID chunks, and outstanding-Delivery suppression is a bounded existence query. No polling, subprocesses, provider calls, persistent timers, listeners, or renderer work were added."
+        "evidence": "Arrival ownership uses indexed identity and SELECT 1 LIMIT 1 probes, including exact and remint-stable Dispatch pane lookups. Live-idle direct-mail reconciliation is capped to 50 rows per event-loop turn with one coalesced setImmediate continuation; explicit checks capture an indexed maximum sequence per distinct owner handle, route only that finite snapshot with one cooperative setImmediate yield per page, and stop on request cancellation. Submit-time row revalidation uses the unique message-ID index, durable cursor writes update only the staged batch in 500-ID chunks, and outstanding-Delivery suppression is a bounded existence query. A proven-inactive Dispatch uses one transactional indexed mailbox UPDATE to preserve reachability without polling or repeated scans. No subprocesses, provider fanout, persistent timers, listeners, or renderer work were added."
       },
       "promotionCriteria": [
         "Add isolated live restart and SSH or paired-runtime evidence.",
@@ -8648,6 +8667,7 @@
         "No headed Electron restart journey was required to prove the runtime/PTY/check boundary.",
         "No daemon, paired remote-runtime, live SSH, WSL, Linux, or Windows journey has been collected.",
         "Daemon and SSH PTY writes remain transport-accepted rather than owner-acknowledged; capability-negotiated owner acknowledgments are separate remote-protocol work.",
+        "Direct and Dispatch mail stay durable and explicitly checkable but do not synthesize agent turns until a backward-compatible pinned action or passive UI exists.",
         "Passive renderer-native unread UI and opt-in coordinator wake policy remain separate product work."
       ],
       "demotionRule": "Demote or quarantine if the deterministic oracle flakes without a product or harness bug owned by orchestration."

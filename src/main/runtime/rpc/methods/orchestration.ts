@@ -1,5 +1,6 @@
 /* eslint-disable max-lines -- Why: RPC method definitions co-locate param schemas with handlers; splitting by method would scatter the shared enums and Zod transforms without reducing complexity. */
 import { z } from 'zod'
+import { setImmediate as yieldToEventLoop } from 'node:timers/promises'
 import { defineMethod, type RpcMethod } from '../core'
 import { OptionalFiniteNumber, OptionalString, OptionalBoolean, requiredString } from '../schemas'
 import {
@@ -42,6 +43,22 @@ const TASK_STATUSES: TaskStatus[] = [
   'failed',
   'blocked'
 ]
+
+async function routeAllDirectMessagePages(
+  routePage: () => { routedCount: number; hasMore: boolean },
+  signal?: AbortSignal
+): Promise<void> {
+  while (true) {
+    if (signal?.aborted) {
+      throw new OrchestrationError('request_aborted', 'Mailbox routing was cancelled.')
+    }
+    const page = routePage()
+    if (!page.hasMore) {
+      return
+    }
+    await yieldToEventLoop()
+  }
+}
 
 function getLifecycleGroupRecipientError(type: 'worker_done' | 'heartbeat'): string {
   return `${type} messages belong to one exact Dispatch and cannot target a group address.`
@@ -725,6 +742,16 @@ export const ORCHESTRATION_METHODS: RpcMethod[] = [
       const db = runtime.getOrchestrationDb()
       const handle = params.terminal ?? 'unknown'
       const typeFilter = parseMessageTypes(params.types)
+      const routeDirectSnapshot = async (
+        runId: string,
+        directHandle: string,
+        routePage: (throughSequence: number) => { routedCount: number; hasMore: boolean }
+      ): Promise<void> => {
+        const throughSequence = db.getLatestUnreadDirectMessageSequenceForRun(runId, directHandle)
+        if (throughSequence !== undefined) {
+          await routeAllDirectMessagePages(() => routePage(throughSequence), signal)
+        }
+      }
 
       // Why: a live runtime handle is authoritative; pane metadata is only the restart fallback.
       const paneKey = runtime.getTerminalPaneKey(handle) ?? params.terminalPaneKey
@@ -741,13 +768,29 @@ export const ORCHESTRATION_METHODS: RpcMethod[] = [
         const generation = run.consumer_generation
         const address = `run:${run.id}`
         runtime.ensureOrchestrationFederationRelay(run.id)
-        const routedDirect = db.routeUnreadDirectMessagesToRunMailbox(run.id, handle)
-        if (
-          routedDirect.routedCount === 0 &&
-          run.coordinator_handle &&
-          run.coordinator_handle !== handle
-        ) {
-          db.routeUnreadDirectMessagesToRunMailbox(run.id, run.coordinator_handle)
+        await routeDirectSnapshot(run.id, handle, (throughSequence) =>
+          db.routeUnreadDirectMessagesToRunMailbox(run.id, handle, throughSequence)
+        )
+        const coordinatorHandle = run.coordinator_handle
+        if (coordinatorHandle && coordinatorHandle !== handle) {
+          await routeDirectSnapshot(run.id, coordinatorHandle, (throughSequence) =>
+            db.routeUnreadDirectMessagesToRunMailbox(run.id, coordinatorHandle, throughSequence)
+          )
+        }
+        revalidateLegacyCoordinator?.()
+        const currentRun = resolveRunScope(runtime, {
+          runId: run.id,
+          callerTerminalHandle: handle,
+          callerPaneKey: paneKey ?? undefined,
+          requireCurrentConsumer: true,
+          legacyCoordinatorRunId,
+          callerEvidence: orchestrationCompatibilityEvidence
+        })
+        if (currentRun.consumer_generation !== generation) {
+          throw new OrchestrationError(
+            'consumer_fenced',
+            'This mailbox consumer was replaced while routing pending mail.'
+          )
         }
 
         const acknowledged = params.ack
@@ -917,24 +960,68 @@ export const ORCHESTRATION_METHODS: RpcMethod[] = [
           : undefined
       if (workerMailbox) {
         const address = `dispatch:${workerMailbox.dispatchId}`
-        if (activeDispatch) {
-          const routedDirect = db.routeUnreadDirectMessagesToDispatchMailbox(
-            activeDispatch.id,
-            activeDispatch.run_id,
-            handle
-          )
+        const revalidateWorkerMailbox = (): void => {
+          if (activeDispatch) {
+            const current = db.getActiveDispatchForIdentity(handle, paneKey ?? undefined)
+            if (current?.id === activeDispatch.id) {
+              return
+            }
+          } else if (remoteAttachment && paneKey) {
+            const current = db.findActiveRemoteAttachmentForPane(paneKey)
+            if (
+              current?.dispatch_id === remoteAttachment.dispatch_id &&
+              db.isRemoteAttachmentProcessCurrent({
+                dispatchId: current.dispatch_id,
+                paneKey,
+                processIncarnation: runtime.getTerminalProcessIncarnation(handle)
+              })
+            ) {
+              return
+            }
+          }
+          const latestDispatch = db.getDispatchContextById(workerMailbox.dispatchId)
+          const owningRunId =
+            latestDispatch?.run_id ?? activeDispatch?.run_id ?? workerMailbox.runId
           if (
-            routedDirect.routedCount === 0 &&
-            activeDispatch.assignee_handle &&
-            activeDispatch.assignee_handle !== handle
+            owningRunId &&
+            (!latestDispatch ||
+              (latestDispatch.status !== 'pending' && latestDispatch.status !== 'dispatched'))
           ) {
+            const routed = db.routeUnreadDispatchMailboxToRunMailbox(
+              workerMailbox.dispatchId,
+              owningRunId
+            )
+            for (const routedType of routed.types) {
+              runtime.notifyMessageArrived(`run:${owningRunId}`, routedType)
+            }
+          }
+          throw new OrchestrationError(
+            'dispatch_inactive',
+            `Dispatch ${workerMailbox.dispatchId} is no longer assigned to this worker.`
+          )
+        }
+        if (activeDispatch) {
+          await routeDirectSnapshot(activeDispatch.run_id, handle, (throughSequence) =>
             db.routeUnreadDirectMessagesToDispatchMailbox(
               activeDispatch.id,
               activeDispatch.run_id,
-              activeDispatch.assignee_handle
+              handle,
+              throughSequence
+            )
+          )
+          const assigneeHandle = activeDispatch.assignee_handle
+          if (assigneeHandle && assigneeHandle !== handle) {
+            await routeDirectSnapshot(activeDispatch.run_id, assigneeHandle, (throughSequence) =>
+              db.routeUnreadDirectMessagesToDispatchMailbox(
+                activeDispatch.id,
+                activeDispatch.run_id,
+                assigneeHandle,
+                throughSequence
+              )
             )
           }
         }
+        revalidateWorkerMailbox()
         const showAll = params.all === true || (params.unread === false && params.peek !== true)
         const messages = showAll
           ? db.getAllMessagesForHandle(address, 100, typeFilter)
@@ -958,6 +1045,7 @@ export const ORCHESTRATION_METHODS: RpcMethod[] = [
           timeoutMs: params.timeoutMs ?? undefined,
           signal
         })
+        revalidateWorkerMailbox()
         if (waitResult === 'timed_out' || waitResult === 'cancelled') {
           return {
             ...(workerMailbox.runId ? { runId: workerMailbox.runId } : {}),

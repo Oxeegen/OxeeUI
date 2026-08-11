@@ -93,6 +93,7 @@ export const ORCHESTRATION_DELIVERY_BATCH_LIMIT = 50
 export type DirectMailboxRoutingPage = {
   routedCount: number
   hasMore: boolean
+  types: MessageType[]
 }
 
 export type ForeignDirectMailboxRoutingPage = DirectMailboxRoutingPage & {
@@ -1034,6 +1035,15 @@ export class OrchestrationDb {
         CREATE INDEX IF NOT EXISTS idx_dispatch_assignee_pane_leaf
           ON dispatch_contexts(${DISPATCH_PANE_KEY_MATCH_SUFFIX_SQL})
           WHERE assignee_pane_key IS NOT NULL AND status IN ('pending', 'dispatched');
+        CREATE INDEX IF NOT EXISTS idx_dispatch_active_run_assignee_handle
+          ON dispatch_contexts(run_id, assignee_handle)
+          WHERE assignee_handle IS NOT NULL AND status IN ('pending', 'dispatched');
+        CREATE INDEX IF NOT EXISTS idx_dispatch_active_run_pane_leaf
+          ON dispatch_contexts(run_id, ${DISPATCH_PANE_KEY_MATCH_SUFFIX_SQL})
+          WHERE assignee_pane_key IS NOT NULL AND status IN ('pending', 'dispatched');
+        CREATE INDEX IF NOT EXISTS idx_dispatch_active_assignee_pane_key
+          ON dispatch_contexts(assignee_pane_key)
+          WHERE assignee_pane_key IS NOT NULL AND status IN ('pending', 'dispatched');
       `)
       this.createUndeliveredInboxIndexIfPossible()
 
@@ -1424,7 +1434,11 @@ export class OrchestrationDb {
     }
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_messages_undelivered_inbox
-        ON messages(to_handle, read, delivered_at, sequence)
+        ON messages(to_handle, read, delivered_at, sequence);
+      CREATE INDEX IF NOT EXISTS idx_messages_undelivered_direct_run
+        ON messages(run_id, to_handle, sequence)
+        WHERE read = 0 AND delivered_at IS NULL
+          AND delivery_contract = 'current_delivery'
     `)
   }
 
@@ -3579,7 +3593,7 @@ export class OrchestrationDb {
     return Boolean(
       this.db
         .prepare(
-          `SELECT 1 FROM messages
+          `SELECT 1 FROM messages INDEXED BY idx_messages_undelivered_direct_run
            WHERE run_id = ? AND to_handle = ? AND read = 0 AND delivered_at IS NULL
              AND delivery_contract = 'current_delivery'
            LIMIT 1`
@@ -3596,23 +3610,48 @@ export class OrchestrationDb {
     )
   }
 
+  getLatestUnreadDirectMessageSequenceForRun(
+    runId: string,
+    directHandle: string
+  ): number | undefined {
+    const row = this.db
+      .prepare(
+        `SELECT sequence FROM messages
+         WHERE run_id = ? AND to_handle = ? AND read = 0
+           AND delivery_contract = 'current_delivery'
+         ORDER BY sequence DESC LIMIT 1`
+      )
+      .get(runId, directHandle) as { sequence: number } | undefined
+    return row?.sequence
+  }
+
   // Why: change mailbox ownership without changing unread or acknowledgment state.
   private routeDirectMessagePage(
     mailboxHandle: string,
     runId: string,
-    directHandle: string
+    directHandle: string,
+    throughSequence?: number
   ): DirectMailboxRoutingPage {
+    const throughClause = throughSequence === undefined ? '' : ' AND sequence <= ?'
+    const params: (string | number)[] = [runId, directHandle]
+    if (throughSequence !== undefined) {
+      params.push(throughSequence)
+    }
+    params.push(ORCHESTRATION_DELIVERY_BATCH_LIMIT + 1)
     const rows = this.db
       .prepare(
-        `SELECT id FROM messages
+        `SELECT id, type FROM messages
          WHERE run_id = ? AND to_handle = ? AND read = 0
-           AND delivery_contract = 'current_delivery'
+           AND delivery_contract = 'current_delivery'${throughClause}
          ORDER BY sequence LIMIT ?`
       )
-      .all(runId, directHandle, ORCHESTRATION_DELIVERY_BATCH_LIMIT + 1) as { id: string }[]
+      .all(...params) as {
+      id: string
+      type: MessageType
+    }[]
     const page = rows.slice(0, ORCHESTRATION_DELIVERY_BATCH_LIMIT)
     if (page.length === 0) {
-      return { routedCount: 0, hasMore: false }
+      return { routedCount: 0, hasMore: false, types: [] }
     }
     const placeholders = page.map(() => '?').join(',')
     const result = this.db
@@ -3620,23 +3659,58 @@ export class OrchestrationDb {
       .run(mailboxHandle, ...page.map((row) => row.id))
     return {
       routedCount: Number(result.changes),
-      hasMore: rows.length > ORCHESTRATION_DELIVERY_BATCH_LIMIT
+      hasMore: rows.length > ORCHESTRATION_DELIVERY_BATCH_LIMIT,
+      types: [...new Set(page.map((row) => row.type))]
     }
   }
 
   routeUnreadDirectMessagesToRunMailbox(
     runId: string,
-    directHandle: string
+    directHandle: string,
+    throughSequence?: number
   ): DirectMailboxRoutingPage {
-    return this.routeDirectMessagePage(`run:${runId}`, runId, directHandle)
+    return this.routeDirectMessagePage(`run:${runId}`, runId, directHandle, throughSequence)
   }
 
   routeUnreadDirectMessagesToDispatchMailbox(
     dispatchId: string,
     runId: string,
-    directHandle: string
+    directHandle: string,
+    throughSequence?: number
   ): DirectMailboxRoutingPage {
-    return this.routeDirectMessagePage(`dispatch:${dispatchId}`, runId, directHandle)
+    return this.routeDirectMessagePage(
+      `dispatch:${dispatchId}`,
+      runId,
+      directHandle,
+      throughSequence
+    )
+  }
+
+  routeUnreadDispatchMailboxToRunMailbox(
+    dispatchId: string,
+    runId: string
+  ): { routedCount: number; types: MessageType[] } {
+    const dispatchMailbox = `dispatch:${dispatchId}`
+    this.db.exec('BEGIN IMMEDIATE')
+    try {
+      const rows = this.db
+        .prepare(
+          `SELECT DISTINCT type FROM messages
+           WHERE to_handle = ? AND read = 0 AND delivery_contract = 'current_delivery'`
+        )
+        .all(dispatchMailbox) as { type: MessageType }[]
+      const result = this.db
+        .prepare(
+          `UPDATE messages SET to_handle = ?
+           WHERE to_handle = ? AND read = 0 AND delivery_contract = 'current_delivery'`
+        )
+        .run(`run:${runId}`, dispatchMailbox)
+      this.db.exec('COMMIT')
+      return { routedCount: Number(result.changes), types: rows.map((row) => row.type) }
+    } catch (error) {
+      this.db.exec('ROLLBACK')
+      throw error
+    }
   }
 
   private findActiveDispatchForDirectMessageOwner(
@@ -3685,7 +3759,7 @@ export class OrchestrationDb {
     }[]
     const page = rows.slice(0, ORCHESTRATION_DELIVERY_BATCH_LIMIT)
     if (page.length === 0) {
-      return { routedCount: 0, hasMore: false, mailboxes: [] }
+      return { routedCount: 0, hasMore: false, types: [], mailboxes: [] }
     }
     const runIds = [...new Set(page.map((row) => row.run_id))]
     const dispatchByRun = new Map<string, DispatchContextRow>()
@@ -3723,6 +3797,7 @@ export class OrchestrationDb {
     return {
       routedCount: page.length,
       hasMore: rows.length > ORCHESTRATION_DELIVERY_BATCH_LIMIT,
+      types: [...new Set(page.map((row) => row.type))],
       mailboxes: [...byMailbox].map(([mailboxHandle, types]) => ({
         mailboxHandle,
         types: [...types]
@@ -3740,6 +3815,23 @@ export class OrchestrationDb {
           `SELECT COUNT(*) AS count FROM messages INDEXED BY idx_messages_id
            WHERE to_handle = ? AND read = 0 AND delivered_at IS NULL
              AND delivery_contract = 'current_delivery' AND id IN (${placeholders})`
+        )
+        .get(toHandle, ...batch) as { count: number }
+      matched += row.count
+    }
+    return matched === ids.length
+  }
+
+  areUnreadMessages(toHandle: string, ids: string[]): boolean {
+    let matched = 0
+    for (let offset = 0; offset < ids.length; offset += MESSAGE_ID_UPDATE_BATCH_SIZE) {
+      const batch = ids.slice(offset, offset + MESSAGE_ID_UPDATE_BATCH_SIZE)
+      const placeholders = batch.map(() => '?').join(',')
+      const row = this.db
+        .prepare(
+          `SELECT COUNT(*) AS count FROM messages INDEXED BY idx_messages_id
+           WHERE to_handle = ? AND read = 0 AND delivery_contract = 'current_delivery'
+             AND id IN (${placeholders})`
         )
         .get(toHandle, ...batch) as { count: number }
       matched += row.count
@@ -3777,6 +3869,19 @@ export class OrchestrationDb {
       const placeholders = batch.map(() => '?').join(',')
       this.db
         .prepare(`UPDATE messages SET delivered_at = datetime('now') WHERE id IN (${placeholders})`)
+        .run(...batch)
+    }
+  }
+
+  markAsUndelivered(ids: string[]): void {
+    for (let offset = 0; offset < ids.length; offset += MESSAGE_ID_UPDATE_BATCH_SIZE) {
+      const batch = ids.slice(offset, offset + MESSAGE_ID_UPDATE_BATCH_SIZE)
+      const placeholders = batch.map(() => '?').join(',')
+      this.db
+        .prepare(
+          `UPDATE messages SET delivered_at = NULL
+           WHERE read = 0 AND id IN (${placeholders})`
+        )
         .run(...batch)
     }
   }
@@ -6896,21 +7001,28 @@ export class OrchestrationDb {
       return undefined
     }
 
-    const actives = this.db
+    const exactPane = this.db
+      .prepare(
+        `SELECT * FROM dispatch_contexts
+         WHERE assignee_pane_key = ? AND status IN ('pending', 'dispatched')
+         ORDER BY rowid DESC LIMIT 1`
+      )
+      .get(assigneePaneKey) as DispatchContextRow | undefined
+    if (exactPane) {
+      return exactPane
+    }
+    if (!parsePaneKey(assigneePaneKey)) {
+      return undefined
+    }
+    return this.db
       .prepare(
         `SELECT * FROM dispatch_contexts
          WHERE assignee_pane_key IS NOT NULL
-           AND status IN ('pending', 'dispatched')
-           AND ${DISPATCH_PANE_KEY_MATCH_SUFFIX_SQL} = ?`
+           AND status IN ('pending', 'dispatched') AND instr(assignee_pane_key, ':') > 1
+           AND ${DISPATCH_PANE_KEY_MATCH_SUFFIX_SQL} = ?
+         ORDER BY rowid DESC LIMIT 1`
       )
-      .all(paneKeyMatchSuffix(assigneePaneKey)) as DispatchContextRow[]
-
-    for (const row of actives) {
-      if (row.assignee_pane_key && isEquivalentPaneKey(row.assignee_pane_key, assigneePaneKey)) {
-        return row
-      }
-    }
-    return undefined
+      .get(paneKeyMatchSuffix(assigneePaneKey)) as DispatchContextRow | undefined
   }
 
   getLatestDispatchForTerminal(handle: string): DispatchContextRow | undefined {
