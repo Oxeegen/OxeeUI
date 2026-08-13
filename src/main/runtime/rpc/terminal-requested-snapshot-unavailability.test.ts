@@ -13,7 +13,7 @@ import {
   encodeTerminalStreamJson
 } from '../../../shared/terminal-stream-protocol'
 
-type SerializedBuffer = { data: string; cols: number; rows: number } | null
+type SerializedBuffer = { data: string; scrollbackAnsi?: string; cols: number; rows: number } | null
 type SnapshotStartPayload = Record<string, unknown>
 
 // Why: 256 KiB is the pending-output budget, so this many 1 KiB chunks always trips the overflow guard.
@@ -168,13 +168,27 @@ describe('requested terminal snapshot unavailability reasons', () => {
     expect(start.unavailable).toBeUndefined()
   })
 
-  it('omits a reason for a proven-empty buffer so absence stays distinguishable from failure', async () => {
+  it('reports no-serializable-buffer for an empty snapshot object', async () => {
     const { start, chunks } = await requestSnapshotReply({
       connectionId: 'conn-reason-empty',
       serializeRequested: async () => ({ data: '', cols: 120, rows: 40 })
     })
     expect(chunks).toBe('')
     expect(start).toMatchObject({ requestId: 77, truncated: false })
+    expect(start.unavailable).toBe('no-serializable-buffer')
+  })
+
+  it('accepts scrollback-only serialized content', async () => {
+    const { start, chunks } = await requestSnapshotReply({
+      connectionId: 'conn-reason-scrollback',
+      serializeRequested: async () => ({
+        data: '',
+        scrollbackAnsi: 'restored scrollback',
+        cols: 120,
+        rows: 40
+      })
+    })
+    expect(chunks).toBe('restored scrollback')
     expect(start.unavailable).toBeUndefined()
   })
 

@@ -118,6 +118,12 @@ type SerializedSnapshot = {
   kittyKeyboardFlags?: number
 } | null
 
+function hasSerializedSnapshotContent(
+  snapshot: SerializedSnapshot
+): snapshot is Exclude<SerializedSnapshot, null> {
+  return Boolean(snapshot && (snapshot.data.length > 0 || snapshot.scrollbackAnsi))
+}
+
 type TerminalViewportClient = {
   id: string
   type?: 'mobile' | 'desktop'
@@ -2330,24 +2336,25 @@ export const TERMINAL_METHODS: RpcAnyMethod[] = [
               return
             }
           }
-          sentSnapshotOutputSeq = serialized?.seq
+          const serializedContent = hasSerializedSnapshotContent(serialized) ? serialized : null
+          sentSnapshotOutputSeq = serializedContent?.seq
           sendSnapshotFrames((opcode, payload) => sendFrame(stream.streamId, opcode, payload), {
             kind: 'scrollback',
             cols: serialized?.cols ?? size?.cols ?? 80,
             rows: serialized?.rows ?? size?.rows ?? 24,
             requestId,
             displayMode,
-            seq: serialized?.seq,
-            cwd: serialized?.cwd,
-            source: serialized?.source,
-            kittyKeyboardFlags: serialized?.kittyKeyboardFlags,
-            oscLinks: serialized?.oscLinks,
-            pendingEscapeTailAnsi: serialized?.pendingEscapeTailAnsi,
+            seq: serializedContent?.seq,
+            cwd: serializedContent?.cwd,
+            source: serializedContent?.source,
+            kittyKeyboardFlags: serializedContent?.kittyKeyboardFlags,
+            oscLinks: serializedContent?.oscLinks,
+            pendingEscapeTailAnsi: serializedContent?.pendingEscapeTailAnsi,
             truncated: false,
             truncatedByByteBudget: serialized?.truncatedByByteBudget,
-            // Why: no serializer answered, which is not proof the pane is empty — say so instead of passing off '' as the buffer.
-            unavailable: serialized ? undefined : 'no-serializable-buffer',
-            data: serialized?.data ?? ''
+            // Why: an absent or empty serializer answer is not proof the pane is empty.
+            unavailable: serializedContent ? undefined : 'no-serializable-buffer',
+            data: serializedContent?.data ?? ''
           })
         } catch (error) {
           sendStreamError(
@@ -2637,8 +2644,9 @@ export const TERMINAL_METHODS: RpcAnyMethod[] = [
           const size = runtime.getTerminalSize(ptyId)
           const displayMode = runtime.getMobileDisplayMode(ptyId)
           const layoutSeq = runtime.getLayout(ptyId)?.seq
+          const serializedContent = hasSerializedSnapshotContent(serialized) ? serialized : null
           // Why: layout versions and output offsets are different sequence domains.
-          const snapshotOutputSeq = serialized?.seq
+          const snapshotOutputSeq = serializedContent?.seq
           emit({
             type: 'subscribed',
             streamId: request.streamId,
@@ -2659,18 +2667,19 @@ export const TERMINAL_METHODS: RpcAnyMethod[] = [
           })
           stream.sourceRangeReplacement =
             stream.ackOutputSourceRanges &&
-            serialized?.source !== undefined &&
-            typeof serialized.seq === 'number'
+            serializedContent?.source !== undefined &&
+            typeof serializedContent.seq === 'number'
               ? runtime.reserveRemoteTerminalSourceRangeReplacement(
                   {
                     ptyId,
                     consumerId: stream.remoteDesktopSubscriptionKey,
                     streamGeneration: stream.streamGeneration
                   },
-                  serialized.seq,
+                  serializedContent.seq,
                   'initial-snapshot'
                 )
               : null
+          const retainedTail = read.tail.length > 0 ? `${read.tail.join('\r\n')}\r\n` : ''
           const snapshotPublication = sendSnapshotFrames(
             (opcode, payload) => sendFrame(request.streamId, opcode, payload),
             {
@@ -2679,15 +2688,16 @@ export const TERMINAL_METHODS: RpcAnyMethod[] = [
               rows: serialized?.rows ?? size?.rows ?? 24,
               displayMode,
               seq: snapshotOutputSeq,
-              cwd: serialized?.cwd,
+              cwd: serializedContent?.cwd,
               truncated: initialOutputOverflowed,
               truncatedByByteBudget: serialized?.truncatedByByteBudget,
-              source: serialized?.source,
-              kittyKeyboardFlags: serialized?.kittyKeyboardFlags,
-              oscLinks: serialized?.oscLinks,
-              pendingEscapeTailAnsi: serialized?.pendingEscapeTailAnsi,
-              data:
-                serialized?.data ?? (read.tail.length > 0 ? `${read.tail.join('\r\n')}\r\n` : '')
+              source: serializedContent?.source,
+              kittyKeyboardFlags: serializedContent?.kittyKeyboardFlags,
+              oscLinks: serializedContent?.oscLinks,
+              pendingEscapeTailAnsi: serializedContent?.pendingEscapeTailAnsi,
+              unavailable:
+                serializedContent || read.tail.length > 0 ? undefined : 'no-serializable-buffer',
+              data: serializedContent?.data ?? retainedTail
             }
           )
           const replacement = stream.sourceRangeReplacement
@@ -2695,11 +2705,11 @@ export const TERMINAL_METHODS: RpcAnyMethod[] = [
           if (replacement) {
             const committed =
               snapshotPublication.published &&
-              serialized?.source !== undefined &&
-              typeof serialized.seq === 'number' &&
+              serializedContent?.source !== undefined &&
+              typeof serializedContent.seq === 'number' &&
               runtime.commitRemoteTerminalSourceRangeReplacement(replacement, {
-                source: serialized.source,
-                seq: serialized.seq
+                source: serializedContent.source,
+                seq: serializedContent.seq
               })
             if (!committed) {
               runtime.rollbackRemoteTerminalSourceRangeReplacement(
