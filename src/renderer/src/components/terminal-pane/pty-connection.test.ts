@@ -302,7 +302,10 @@ type ConnectCallbacks = {
     data: string,
     meta?: { seq?: number; rawLength?: number; background?: boolean; droppedOutput?: boolean }
   ) => void
-  onReplayData?: (data: string, meta?: { clearBeforeReplay?: boolean }) => void
+  onReplayData?: (
+    data: string,
+    meta?: { clearBeforeReplay?: boolean; snapshotCols?: number; snapshotRows?: number }
+  ) => void
   onError?: (msg: string) => void
   onWriteUnavailable?: () => void
   onOutputPauseChanged?: (paused: boolean, supported: boolean) => void
@@ -9503,7 +9506,12 @@ describe('connectPanePty', () => {
       current:
         | ((
             data: string,
-            meta?: { clearBeforeReplay?: boolean; pendingEscapeTailAnsi?: string }
+            meta?: {
+              clearBeforeReplay?: boolean
+              pendingEscapeTailAnsi?: string
+              snapshotCols?: number
+              snapshotRows?: number
+            }
           ) => void)
         | null
     } = { current: null }
@@ -17096,7 +17104,12 @@ describe('connectPanePty', () => {
     enableActiveRuntimeEnvironment()
     const transport = createMockTransport('remote:env-1@@terminal-1')
     const capturedReplayCallback: {
-      current: ((data: string, meta?: { clearBeforeReplay?: boolean }) => void) | null
+      current:
+        | ((
+            data: string,
+            meta?: { clearBeforeReplay?: boolean; snapshotCols?: number; snapshotRows?: number }
+          ) => void)
+        | null
     } = { current: null }
     transport.connect.mockImplementation(async ({ callbacks }: { callbacks: ConnectCallbacks }) => {
       capturedReplayCallback.current = callbacks.onReplayData ?? null
@@ -17134,7 +17147,12 @@ describe('connectPanePty', () => {
     enableActiveRuntimeEnvironment()
     const transport = createMockTransport('remote:env-1@@terminal-1')
     const capturedReplayCallback: {
-      current: ((data: string, meta?: { clearBeforeReplay?: boolean }) => void) | null
+      current:
+        | ((
+            data: string,
+            meta?: { clearBeforeReplay?: boolean; snapshotCols?: number; snapshotRows?: number }
+          ) => void)
+        | null
     } = { current: null }
     transport.connect.mockImplementation(async ({ callbacks }: { callbacks: ConnectCallbacks }) => {
       capturedReplayCallback.current = callbacks.onReplayData ?? null
@@ -17173,7 +17191,12 @@ describe('connectPanePty', () => {
     enableActiveRuntimeEnvironment()
     const transport = createMockTransport('remote:env-1@@terminal-1')
     const capturedReplayCallback: {
-      current: ((data: string, meta?: { clearBeforeReplay?: boolean }) => void) | null
+      current:
+        | ((
+            data: string,
+            meta?: { clearBeforeReplay?: boolean; snapshotCols?: number; snapshotRows?: number }
+          ) => void)
+        | null
     } = { current: null }
     transport.connect.mockImplementation(async ({ callbacks }: { callbacks: ConnectCallbacks }) => {
       capturedReplayCallback.current = callbacks.onReplayData ?? null
@@ -17207,7 +17230,12 @@ describe('connectPanePty', () => {
     enableActiveRuntimeEnvironment()
     const transport = createMockTransport('remote:env-1@@terminal-1')
     const capturedReplayCallback: {
-      current: ((data: string, meta?: { clearBeforeReplay?: boolean }) => void) | null
+      current:
+        | ((
+            data: string,
+            meta?: { clearBeforeReplay?: boolean; snapshotCols?: number; snapshotRows?: number }
+          ) => void)
+        | null
     } = { current: null }
     transport.connect.mockImplementation(async ({ callbacks }: { callbacks: ConnectCallbacks }) => {
       capturedReplayCallback.current = callbacks.onReplayData ?? null
@@ -17249,7 +17277,12 @@ describe('connectPanePty', () => {
     const { connectPanePty } = await import('./pty-connection')
     const transport = createMockTransport('pty-id')
     const capturedReplayCallback: {
-      current: ((data: string, meta?: { clearBeforeReplay?: boolean }) => void) | null
+      current:
+        | ((
+            data: string,
+            meta?: { clearBeforeReplay?: boolean; snapshotCols?: number; snapshotRows?: number }
+          ) => void)
+        | null
     } = { current: null }
     transport.connect.mockImplementation(async ({ callbacks }: { callbacks: ConnectCallbacks }) => {
       capturedReplayCallback.current = callbacks.onReplayData ?? null
@@ -17284,7 +17317,12 @@ describe('connectPanePty', () => {
     const { connectPanePty } = await import('./pty-connection')
     const transport = createMockTransport('pty-id')
     const capturedReplayCallback: {
-      current: ((data: string, meta?: { clearBeforeReplay?: boolean }) => void) | null
+      current:
+        | ((
+            data: string,
+            meta?: { clearBeforeReplay?: boolean; snapshotCols?: number; snapshotRows?: number }
+          ) => void)
+        | null
     } = { current: null }
     transport.connect.mockImplementation(async ({ callbacks }: { callbacks: ConnectCallbacks }) => {
       capturedReplayCallback.current = callbacks.onReplayData ?? null
