@@ -488,6 +488,10 @@ function createPaneContainer(): HTMLElement {
     configurable: true,
     value: {}
   })
+  Object.defineProperties(container, {
+    clientWidth: { configurable: true, value: 1200 },
+    clientHeight: { configurable: true, value: 800 }
+  })
   return container
 }
 
@@ -17036,6 +17040,57 @@ describe('connectPanePty', () => {
     disposable.dispose()
   })
 
+  it('paints remote replay at its snapshot grid before returning to the live pane grid', async () => {
+    const { connectPanePty } = await import('./pty-connection')
+    enableActiveRuntimeEnvironment()
+    const transport = createMockTransport('remote:env-1@@terminal-grid')
+    const capturedReplayCallback: {
+      current:
+        | ((data: string, meta?: { snapshotCols?: number; snapshotRows?: number }) => void)
+        | null
+    } = { current: null }
+    transport.connect.mockImplementation(async ({ callbacks }: { callbacks: ConnectCallbacks }) => {
+      capturedReplayCallback.current = callbacks.onReplayData ?? null
+      return { id: 'remote:env-1@@terminal-grid', replay: '' }
+    })
+    transportFactoryQueue.push(transport)
+
+    const pane = createPane(1)
+    const operations: string[] = []
+    pane.terminal.resize = vi.fn((cols: number, rows: number) => {
+      operations.push(`resize:${cols}x${rows}`)
+      pane.terminal.cols = cols
+      pane.terminal.rows = rows
+    })
+    pane.fitAddon.fit = vi.fn(() => pane.terminal.resize(180, 50))
+    pane.fitAddon.proposeDimensions = vi.fn(() => ({ cols: 180, rows: 50 }))
+    pane.terminal.write = vi.fn((data: string, callback?: () => void) => {
+      operations.push(`write:${data}`)
+      callback?.()
+    }) as typeof pane.terminal.write
+    const manager = createManager(1)
+    const deps = createDeps()
+    const disposable = connectPanePty(pane as never, manager as never, deps as never)
+    await flushAsyncTicks(6)
+
+    capturedReplayCallback.current?.('snapshot payload', {
+      snapshotCols: 60,
+      snapshotRows: 20
+    })
+    await flushAsyncTicks(12)
+
+    expect(operations).toContain('resize:60x20')
+    expect(operations.indexOf('resize:60x20')).toBeLessThan(
+      operations.indexOf('write:snapshot payload')
+    )
+    expect(operations.lastIndexOf('resize:180x50')).toBeGreaterThan(
+      operations.indexOf('write:snapshot payload')
+    )
+    expect(pane.terminal.cols).toBe(180)
+    expect(pane.terminal.rows).toBe(50)
+    disposable.dispose()
+  })
+
   it('preserves live agent modes when queued replay data carries the Cursor Agent screen', async () => {
     const { connectPanePty } = await import('./pty-connection')
     enableActiveRuntimeEnvironment()
@@ -25481,7 +25536,7 @@ describe('connectPanePty', () => {
       }
     })
 
-    it('skips remote-runtime PTYs (their size lives outside the local ptySizes map)', async () => {
+    it('re-fits and re-reports a remote viewport on reveal even when its grid is unchanged', async () => {
       const getSize = vi.mocked(window.api.pty.getSize)
       getSize.mockClear()
       const { connectPanePty } = await import('./pty-connection')
@@ -25494,17 +25549,68 @@ describe('connectPanePty', () => {
         paneTransportsRef: { current: new Map([[1, createMockTransport('pty-pane-1')]]) }
       })
       const pane = createPane(2)
+      pane.fitAddon.fit = vi.fn()
       const binding = connectPanePty(pane as never, manager as never, deps as never) as unknown as {
         noteVisibilityResume: () => void
       }
       transport.resize.mockClear()
+      pane.fitAddon.proposeDimensions.mockClear()
 
       binding.noteVisibilityResume()
       await flushAsyncTicks()
 
-      // Never even queries size for a remote pane, and never re-asserts.
       expect(getSize).not.toHaveBeenCalled()
+      expect(pane.fitAddon.proposeDimensions).toHaveBeenCalled()
+      expect(transport.resize).toHaveBeenCalledWith(120, 40)
+    })
+
+    it('does not fit or report a remote viewport from a zero-sized reveal box', async () => {
+      const { connectPanePty } = await import('./pty-connection')
+      const transport = createMockTransport('remote:env-1@@terminal-zero-box')
+      const capturedReplayCallback: {
+        current:
+          | ((data: string, meta?: { snapshotCols?: number; snapshotRows?: number }) => void)
+          | null
+      } = { current: null }
+      transport.connect.mockImplementation(
+        async ({ callbacks }: { callbacks: ConnectCallbacks }) => {
+          capturedReplayCallback.current = callbacks.onReplayData ?? null
+          return { id: 'remote:env-1@@terminal-zero-box', replay: '' }
+        }
+      )
+      transportFactoryQueue.push(transport)
+      const pane = createPane(2)
+      Object.defineProperties(pane.container, {
+        clientWidth: { configurable: true, value: 0 },
+        clientHeight: { configurable: true, value: 0 }
+      })
+      pane.fitAddon.fit = vi.fn()
+      const manager = createManager(2)
+      const deps = createDeps({
+        restoredLeafId: LEAF_2,
+        paneTransportsRef: { current: new Map([[1, createMockTransport('pty-pane-1')]]) }
+      })
+      const binding = connectPanePty(pane as never, manager as never, deps as never) as unknown as {
+        noteVisibilityResume: () => void
+      }
+      transport.resize.mockClear()
+      pane.fitAddon.proposeDimensions.mockClear()
+      pane.terminal.write.mockClear()
+
+      capturedReplayCallback.current?.('must wait for a box', {
+        snapshotCols: 60,
+        snapshotRows: 20
+      })
+      binding.noteVisibilityResume()
+      await flushAsyncTicks()
+
+      expect(pane.fitAddon.fit).not.toHaveBeenCalled()
+      expect(pane.terminal.write).not.toHaveBeenCalledWith(
+        'must wait for a box',
+        expect.any(Function)
+      )
       expect(transport.resize).not.toHaveBeenCalled()
+      expect(transport.claimViewport).not.toHaveBeenCalled()
     })
 
     it('claims a focused visible remote mirror once when its passive fit hold arrives', async () => {

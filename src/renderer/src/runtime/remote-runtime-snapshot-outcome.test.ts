@@ -38,6 +38,7 @@ class ScriptedSnapshotServer {
   private cursorUnits = 0
   requestIds: (number | undefined)[] = []
   nextRequestedReply: RequestedReply = { kind: 'buffer', data: 'MANUAL' }
+  omitNextSize = false
   dropNextOutput = false
   holdResyncReplies = false
   private heldRequestId: number | null = null
@@ -112,11 +113,12 @@ class ScriptedSnapshotServer {
   }
 
   private sendStart(meta: { requestId?: number; truncated?: boolean; unavailable?: string }): void {
+    const size = this.omitNextSize ? {} : { cols: 80, rows: 24 }
+    this.omitNextSize = false
     this.send(
       TerminalStreamOpcode.SnapshotStart,
       encodeTerminalStreamJson({
-        cols: 80,
-        rows: 24,
+        ...size,
         seq: meta.truncated ? undefined : this.cursorUnits,
         ...meta
       })
@@ -194,6 +196,16 @@ describe('remote terminal snapshot outcome reasons', () => {
     })
     await expect(stream.serializeBuffer({ scrollbackRows: 100 })).resolves.toMatchObject({
       data: 'RESTORED'
+    })
+  })
+
+  it('uses 0x0 as the unknown-size sentinel for an older snapshot producer', async () => {
+    const stream = await subscribeClient()
+    server.nextRequestedReply = { kind: 'buffer', data: 'LEGACY' }
+    server.omitNextSize = true
+
+    await expect(stream.serializeBufferOutcome({ scrollbackRows: 100 })).resolves.toMatchObject({
+      snapshot: { data: 'LEGACY', cols: 0, rows: 0 }
     })
   })
 
