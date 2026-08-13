@@ -168,14 +168,28 @@ describe('requested terminal snapshot unavailability reasons', () => {
     expect(start.unavailable).toBeUndefined()
   })
 
-  it('reports no-serializable-buffer for an empty snapshot object', async () => {
+  // Why: `unavailable` drives client retries and eventually a loss banner. A serializer
+  // that answered with an empty buffer HAS answered; a genuinely empty pane must not be
+  // reported as a failure or every fresh pane banners. Only an absent answer is a failure.
+  it('does not report a reason when the serializer answered with an empty buffer', async () => {
     const { start, chunks } = await requestSnapshotReply({
       connectionId: 'conn-reason-empty',
       serializeRequested: async () => ({ data: '', cols: 120, rows: 40 })
     })
     expect(chunks).toBe('')
     expect(start).toMatchObject({ requestId: 77, truncated: false })
-    expect(start.unavailable).toBe('no-serializable-buffer')
+    expect(start.unavailable).toBeUndefined()
+  })
+
+  // Why: an empty answer must still not publish seq/source metadata, or the client
+  // anchors its stream to a snapshot that carries no content.
+  it('omits seq and source metadata for an empty serialized answer', async () => {
+    const { start } = await requestSnapshotReply({
+      connectionId: 'conn-reason-empty-metadata',
+      serializeRequested: async () => ({ data: '', cols: 120, rows: 40 })
+    })
+    expect(start.seq).toBeUndefined()
+    expect(start.source).toBeUndefined()
   })
 
   it('accepts scrollback-only serialized content', async () => {

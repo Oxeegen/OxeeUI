@@ -2352,8 +2352,11 @@ export const TERMINAL_METHODS: RpcAnyMethod[] = [
             pendingEscapeTailAnsi: serializedContent?.pendingEscapeTailAnsi,
             truncated: false,
             truncatedByByteBudget: serialized?.truncatedByByteBudget,
-            // Why: an absent or empty serializer answer is not proof the pane is empty.
-            unavailable: serializedContent ? undefined : 'no-serializable-buffer',
+            // Why: `unavailable` means nobody answered, so the client retries and can
+            // eventually banner. A serializer that DID answer with an empty buffer has
+            // answered — reporting that as unavailable banners genuinely empty panes.
+            // Empty content still suppresses the seq/source metadata below.
+            unavailable: serialized ? undefined : 'no-serializable-buffer',
             data: serializedContent?.data ?? ''
           })
         } catch (error) {
@@ -2695,8 +2698,11 @@ export const TERMINAL_METHODS: RpcAnyMethod[] = [
               kittyKeyboardFlags: serializedContent?.kittyKeyboardFlags,
               oscLinks: serializedContent?.oscLinks,
               pendingEscapeTailAnsi: serializedContent?.pendingEscapeTailAnsi,
+              // Why: same rule as the tagged path — only an absent serializer answer is
+              // "unavailable". A serializer that answered empty, with an empty retained
+              // tail, is a genuinely empty pane and must not be reported as a failure.
               unavailable:
-                serializedContent || read.tail.length > 0 ? undefined : 'no-serializable-buffer',
+                serialized || read.tail.length > 0 ? undefined : 'no-serializable-buffer',
               data: serializedContent?.data ?? retainedTail
             }
           )
