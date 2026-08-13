@@ -142,6 +142,19 @@ describe('terminal multiplex initial snapshot fallback', () => {
     expect(snapshot.start.unavailable).toBeUndefined()
   })
 
+  it('does not rebuild the retained tail when serialized content is available', async () => {
+    const tail = ['retained line']
+    const tailJoin = vi.spyOn(tail, 'join')
+    const snapshot = await subscribeSnapshot({
+      connectionId: 'conn-serialized-snapshot-tail',
+      serialized: { data: 'serialized screen', cols: 120, rows: 40 },
+      tail
+    })
+
+    expect(snapshot.data).toBe('serialized screen')
+    expect(tailJoin).not.toHaveBeenCalled()
+  })
+
   it('reports unavailable when neither serialized data nor a retained tail exists', async () => {
     const snapshot = await subscribeSnapshot({
       connectionId: 'conn-null-snapshot-no-tail',

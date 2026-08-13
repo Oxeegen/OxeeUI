@@ -2682,7 +2682,6 @@ export const TERMINAL_METHODS: RpcAnyMethod[] = [
                   'initial-snapshot'
                 )
               : null
-          const retainedTail = read.tail.length > 0 ? `${read.tail.join('\r\n')}\r\n` : ''
           const snapshotPublication = sendSnapshotFrames(
             (opcode, payload) => sendFrame(request.streamId, opcode, payload),
             {
@@ -2703,7 +2702,9 @@ export const TERMINAL_METHODS: RpcAnyMethod[] = [
               // tail, is a genuinely empty pane and must not be reported as a failure.
               unavailable:
                 serialized || read.tail.length > 0 ? undefined : 'no-serializable-buffer',
-              data: serializedContent?.data ?? retainedTail
+              data:
+                serializedContent?.data ??
+                (read.tail.length > 0 ? `${read.tail.join('\r\n')}\r\n` : '')
             }
           )
           const replacement = stream.sourceRangeReplacement
