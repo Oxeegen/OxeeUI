@@ -643,7 +643,7 @@ export class OrchestrationDb {
         scheduler_lost_at   TEXT
       );
     `)
-    this.createUndeliveredInboxIndexIfPossible()
+    this.createMailboxDeliveryIndexesIfPossible()
   }
 
   // Why: CREATE TABLE IF NOT EXISTS won't alter existing DBs; migrate in a txn that bumps user_version only on success (atomic all-or-nothing).
@@ -1045,7 +1045,7 @@ export class OrchestrationDb {
           ON dispatch_contexts(assignee_pane_key)
           WHERE assignee_pane_key IS NOT NULL AND status IN ('pending', 'dispatched');
       `)
-      this.createUndeliveredInboxIndexIfPossible()
+      this.createMailboxDeliveryIndexesIfPossible()
 
       this.db.pragma(`user_version = ${SCHEMA_VERSION}`)
       this.db.exec('COMMIT')
@@ -1428,7 +1428,7 @@ export class OrchestrationDb {
     return rows.some((r) => r.name === column)
   }
 
-  private createUndeliveredInboxIndexIfPossible(): void {
+  private createMailboxDeliveryIndexesIfPossible(): void {
     const hasDeliveredAt = this.hasColumn('messages', 'delivered_at')
     if (hasDeliveredAt) {
       this.db.exec(`
@@ -1448,7 +1448,10 @@ export class OrchestrationDb {
       CREATE INDEX IF NOT EXISTS idx_messages_undelivered_direct_run
         ON messages(run_id, to_handle, sequence)
         WHERE read = 0 AND delivered_at IS NULL
-          AND delivery_contract = 'current_delivery'
+          AND delivery_contract = 'current_delivery';
+      CREATE INDEX IF NOT EXISTS idx_messages_unread_current_inbox
+        ON messages(to_handle, sequence)
+        WHERE read = 0 AND delivery_contract = 'current_delivery';
     `)
   }
 
@@ -3699,27 +3702,30 @@ export class OrchestrationDb {
   routeUnreadDispatchMailboxToRunMailbox(
     dispatchId: string,
     runId: string
-  ): { routedCount: number; types: MessageType[] } {
+  ): DirectMailboxRoutingPage {
     const dispatchMailbox = `dispatch:${dispatchId}`
-    this.db.exec('BEGIN IMMEDIATE')
-    try {
-      const rows = this.db
-        .prepare(
-          `SELECT DISTINCT type FROM messages
-           WHERE to_handle = ? AND read = 0 AND delivery_contract = 'current_delivery'`
-        )
-        .all(dispatchMailbox) as { type: MessageType }[]
-      const result = this.db
-        .prepare(
-          `UPDATE messages SET to_handle = ?
-           WHERE to_handle = ? AND read = 0 AND delivery_contract = 'current_delivery'`
-        )
-        .run(`run:${runId}`, dispatchMailbox)
-      this.db.exec('COMMIT')
-      return { routedCount: Number(result.changes), types: rows.map((row) => row.type) }
-    } catch (error) {
-      this.db.exec('ROLLBACK')
-      throw error
+    const rows = this.db
+      .prepare(
+        `SELECT id, type FROM messages INDEXED BY idx_messages_unread_current_inbox
+         WHERE to_handle = ? AND read = 0 AND delivery_contract = 'current_delivery'
+         ORDER BY sequence LIMIT ?`
+      )
+      .all(dispatchMailbox, ORCHESTRATION_DELIVERY_BATCH_LIMIT + 1) as {
+      id: string
+      type: MessageType
+    }[]
+    const page = rows.slice(0, ORCHESTRATION_DELIVERY_BATCH_LIMIT)
+    if (page.length === 0) {
+      return { routedCount: 0, hasMore: false, types: [] }
+    }
+    const placeholders = page.map(() => '?').join(',')
+    const result = this.db
+      .prepare(`UPDATE messages SET to_handle = ? WHERE id IN (${placeholders})`)
+      .run(`run:${runId}`, ...page.map((row) => row.id))
+    return {
+      routedCount: Number(result.changes),
+      hasMore: rows.length > ORCHESTRATION_DELIVERY_BATCH_LIMIT,
+      types: [...new Set(page.map((row) => row.type))]
     }
   }
 

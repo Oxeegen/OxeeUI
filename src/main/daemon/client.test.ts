@@ -661,6 +661,26 @@ describe('DaemonClient', () => {
       await expect(
         client.notifyWithSettlement('write', { sessionId: 'session-1', data: 'hello' })
       ).resolves.toBe(false)
+      expect(client.isConnected()).toBe(false)
+    })
+
+    it('disconnects a daemon socket whose write settlement exceeds its deadline', async () => {
+      await startMockDaemon()
+      client = new DaemonClient({ socketPath, tokenPath })
+      await client.ensureConnected()
+      const internals = client as unknown as { controlSocket: Socket }
+      vi.spyOn(internals.controlSocket, 'write').mockImplementation((() => true) as Socket['write'])
+      vi.useFakeTimers()
+
+      const pending = client.notifyWithSettlement(
+        'write',
+        { sessionId: 'session-1', data: 'hello' },
+        5000
+      )
+      await vi.advanceTimersByTimeAsync(5000)
+
+      await expect(pending).resolves.toBe(false)
+      expect(client.isConnected()).toBe(false)
     })
   })
 })

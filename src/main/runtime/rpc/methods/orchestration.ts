@@ -44,7 +44,7 @@ const TASK_STATUSES: TaskStatus[] = [
   'blocked'
 ]
 
-async function routeAllDirectMessagePages(
+async function routeAllMailboxPages(
   routePage: () => { routedCount: number; hasMore: boolean },
   signal?: AbortSignal
 ): Promise<void> {
@@ -749,7 +749,7 @@ export const ORCHESTRATION_METHODS: RpcMethod[] = [
       ): Promise<void> => {
         const throughSequence = db.getLatestUnreadDirectMessageSequenceForRun(runId, directHandle)
         if (throughSequence !== undefined) {
-          await routeAllDirectMessagePages(() => routePage(throughSequence), signal)
+          await routeAllMailboxPages(() => routePage(throughSequence), signal)
         }
       }
 
@@ -960,7 +960,7 @@ export const ORCHESTRATION_METHODS: RpcMethod[] = [
           : undefined
       if (workerMailbox) {
         const address = `dispatch:${workerMailbox.dispatchId}`
-        const revalidateWorkerMailbox = (): void => {
+        const revalidateWorkerMailbox = async (): Promise<void> => {
           if (activeDispatch) {
             const current = db.getActiveDispatchForIdentity(handle, paneKey ?? undefined)
             if (current?.id === activeDispatch.id) {
@@ -987,11 +987,18 @@ export const ORCHESTRATION_METHODS: RpcMethod[] = [
             (!latestDispatch ||
               (latestDispatch.status !== 'pending' && latestDispatch.status !== 'dispatched'))
           ) {
-            const routed = db.routeUnreadDispatchMailboxToRunMailbox(
-              workerMailbox.dispatchId,
-              owningRunId
-            )
-            for (const routedType of routed.types) {
+            const routedTypes = new Set<MessageType>()
+            await routeAllMailboxPages(() => {
+              const routed = db.routeUnreadDispatchMailboxToRunMailbox(
+                workerMailbox.dispatchId,
+                owningRunId
+              )
+              for (const routedType of routed.types) {
+                routedTypes.add(routedType)
+              }
+              return routed
+            })
+            for (const routedType of routedTypes) {
               runtime.notifyMessageArrived(`run:${owningRunId}`, routedType)
             }
           }
@@ -1021,7 +1028,7 @@ export const ORCHESTRATION_METHODS: RpcMethod[] = [
             )
           }
         }
-        revalidateWorkerMailbox()
+        await revalidateWorkerMailbox()
         const showAll = params.all === true || (params.unread === false && params.peek !== true)
         const messages = showAll
           ? db.getAllMessagesForHandle(address, 100, typeFilter)
@@ -1045,7 +1052,7 @@ export const ORCHESTRATION_METHODS: RpcMethod[] = [
           timeoutMs: params.timeoutMs ?? undefined,
           signal
         })
-        revalidateWorkerMailbox()
+        await revalidateWorkerMailbox()
         if (waitResult === 'timed_out' || waitResult === 'cancelled') {
           return {
             ...(workerMailbox.runId ? { runId: workerMailbox.runId } : {}),

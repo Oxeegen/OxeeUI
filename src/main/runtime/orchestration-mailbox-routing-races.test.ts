@@ -70,7 +70,7 @@ describe('orchestration mailbox routing races', () => {
     })
     const task = db.createTask({ spec: 'Worker task', runId: run.id })
     const dispatch = db.createDispatchContext(task.id, TERMINAL_HANDLE, PANE_KEY)
-    for (let index = 0; index < 51; index += 1) {
+    for (let index = 0; index < 151; index += 1) {
       insertDirectRunMessage(db, run.id, `Before completion ${index}`)
     }
     const route = db.routeUnreadDirectMessagesToDispatchMailbox.bind(db)
@@ -83,11 +83,28 @@ describe('orchestration mailbox routing races', () => {
       }
       return page
     })
+    const migrate = db.routeUnreadDispatchMailboxToRunMailbox.bind(db)
+    const migrationSpy = vi
+      .spyOn(db, 'routeUnreadDispatchMailboxToRunMailbox')
+      .mockImplementation((...args) => migrate(...args))
+    const arrivalSpy = vi.spyOn(harness.runtime, 'notifyMessageArrived')
 
     const response = await dispatchMailboxCheck(harness.runtime)
 
     expect(response).toMatchObject({ ok: false, error: { code: 'dispatch_inactive' } })
     expect(db.getUnreadMessages(`dispatch:${dispatch.id}`)).toHaveLength(0)
+    expect(migrationSpy).toHaveBeenCalledTimes(4)
+    expect(arrivalSpy).toHaveBeenCalledOnce()
+    expect(arrivalSpy).toHaveBeenCalledWith(`run:${run.id}`, 'status')
+    const plan = sqliteFor(db)
+      .prepare(
+        `EXPLAIN QUERY PLAN SELECT id, type FROM messages
+         INDEXED BY idx_messages_unread_current_inbox
+         WHERE to_handle = ? AND read = 0 AND delivery_contract = 'current_delivery'
+         ORDER BY sequence LIMIT ?`
+      )
+      .all(`dispatch:${dispatch.id}`, 51) as { detail: string }[]
+    expect(plan.map((row) => row.detail).join(' ')).toContain('idx_messages_unread_current_inbox')
     const first = await checkBoundMailbox(harness.runtime, {
       terminal: SECOND_TERMINAL_HANDLE,
       paneKey: SECOND_PANE_KEY,
@@ -99,15 +116,29 @@ describe('orchestration mailbox routing races', () => {
       paneKey: SECOND_PANE_KEY,
       launchToken: SECOND_LAUNCH_TOKEN
     })
-    const acknowledged = await checkBoundMailbox(harness.runtime, {
+    const third = await checkBoundMailbox(harness.runtime, {
       ack: second.deliveryId!,
       terminal: SECOND_TERMINAL_HANDLE,
       paneKey: SECOND_PANE_KEY,
       launchToken: SECOND_LAUNCH_TOKEN
     })
+    const fourth = await checkBoundMailbox(harness.runtime, {
+      ack: third.deliveryId!,
+      terminal: SECOND_TERMINAL_HANDLE,
+      paneKey: SECOND_PANE_KEY,
+      launchToken: SECOND_LAUNCH_TOKEN
+    })
+    const acknowledged = await checkBoundMailbox(harness.runtime, {
+      ack: fourth.deliveryId!,
+      terminal: SECOND_TERMINAL_HANDLE,
+      paneKey: SECOND_PANE_KEY,
+      launchToken: SECOND_LAUNCH_TOKEN
+    })
     expect(first.count).toBe(50)
-    expect(second.count).toBe(1)
-    expect(acknowledged).toMatchObject({ count: 0, acknowledged: second.deliveryId })
+    expect(second.count).toBe(50)
+    expect(third.count).toBe(50)
+    expect(fourth.count).toBe(1)
+    expect(acknowledged).toMatchObject({ count: 0, acknowledged: fourth.deliveryId })
     db.close()
   })
 

@@ -23,6 +23,7 @@ import { decodeDaemonResponseError } from './daemon-errors'
 const CONNECT_TIMEOUT_MS = 5000
 const CONNECTION_ATTEMPT_WAIT_MS = CONNECT_TIMEOUT_MS * 4
 const REQUEST_TIMEOUT_MS = 30000
+const NOTIFY_SETTLEMENT_TIMEOUT_MS = 5000
 
 export type DaemonClientOptions = {
   socketPath: string
@@ -247,7 +248,11 @@ export class DaemonClient {
     }
   }
 
-  async notifyWithSettlement(type: string, payload: unknown): Promise<boolean> {
+  async notifyWithSettlement(
+    type: string,
+    payload: unknown,
+    timeoutMs = NOTIFY_SETTLEMENT_TIMEOUT_MS
+  ): Promise<boolean> {
     if (!this.connected || !this.controlSocket) {
       return false
     }
@@ -255,10 +260,28 @@ export class DaemonClient {
     const id = `${NOTIFY_PREFIX}${++this.requestCounter}`
     const msg = { id, type, ...(payload !== undefined ? { payload } : {}) }
     return await new Promise<boolean>((resolve) => {
+      const socket = this.controlSocket!
+      const generation = this.connectionGeneration
+      let settled = false
+      const settle = (accepted: boolean): void => {
+        if (settled) {
+          return
+        }
+        settled = true
+        clearTimeout(timer)
+        resolve(accepted)
+      }
+      const rejectAndDisconnect = (): void => {
+        if (this.controlSocket === socket && this.connectionGeneration === generation) {
+          this.handleDisconnect(generation)
+        }
+        settle(false)
+      }
+      const timer = setTimeout(rejectAndDisconnect, timeoutMs)
       try {
-        this.controlSocket!.write(encodeNdjson(msg), (error) => resolve(!error))
+        socket.write(encodeNdjson(msg), (error) => (error ? rejectAndDisconnect() : settle(true)))
       } catch {
-        resolve(false)
+        rejectAndDisconnect()
       }
     })
   }
