@@ -247,6 +247,22 @@ export class DaemonClient {
     }
   }
 
+  async notifyWithSettlement(type: string, payload: unknown): Promise<boolean> {
+    if (!this.connected || !this.controlSocket) {
+      return false
+    }
+
+    const id = `${NOTIFY_PREFIX}${++this.requestCounter}`
+    const msg = { id, type, ...(payload !== undefined ? { payload } : {}) }
+    return await new Promise<boolean>((resolve) => {
+      try {
+        this.controlSocket!.write(encodeNdjson(msg), (error) => resolve(!error))
+      } catch {
+        resolve(false)
+      }
+    })
+  }
+
   onEvent(listener: (event: unknown) => void): () => void {
     this.eventListeners.push(listener)
     return () => {

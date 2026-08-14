@@ -1725,6 +1725,7 @@ type RuntimePtyController = {
     agentSessionEnsure?: AgentSessionClaimedSpawnResult
   }>
   write(ptyId: string, data: string): boolean
+  writeWithSettlement?(ptyId: string, data: string): Promise<boolean>
   /** Attach-only adoption of a live local daemon session so its output streams
    *  to main without a renderer pane; never creates, resizes, or focuses.
    *  False on doubt (absent session, SSH-scoped id, non-daemon provider). */
@@ -2907,7 +2908,7 @@ export class OrcaRuntimeService {
       isLeafPtyProvenAbsent: (ptyId) => this.isLeafPtyProvenAbsent(ptyId),
       redriveMailbox: (mailboxHandle, reservedTypes) =>
         this.deliverPendingMessagesForHandle(mailboxHandle, reservedTypes),
-      writePty: (ptyId, data) => this.ptyController?.write(ptyId, data) ?? false
+      writePty: (ptyId, data) => this.writeOrchestrationPointerPty(ptyId, data)
     })
   private readonly orchestrationMailboxNotifications =
     new OrchestrationMailboxNotificationCoordinator<MessageWaiter>({
@@ -32154,6 +32155,17 @@ export class OrcaRuntimeService {
 
   deliverPendingMessagesForHandle(handle: string, reservedTypes?: ReadonlySet<string>): void {
     this.orchestrationMailboxNotifications.deliverForHandle(handle, reservedTypes)
+  }
+
+  private writeOrchestrationPointerPty(ptyId: string, data: string): boolean | Promise<boolean> {
+    try {
+      if (this.ptyController?.writeWithSettlement) {
+        return this.ptyController.writeWithSettlement(ptyId, data).catch(() => false)
+      }
+      return this.ptyController?.write(ptyId, data) ?? false
+    } catch {
+      return false
+    }
   }
 
   private retireOrchestrationMailboxDeliveryForPty(ptyId: string): void {

@@ -644,5 +644,23 @@ describe('DaemonClient', () => {
       // Swallowed, not rethrown: a dead socket must not tear down the caller.
       expect(client.notify('write', { sessionId: 'session-1', data: 'hello' })).toBe(false)
     })
+
+    it('reports an asynchronous socket write failure at settlement', async () => {
+      await startMockDaemon()
+      client = new DaemonClient({ socketPath, tokenPath })
+      await client.ensureConnected()
+      const internals = client as unknown as { controlSocket: Socket }
+      vi.spyOn(internals.controlSocket, 'write').mockImplementation(((
+        _data: string,
+        callback: (error?: Error | null) => void
+      ) => {
+        callback(new Error('EPIPE'))
+        return false
+      }) as Socket['write'])
+
+      await expect(
+        client.notifyWithSettlement('write', { sessionId: 'session-1', data: 'hello' })
+      ).resolves.toBe(false)
+    })
   })
 })

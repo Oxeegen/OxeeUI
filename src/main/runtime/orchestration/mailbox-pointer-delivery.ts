@@ -13,6 +13,7 @@ import {
   OrchestrationMailboxPointerState,
   type OrchestrationMailboxDeliveryFlight
 } from './mailbox-pointer-state'
+import { submitOrchestrationMailboxPointer } from './mailbox-pointer-submit'
 
 export type { OrchestrationMessageWaiter } from './mailbox-pointer-eligibility'
 
@@ -28,7 +29,7 @@ type PointerDeliveryDependencies<TWaiter extends OrchestrationMessageWaiter> = {
   getTerminalHandleForLeafKey: (leafKey: string) => string | undefined
   isLeafPtyProvenAbsent: (ptyId: string) => Promise<boolean>
   redriveMailbox: (mailboxHandle: string, reservedTypes?: ReadonlySet<string>) => void
-  writePty: (ptyId: string, data: string) => boolean
+  writePty: (ptyId: string, data: string) => boolean | Promise<boolean>
 }
 
 export class OrchestrationMailboxPointerDelivery<TWaiter extends OrchestrationMessageWaiter> {
@@ -172,15 +173,67 @@ export class OrchestrationMailboxPointerDelivery<TWaiter extends OrchestrationMe
     unread: readonly { id: string; type: string; sequence: number }[],
     newestSequence: number
   ): void {
-    const db = this.deps.getDb()
     const ptyId = leaf.ptyId
-    if (!db || !ptyId) {
+    if (!ptyId) {
       return
     }
     const flight = this.state.beginFlight(ptyId)
+    const writeResult = this.deps.writePty(
+      ptyId,
+      formatMessagePointer(unread.length, mailboxHandle)
+    )
+    if (typeof writeResult === 'boolean') {
+      this.finishPointerWrite(
+        leaf,
+        mailboxHandle,
+        unread,
+        newestSequence,
+        ptyId,
+        flight,
+        writeResult
+      )
+      return
+    }
+    void writeResult.then(
+      (accepted) =>
+        this.finishPointerWrite(
+          leaf,
+          mailboxHandle,
+          unread,
+          newestSequence,
+          ptyId,
+          flight,
+          accepted
+        ),
+      () =>
+        this.finishPointerWrite(leaf, mailboxHandle, unread, newestSequence, ptyId, flight, false)
+    )
+  }
+
+  private finishPointerWrite(
+    leaf: OrchestrationMailboxLeaf,
+    mailboxHandle: string,
+    unread: readonly { id: string; type: string; sequence: number }[],
+    newestSequence: number,
+    ptyId: string,
+    flight: OrchestrationMailboxDeliveryFlight,
+    accepted: boolean
+  ): void {
     let delayedSettle = false
     try {
-      if (!this.deps.writePty(ptyId, formatMessagePointer(unread.length, mailboxHandle))) {
+      if (!accepted || !this.state.isCurrentFlight(ptyId, flight)) {
+        return
+      }
+      const db = this.deps.getDb()
+      if (
+        !db ||
+        shouldReleaseOrchestrationPointer(
+          db,
+          mailboxHandle,
+          unread,
+          this.deps.getMessageWaiters(mailboxHandle)
+        )
+      ) {
         return
       }
       flight.stagedMessageIds = unread.map((message) => message.id)
@@ -196,7 +249,22 @@ export class OrchestrationMailboxPointerDelivery<TWaiter extends OrchestrationMe
         return
       }
       flight.enterTimer = setTimeout(
-        () => this.submitPointer(leaf, mailboxHandle, unread, newestSequence, ptyId, flight),
+        () =>
+          submitOrchestrationMailboxPointer(
+            {
+              mailboxOwner: this.deps.mailboxOwner,
+              state: this.state,
+              getDb: this.deps.getDb,
+              getLeaf: this.deps.getLeaf,
+              getLeafKey: this.deps.getLeafKey,
+              getMessageWaiters: this.deps.getMessageWaiters,
+              isLeafPtyProvenAbsent: this.deps.isLeafPtyProvenAbsent,
+              writePty: this.deps.writePty,
+              settle: (settledPtyId, settledFlight) => this.settle(settledPtyId, settledFlight),
+              redrive: (redriveMailbox, force) => this.redrive(redriveMailbox, force)
+            },
+            { leaf, mailboxHandle, messages: unread, newestSequence, ptyId, flight }
+          ),
         500
       )
       delayedSettle = true
@@ -205,71 +273,6 @@ export class OrchestrationMailboxPointerDelivery<TWaiter extends OrchestrationMe
         this.settle(ptyId, flight)
       }
     }
-  }
-
-  private submitPointer(
-    leaf: OrchestrationMailboxLeaf,
-    mailboxHandle: string,
-    unread: readonly { id: string; type: string }[],
-    newestSequence: number,
-    ptyId: string,
-    flight: OrchestrationMailboxDeliveryFlight
-  ): void {
-    let clearAndRedrive = false
-    let submitted = false
-    let releaseWithoutRedrive = false
-    let finalizeReservation = true
-    void this.deps
-      .isLeafPtyProvenAbsent(ptyId)
-      .then((absent) => {
-        if (absent) {
-          clearAndRedrive = true
-          return
-        }
-        if (!this.state.isCurrentFlight(ptyId, flight)) {
-          finalizeReservation = false
-          return
-        }
-        const currentLeaf = this.deps.getLeaf(this.leafKey(leaf))
-        if (!currentLeaf || currentLeaf.ptyId !== ptyId || !currentLeaf.writable) {
-          clearAndRedrive = true
-        } else if (this.deps.mailboxOwner.resolve(currentLeaf) !== mailboxHandle) {
-          clearAndRedrive = true
-        } else if (
-          currentLeaf.lastAgentStatus === 'idle' &&
-          currentLeaf.lastAgentStatusObservedLive
-        ) {
-          if (
-            shouldReleaseOrchestrationPointer(
-              this.deps.getDb(),
-              mailboxHandle,
-              unread,
-              this.deps.getMessageWaiters(mailboxHandle)
-            )
-          ) {
-            releaseWithoutRedrive = true
-          } else {
-            submitted = this.deps.writePty(ptyId, '\r')
-          }
-        }
-      })
-      .catch(() => undefined)
-      .finally(() => {
-        let released = false
-        if (finalizeReservation) {
-          if (clearAndRedrive) {
-            this.deps.getDb()?.markAsUndelivered(unread.map((message) => message.id))
-          }
-          released =
-            submitted || clearAndRedrive || releaseWithoutRedrive
-              ? this.state.clearWatermark(mailboxHandle, newestSequence, ptyId)
-              : this.state.deactivateWatermark(mailboxHandle, newestSequence, ptyId)
-        }
-        this.settle(ptyId, flight)
-        if (released && !releaseWithoutRedrive) {
-          this.redrive(mailboxHandle, clearAndRedrive)
-        }
-      })
   }
 
   private settle(ptyId: string, flight: OrchestrationMailboxDeliveryFlight): void {

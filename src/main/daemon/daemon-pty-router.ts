@@ -93,6 +93,10 @@ export class DaemonPtyRouter implements IPtyProvider {
     return this.adapterFor(id).write(id, data)
   }
 
+  writeWithSettlement(id: string, data: string): Promise<boolean> {
+    return this.adapterFor(id).writeWithSettlement(id, data)
+  }
+
   resize(id: string, cols: number, rows: number): void {
     this.adapterFor(id).resize(id, cols, rows)
   }

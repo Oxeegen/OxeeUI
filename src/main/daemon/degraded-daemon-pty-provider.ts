@@ -112,6 +112,13 @@ export class DegradedDaemonPtyProvider implements IPtyProvider {
     return this.providerFor(id).write(id, data)
   }
 
+  async writeWithSettlement(id: string, data: string): Promise<boolean> {
+    const provider = this.providerFor(id)
+    return provider.writeWithSettlement
+      ? await provider.writeWithSettlement(id, data)
+      : provider.write(id, data) !== false
+  }
+
   resize(id: string, cols: number, rows: number): void {
     this.providerFor(id).resize(id, cols, rows)
   }
