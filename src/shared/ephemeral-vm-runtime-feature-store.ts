@@ -2,6 +2,10 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { z } from 'zod'
 import { readNodeFileSyncWithinLimit } from './node-bounded-file-reader'
+import {
+  JsonStringifyByteLimitError,
+  stringifyJsonWithinByteLimit
+} from './node-bounded-json-stringify'
 import { writeSecureJsonFileWithinLimit } from './bounded-secure-json-file'
 import { hardenExistingSecureFile } from './secure-file'
 import {
@@ -22,7 +26,7 @@ const EphemeralVmRuntimeFeatureEntrySchema = z
   })
   .strict()
 
-type EphemeralVmRuntimeFeatureEntry = z.infer<typeof EphemeralVmRuntimeFeatureEntrySchema>
+export type EphemeralVmRuntimeFeatureEntry = z.infer<typeof EphemeralVmRuntimeFeatureEntrySchema>
 
 const EphemeralVmRuntimeFeatureStoreSchema = z
   .object({
@@ -45,6 +49,38 @@ export type EphemeralVmRuntimeFeatureStoreSnapshot =
 
 export function getEphemeralVmRuntimeFeatureStorePath(userDataPath: string): string {
   return join(userDataPath, EPHEMERAL_VM_RUNTIME_FEATURES_FILE)
+}
+
+export function assertEphemeralVmRuntimeCheckoutModeCanPersist(
+  userDataPath: string,
+  args: {
+    id: string
+    recipeId: string
+    createdAt: number
+    checkoutMode: NonNullable<NonNullable<EphemeralVmRuntimeRecord['recipe']>['checkoutMode']>
+  }
+): void {
+  const snapshot = readEphemeralVmRuntimeFeatureStore(userDataPath)
+  if (!snapshot.writable) {
+    throw new Error('Could not preserve ephemeral VM runtime compatibility metadata.')
+  }
+  const required: EphemeralVmRuntimeFeatureEntry = {
+    id: args.id,
+    recipeId: args.recipeId,
+    createdAt: args.createdAt,
+    recipeCheckoutMode: args.checkoutMode,
+    ...(args.checkoutMode === 'provisioned-root' ? { resultCheckoutMode: 'provisioned-root' } : {})
+  }
+  try {
+    assertFeatureStoreCanPersist(snapshot, mergeFeatureEntries(snapshot.features, [required]))
+  } catch (error) {
+    if (error instanceof JsonStringifyByteLimitError) {
+      throw new Error(
+        'Could not preserve ephemeral VM runtime compatibility metadata; the feature store exceeds its durable capacity.'
+      )
+    }
+    throw error
+  }
 }
 
 export function readEphemeralVmRuntimeFeatureStore(
@@ -80,12 +116,34 @@ export function writeEphemeralVmRuntimeFeatureStore(
   }
   writeSecureJsonFileWithinLimit(
     getEphemeralVmRuntimeFeatureStorePath(userDataPath),
-    {
-      version: 1,
-      records: [...sortFeatures(features), ...snapshot.retainedRecords]
-    },
+    runtimeFeatureStoreValue(snapshot, features),
+    MAX_EPHEMERAL_VM_RUNTIME_FEATURE_STORE_FILE_BYTES,
+    { durable: true }
+  )
+}
+
+function assertFeatureStoreCanPersist(
+  snapshot: EphemeralVmRuntimeFeatureStoreSnapshot,
+  features: EphemeralVmRuntimeFeatureEntry[]
+): void {
+  if (!snapshot.writable) {
+    throw new Error('The ephemeral VM runtime feature store is not writable.')
+  }
+  stringifyJsonWithinByteLimit(
+    runtimeFeatureStoreValue(snapshot, features),
     MAX_EPHEMERAL_VM_RUNTIME_FEATURE_STORE_FILE_BYTES
   )
+}
+
+function mergeFeatureEntries(
+  existing: readonly EphemeralVmRuntimeFeatureEntry[],
+  required: readonly EphemeralVmRuntimeFeatureEntry[]
+): EphemeralVmRuntimeFeatureEntry[] {
+  const merged = new Map(existing.map((entry) => [featureIdentity(entry), entry]))
+  for (const entry of required) {
+    merged.set(featureIdentity(entry), entry)
+  }
+  return sortFeatures([...merged.values()])
 }
 
 export function featureEntryFromRuntime(
@@ -176,4 +234,14 @@ function sortFeatures(
   return [...features].sort((left, right) =>
     featureIdentity(left).localeCompare(featureIdentity(right))
   )
+}
+
+function runtimeFeatureStoreValue(
+  snapshot: Extract<EphemeralVmRuntimeFeatureStoreSnapshot, { writable: true }>,
+  features: EphemeralVmRuntimeFeatureEntry[]
+): { version: 1; records: unknown[] } {
+  return {
+    version: 1,
+    records: [...sortFeatures(features), ...snapshot.retainedRecords]
+  }
 }

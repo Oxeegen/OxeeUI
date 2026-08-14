@@ -33,7 +33,8 @@
       "commands": [
         "node config/scripts/run-ephemeral-vm-runtime-store-rollback-repro.mjs config/scripts/ephemeral-vm-runtime-store-cross-version.test.ts",
         "pnpm exec vitest run --config config/vitest.config.ts src/shared/ephemeral-vm-runtime-store.test.ts src/shared/ephemeral-vm-runtime-store-rollback.test.ts src/main/ephemeral-vm-runtime-service.test.ts src/main/ephemeral-vm-recipe-runner.test.ts src/main/ephemeral-vm-runtime-ssh-cleanup.test.ts src/main/ipc/ephemeral-vm-runtime-handler-cleanup.test.ts src/main/ipc/ephemeral-vm.test.ts src/main/provisioned-root-ssh-adoption.test.ts",
-        "ORCA_E2E_SSH_DOCKER=1 pnpm exec playwright test tests/e2e/ephemeral-vm-provisioned-root.spec.ts --config tests/playwright.config.ts --project electron-headless --workers=1"
+        "ORCA_E2E_SSH_DOCKER=1 pnpm exec playwright test tests/e2e/ephemeral-vm-provisioned-root.spec.ts --config tests/playwright.config.ts --project electron-headless --workers=1",
+        "SKIP_BUILD=1 ORCA_E2E_SSH_DOCKER=1 pnpm exec playwright test tests/e2e/ephemeral-vm-provisioned-root.spec.ts --config tests/playwright.config.ts --project electron-headless --workers=1"
       ],
       "testFiles": [
         "config/scripts/ephemeral-vm-runtime-store-cross-version.test.ts",
@@ -57,7 +58,16 @@
           "assertions": [
             "ordinary runtime bytes remain unchanged and create no feature sidecar",
             "malformed, future, oversized, and unknown feature data is preserved without poisoning v1 records",
-            "current-main poisoned bytes migrate to a rollback-readable projection"
+            "current-main poisoned bytes migrate to a rollback-readable projection",
+            "unchanged compatibility metadata is not rewritten during lifecycle updates"
+          ]
+        },
+        {
+          "file": "src/main/ephemeral-vm-runtime-service.test.ts",
+          "assertions": [
+            "an unreadable companion rejects checkout-mode recipes before their create command runs",
+            "post-create persistence failure destroys the provider resource when possible",
+            "failed destroy persists a durable rollback-readable cleanup recovery record"
           ]
         }
       ],
@@ -78,7 +88,16 @@
           "command": "pnpm exec vitest run --config config/vitest.config.ts src/shared/ephemeral-vm-runtime-store.test.ts src/shared/ephemeral-vm-runtime-store-rollback.test.ts src/main/ephemeral-vm-runtime-service.test.ts src/main/ephemeral-vm-recipe-runner.test.ts src/main/ephemeral-vm-runtime-ssh-cleanup.test.ts src/main/ipc/ephemeral-vm-runtime-handler-cleanup.test.ts src/main/ipc/ephemeral-vm.test.ts src/main/provisioned-root-ssh-adoption.test.ts",
           "result": "passed",
           "durationSeconds": 2,
-          "summary": "Fifty-eight focused store, recipe, lifecycle, cleanup-handler, and provisioned-root adoption tests passed."
+          "summary": "Sixty-two focused store, recipe, lifecycle, cleanup-handler, provisioning-recovery, and provisioned-root adoption tests passed."
+        },
+        {
+          "date": "2026-08-14",
+          "runner": "local",
+          "platform": "macos",
+          "command": "ORCA_E2E_SSH_DOCKER=1 pnpm exec playwright test tests/e2e/ephemeral-vm-provisioned-root.spec.ts --config tests/playwright.config.ts --project electron-headless --workers=1",
+          "result": "passed",
+          "durationSeconds": 21,
+          "summary": "The final-tree full-build run completed the Docker Linux SSH journey: create, provisioned-root adoption, terminal, workspace removal, destroy, and provider-container cleanup."
         }
       ],
       "runtimeBudget": {
@@ -87,7 +106,7 @@
       },
       "flakeHistory": {
         "status": "unknown",
-        "evidence": "The deterministic local contract runs are stable; CI and Docker Electron soak history have not started."
+        "evidence": "The deterministic contract runs are stable. Two local Electron attempts reached successful adoption and terminal use, then hit the existing final context-menu detach; the immediate build-reuse rerun completed removal and destroy. CI soak history has not started."
       },
       "redGreenEvidence": {
         "status": "complete",
@@ -95,7 +114,7 @@
       },
       "performanceBudget": {
         "required": true,
-        "evidence": "Ordinary writes remain byte-identical and create no feature sidecar. Reads add one bounded feature-file existence check; feature parsing and atomic writes occur only on VM lifecycle store access, with no polling, timers, subprocesses, renderer work, RPC traffic, or remote fanout."
+        "evidence": "Ordinary writes remain byte-identical and create no feature sidecar. Reads add one bounded feature-file existence check; sorted feature comparisons avoid unchanged rewrites, and durable companion writes occur only when compatibility metadata changes. There is no polling, timer, renderer work, RPC traffic, or remote fanout."
       },
       "promotionCriteria": [
         "Keep the pinned baseline/latest/candidate/revert oracle green in CI.",
@@ -104,7 +123,7 @@
       ],
       "knownGaps": [
         "No packaged-build downgrade installer journey; the exact released source reader and service are executed in-process.",
-        "Live Docker SSH coverage runs on macOS CI; Windows and Linux desktop behavior is covered by the platform-neutral filesystem codec."
+        "Live Docker SSH evidence runs locally on macOS and in the changed-file PR E2E lane on Ubuntu; Windows desktop behavior is covered by the platform-neutral filesystem codec and package job."
       ],
       "demotionRule": "Demote if a new write fails the pinned rollback reader, a downgrade lifecycle mutation is lost after re-upgrade, malformed/future metadata overwrites recoverable bytes, ordinary v1 bytes change, or the focused gate flakes without an identified harness defect."
     },

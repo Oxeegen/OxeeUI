@@ -1,4 +1,12 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, truncateSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  truncateSync,
+  writeFileSync
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -143,6 +151,30 @@ describe('ephemeral VM runtime store rollback projection', () => {
     const persisted = JSON.parse(readFileSync(getEphemeralVmRuntimeStorePath(userDataPath), 'utf8'))
     expect(RollbackEphemeralVmRuntimeStoreSchema.safeParse(persisted).success).toBe(true)
     expect(listEphemeralVmRuntimes(userDataPath)).toEqual([runtime])
+  })
+
+  it('does not rewrite unchanged features when runtime order differs from feature order', () => {
+    const userDataPath = makeUserDataPath()
+    const older = {
+      ...provisionedRootRecord(),
+      id: 'a-runtime',
+      recipeId: 'a-recipe',
+      createdAt: 1_000
+    }
+    const newer = {
+      ...provisionedRootRecord(),
+      id: 'z-runtime',
+      recipeId: 'z-recipe',
+      createdAt: 2_000
+    }
+    upsertEphemeralVmRuntime(userDataPath, older)
+    upsertEphemeralVmRuntime(userDataPath, newer)
+    const featurePath = getEphemeralVmRuntimeFeatureStorePath(userDataPath)
+    const inode = statSync(featurePath).ino
+
+    updateEphemeralVmRuntimeStatus(userDataPath, newer.id, { status: 'suspended' })
+
+    expect(statSync(featurePath).ino).toBe(inode)
   })
 
   it('migrates current-main poisoned bytes when they are first read', () => {
