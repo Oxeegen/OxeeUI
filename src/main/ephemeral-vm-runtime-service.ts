@@ -18,7 +18,7 @@ import {
   persistProvisionedEphemeralVmRuntime,
   prepareEphemeralVmCompatibilityPersistence
 } from './ephemeral-vm-runtime-provisioning-persistence'
-import { provisionedRootChangedDuringResume } from './ephemeral-vm-resume-integrity'
+import { getProvisionedRootResumeIntegrityError } from './ephemeral-vm-resume-integrity'
 
 export type ProvisionEphemeralVmRuntimeArgs = {
   userDataPath: string
@@ -271,13 +271,15 @@ export async function resumeEphemeralVmRuntime(
     return { ok: false, runtime: failed, error: resume.error }
   }
 
-  if (!resume.skipped && provisionedRootChangedDuringResume(existing.recipeResult, resume.result)) {
-    const error = 'The provisioned workspace root changed while the runtime was suspended.'
+  const resumeIntegrityError = resume.skipped
+    ? null
+    : getProvisionedRootResumeIntegrityError(existing.recipeResult, resume.result)
+  if (resumeIntegrityError) {
     const failed = updateEphemeralVmRuntimeStatus(args.userDataPath, existing.id, {
       status: 'resume_failed',
       updatedAt: Date.now()
     })
-    return { ok: false, runtime: failed, error }
+    return { ok: false, runtime: failed, error: resumeIntegrityError }
   }
 
   const runtime = updateEphemeralVmRuntimeStatus(args.userDataPath, existing.id, {

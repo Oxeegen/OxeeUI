@@ -35,6 +35,8 @@ import {
 import { registerEphemeralVmRuntimeHandlers } from './ephemeral-vm-runtime-handlers'
 import type { PluginService } from '../plugins/plugin-service'
 import { getApprovedPluginVmRecipes } from '../plugins/plugin-approved-vm-recipes'
+import { gitExecFileAsync } from '../git/runner'
+import { getLocalProjectGitExecOptions } from '../project-runtime-git-options'
 
 const activeProvisionControllers = new Map<string, AbortController>()
 
@@ -52,6 +54,7 @@ export type EphemeralVmProvisionIpcResult =
       connectionType: 'ssh'
       runtime: EphemeralVmRuntimeRecord
       sshTargetId: string
+      expectedRefHead?: string
       stderr: string
       warnings: EphemeralVmRecipeResultWarning[]
     }
@@ -132,6 +135,26 @@ export function registerEphemeralVmHandlers(store: Store, pluginService?: Plugin
         recipe.checkoutMode,
         repo.repo.gitRemoteIdentity?.remoteUrl
       )
+      let expectedRefHead: string | undefined
+      if (recipe.checkoutMode === 'provisioned-root' && args.ref) {
+        try {
+          const { stdout } = await gitExecFileAsync(
+            ['rev-parse', '--verify', '--quiet', '--end-of-options', `${args.ref}^{commit}`],
+            getLocalProjectGitExecOptions(store, repo.repo)
+          )
+          expectedRefHead = stdout.trim() || undefined
+        } catch {
+          expectedRefHead = undefined
+        }
+        if (!expectedRefHead) {
+          return {
+            ok: false,
+            error: `Could not resolve provisioned-root start ref: ${args.ref}`,
+            stdout: '',
+            stderr: ''
+          }
+        }
+      }
       const controller = args.provisionId ? new AbortController() : null
       if (args.provisionId && controller) {
         activeProvisionControllers.set(args.provisionId, controller)
@@ -194,6 +217,7 @@ export function registerEphemeralVmHandlers(store: Store, pluginService?: Plugin
               connectionType: 'ssh',
               runtime,
               sshTargetId: ssh.targetId,
+              ...(expectedRefHead ? { expectedRefHead } : {}),
               stderr: redactEphemeralVmRecipeDiagnosticText(result.start.stderr),
               warnings: getEphemeralVmRecipeResultWarnings(result.start.result)
             }

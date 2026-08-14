@@ -45,6 +45,7 @@ export type EphemeralVmApi = {
         connectionType: 'ssh'
         runtime: EphemeralVmRuntimeRecord
         sshTargetId: string
+        expectedRefHead?: string
         stderr: string
         warnings: EphemeralVmRecipeResultWarning[]
       }

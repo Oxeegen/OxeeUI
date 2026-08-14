@@ -49,6 +49,8 @@ export type WorktreeCreationRequest = {
   ephemeralVmRuntimeEnvironmentId?: string
   /** Checkout ownership selected by the provisioned recipe. */
   ephemeralVmCheckoutMode?: 'orca-worktree' | 'provisioned-root'
+  /** Source-host commit captured before a provisioned-root recipe starts. */
+  ephemeralVmExpectedRefHead?: string
   /** Recipe to provision before creating the worktree. Kept serializable so
    *  retry can rerun the recipe after a failed create. */
   ephemeralVmRecipe?: {

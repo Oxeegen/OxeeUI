@@ -571,4 +571,69 @@ describe('ephemeral VM runtime service', () => {
       }
     })
   })
+
+  it('rejects provisioned-root connection-mode drift during resume', async () => {
+    const userDataPath = makeDir('orca-ephemeral-vm-service-user-data-')
+    const repoPath = makeDir('orca-ephemeral-vm-service-repo-')
+    const resumePath = join(repoPath, 'resume.js')
+    writeFileSync(
+      resumePath,
+      `console.log(${JSON.stringify(
+        JSON.stringify({
+          schemaVersion: 2,
+          checkoutMode: 'provisioned-root',
+          connection: {
+            type: 'orca-server',
+            pairingCode: makePairingCode(),
+            projectRoot: '/workspace/original'
+          }
+        })
+      )})`
+    )
+    const recipe: OrcaVmRecipe = {
+      id: 'cloud-sandbox',
+      name: 'Cloud Sandbox',
+      checkoutMode: 'provisioned-root',
+      create: 'unused',
+      resume: nodeCommand(resumePath),
+      destroyDisabled: true
+    }
+    upsertEphemeralVmRuntime(userDataPath, {
+      id: 'runtime-1',
+      recipeId: recipe.id,
+      recipe,
+      status: 'suspended',
+      connectionMode: 'ssh',
+      cleanupStatus: 'disabled',
+      cleanupDisabled: true,
+      createdAt: 1,
+      updatedAt: 1,
+      recipeResult: {
+        schemaVersion: 2,
+        checkoutMode: 'provisioned-root',
+        connection: {
+          type: 'ssh',
+          projectRoot: '/workspace/original',
+          target: { label: 'VM', host: 'host', port: 22, username: 'orca' }
+        }
+      }
+    })
+
+    const resumed = await resumeEphemeralVmRuntime({
+      userDataPath,
+      repoPath,
+      recipe,
+      runtimeId: 'runtime-1'
+    })
+
+    expect(resumed).toMatchObject({
+      ok: false,
+      error: 'The provisioned workspace connection type changed while the runtime was suspended.',
+      runtime: {
+        status: 'resume_failed',
+        connectionMode: 'ssh',
+        recipeResult: { connection: { type: 'ssh' } }
+      }
+    })
+  })
 })

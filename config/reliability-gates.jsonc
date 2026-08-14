@@ -27,17 +27,17 @@
       "providers": ["orca-server", "direct-ssh"],
       "coveredPlatforms": ["macos", "linux", "windows"],
       "coveredProviders": ["orca-server", "direct-ssh"],
-      "coverageNotes": "A pinned exact-source harness runs the pre-#14352 reader and lifecycle service against baseline, affected-main, candidate, and fix-reverted stores. Platform-neutral store tests cover v1 byte stability, mixed records, current-main migration, downgrade mutation, malformed/future metadata preservation, bounded writes, and provider userData round-tripping. The direct-SSH provisioned-root Electron journey remains the live transport and destroy proof; this desktop sidecar is not mobile-facing and changes no RPC or remote wire payload.",
+      "coverageNotes": "A pinned exact-source harness runs the pre-#14352 reader and lifecycle service against baseline, affected-main, candidate, and fix-reverted stores. Platform-neutral tests cover store compatibility, bounded cleanup, branch/ref adoption, and resume ownership integrity. The direct-SSH provisioned-root Electron journey remains the live transport and destroy proof; this desktop sidecar is not mobile-facing and changes no RPC or remote wire payload.",
       "motivatingLinks": [
         "https://linear.app/stably/issue/STA-4274",
         "https://github.com/stablyai/orca/pull/14352",
         "https://github.com/stablyai/orca/issues/13044"
       ],
-      "invariant": "A sidecar written by the new build cannot make the previous production build lose otherwise compatible VM runtimes. Downgrade lifecycle writes remain authoritative after re-upgrade, provisioned-root metadata remains recoverable, and corrupt or future feature metadata is preserved without poisoning the rollback-readable v1 store. Destroy attempts settle at a bounded deadline, retry starts fresh, and provider failure retains the SSH/project context needed for safe cleanup.",
-      "oracle": "Write one ordinary schema-v1 runtime and one provisioned-root runtime. Require the exact pre-#14352 reader to return both, run the old destroy lifecycle against the projected provisioned record, then require the candidate to retain the cleaned state while restoring schema-v2 and checkout-mode metadata. The same old reader must reject affected-main and fix-reverted bytes. Malformed, oversized, unknown-record, and future-version feature sidecars must leave rollback-compatible records accessible and must not be overwritten during compatible lifecycle mutations. Force destroy to outlive its deadline, require cleanup_failed plus a fresh successful retry, and prove provider or project-host rollback failure retains every ownership record required to retry.",
+      "invariant": "A sidecar written by the new build cannot make the previous production build lose otherwise compatible VM runtimes. Downgrade lifecycle writes remain authoritative after re-upgrade, provisioned-root metadata remains recoverable, and corrupt or future feature metadata is preserved without poisoning the rollback-readable v1 store. Destroy attempts are force-stopped at a bounded deadline, retry starts fresh, and provider failure retains the SSH/project context needed for safe cleanup. Unrecoverable recipe context releases only the hidden SSH registration while preserving lifecycle/provider metadata. Adoption must verify the requested branch/ref, and resume must preserve the connection mode plus stable SSH ownership identity while allowing endpoint rotation.",
+      "oracle": "Write one ordinary schema-v1 runtime and one provisioned-root runtime. Require the exact pre-#14352 reader to return both, run the old destroy lifecycle against the projected provisioned record, then require the candidate to retain the cleaned state while restoring schema-v2 and checkout-mode metadata. The same old reader must reject affected-main and fix-reverted bytes. Malformed, oversized, unknown-record, and future-version feature sidecars must leave rollback-compatible records accessible and must not be overwritten during compatible lifecycle mutations. Force destroy to outlive its deadline, require cleanup_failed plus a fresh successful retry, prove provider or project-host rollback failure retains every ownership record required to retry, and prove missing recipe context cannot leave an unremovable hidden SSH registration. Reject a provisioned checkout on the wrong branch/ref and a resume that changes connection mode or SSH ownership.",
       "commands": [
         "node config/scripts/run-ephemeral-vm-runtime-store-rollback-repro.mjs config/scripts/ephemeral-vm-runtime-store-cross-version.test.ts",
-        "pnpm exec vitest run --config config/vitest.config.ts src/shared/ephemeral-vm-runtime-store.test.ts src/shared/ephemeral-vm-runtime-store-rollback.test.ts src/shared/ephemeral-vm-recipe-process.test.ts src/main/ephemeral-vm-runtime-service.test.ts src/main/ephemeral-vm-recipe-runner.test.ts src/main/ephemeral-vm-runtime-ssh-cleanup.test.ts src/main/ipc/ephemeral-vm-runtime-handler-cleanup.test.ts src/main/ipc/ephemeral-vm.test.ts src/main/provisioned-root-ssh-adoption.test.ts src/renderer/src/lib/ephemeral-vm-failed-create-cleanup.test.ts src/renderer/src/lib/ephemeral-vm-runtime-cleanup.test.ts",
+        "pnpm exec vitest run --config config/vitest.config.ts src/shared/ephemeral-vm-runtime-store.test.ts src/shared/ephemeral-vm-runtime-store-rollback.test.ts src/shared/ephemeral-vm-recipe-process.test.ts src/main/ephemeral-vm-runtime-service.test.ts src/main/ephemeral-vm-resume-integrity.test.ts src/main/ephemeral-vm-recipe-runner.test.ts src/main/ephemeral-vm-runtime-ssh-cleanup.test.ts src/main/ipc/ephemeral-vm-runtime-handler-cleanup.test.ts src/main/ipc/ephemeral-vm-provisioned-root-ref.test.ts src/main/ipc/ephemeral-vm.test.ts src/main/provisioned-root-ssh-adoption.test.ts src/renderer/src/lib/ephemeral-vm-failed-create-cleanup.test.ts src/renderer/src/lib/ephemeral-vm-runtime-cleanup.test.ts src/renderer/src/lib/ephemeral-vm-workspace-target.test.ts src/renderer/src/lib/ephemeral-vm-worktree-creation.test.ts src/renderer/src/lib/provisioned-root-create-options.test.ts src/renderer/src/store/slices/repos-ephemeral-vm-cleanup-retention.test.ts",
         "ORCA_E2E_SSH_DOCKER=1 pnpm exec playwright test tests/e2e/ephemeral-vm-provisioned-root.spec.ts --config tests/playwright.config.ts --project electron-headless --workers=1",
         "SKIP_BUILD=1 ORCA_E2E_SSH_DOCKER=1 pnpm exec playwright test tests/e2e/ephemeral-vm-provisioned-root.spec.ts --config tests/playwright.config.ts --project electron-headless --workers=1"
       ],
@@ -50,11 +50,17 @@
         "src/main/ephemeral-vm-runtime-service.test.ts",
         "src/main/ephemeral-vm-recipe-runner.test.ts",
         "src/main/ephemeral-vm-runtime-ssh-cleanup.test.ts",
+        "src/main/ephemeral-vm-resume-integrity.test.ts",
         "src/main/ipc/ephemeral-vm-runtime-handler-cleanup.test.ts",
+        "src/main/ipc/ephemeral-vm-provisioned-root-ref.test.ts",
         "src/main/ipc/ephemeral-vm.test.ts",
         "src/main/provisioned-root-ssh-adoption.test.ts",
         "src/renderer/src/lib/ephemeral-vm-failed-create-cleanup.test.ts",
         "src/renderer/src/lib/ephemeral-vm-runtime-cleanup.test.ts",
+        "src/renderer/src/lib/ephemeral-vm-workspace-target.test.ts",
+        "src/renderer/src/lib/ephemeral-vm-worktree-creation.test.ts",
+        "src/renderer/src/lib/provisioned-root-create-options.test.ts",
+        "src/renderer/src/store/slices/repos-ephemeral-vm-cleanup-retention.test.ts",
         "tests/e2e/ephemeral-vm-provisioned-root.spec.ts"
       ],
       "assertionRefs": [
@@ -86,7 +92,13 @@
         {
           "file": "src/shared/ephemeral-vm-recipe-process.test.ts",
           "assertions": [
-            "a destroy process that never closes is killed and settled at its bounded deadline"
+            "a destroy process that never closes is force-killed and settled at its bounded deadline"
+          ]
+        },
+        {
+          "file": "src/main/ipc/ephemeral-vm-runtime-handler-cleanup.test.ts",
+          "assertions": [
+            "unrecoverable recipe context releases the hidden SSH registration but preserves failed lifecycle state"
           ]
         },
         {
@@ -99,6 +111,33 @@
         {
           "file": "src/renderer/src/lib/ephemeral-vm-failed-create-cleanup.test.ts",
           "assertions": ["failed or unconfirmed project-host rollback prevents provider destroy"]
+        },
+        {
+          "file": "src/main/provisioned-root-ssh-adoption.test.ts",
+          "assertions": [
+            "adoption rejects a checkout on an unrequested branch or ref",
+            "tag and commit refs remain valid when the requested local branch is attached"
+          ]
+        },
+        {
+          "file": "src/main/ipc/ephemeral-vm-provisioned-root-ref.test.ts",
+          "assertions": [
+            "the source ref commit is captured before provider create",
+            "an unresolved source ref rejects before provider create"
+          ]
+        },
+        {
+          "file": "src/renderer/src/lib/ephemeral-vm-worktree-creation.test.ts",
+          "assertions": [
+            "the captured source commit reaches the main-owned provisioned-root adoption request"
+          ]
+        },
+        {
+          "file": "src/main/ephemeral-vm-resume-integrity.test.ts",
+          "assertions": [
+            "resume allows host and port rotation",
+            "resume rejects connection-mode and stable SSH ownership drift"
+          ]
         }
       ],
       "evidenceRuns": [
@@ -115,10 +154,10 @@
           "date": "2026-08-14",
           "runner": "local",
           "platform": "macos",
-          "command": "pnpm exec vitest run --config config/vitest.config.ts src/shared/ephemeral-vm-runtime-store.test.ts src/shared/ephemeral-vm-runtime-store-rollback.test.ts src/shared/ephemeral-vm-recipe-process.test.ts src/main/ephemeral-vm-runtime-service.test.ts src/main/ephemeral-vm-recipe-runner.test.ts src/main/ephemeral-vm-runtime-ssh-cleanup.test.ts src/main/ipc/ephemeral-vm-runtime-handler-cleanup.test.ts src/main/ipc/ephemeral-vm.test.ts src/main/provisioned-root-ssh-adoption.test.ts src/renderer/src/lib/ephemeral-vm-failed-create-cleanup.test.ts src/renderer/src/lib/ephemeral-vm-runtime-cleanup.test.ts",
+          "command": "pnpm exec vitest run --config config/vitest.config.ts src/shared/ephemeral-vm-runtime-store.test.ts src/shared/ephemeral-vm-runtime-store-rollback.test.ts src/shared/ephemeral-vm-recipe-process.test.ts src/main/ephemeral-vm-runtime-service.test.ts src/main/ephemeral-vm-resume-integrity.test.ts src/main/ephemeral-vm-recipe-runner.test.ts src/main/ephemeral-vm-runtime-ssh-cleanup.test.ts src/main/ipc/ephemeral-vm-runtime-handler-cleanup.test.ts src/main/ipc/ephemeral-vm-provisioned-root-ref.test.ts src/main/ipc/ephemeral-vm.test.ts src/main/provisioned-root-ssh-adoption.test.ts src/renderer/src/lib/ephemeral-vm-failed-create-cleanup.test.ts src/renderer/src/lib/ephemeral-vm-runtime-cleanup.test.ts src/renderer/src/lib/ephemeral-vm-workspace-target.test.ts src/renderer/src/lib/ephemeral-vm-worktree-creation.test.ts src/renderer/src/lib/provisioned-root-create-options.test.ts src/renderer/src/store/slices/repos-ephemeral-vm-cleanup-retention.test.ts",
           "result": "passed",
-          "durationSeconds": 2,
-          "summary": "Seventy-nine focused store, recipe-process, lifecycle, cleanup-handler, retry-context, provisioning-recovery, and provisioned-root adoption tests passed."
+          "durationSeconds": 3,
+          "summary": "One hundred eight focused store, recipe-process, lifecycle, cleanup-handler, retry-context, source-ref, adoption-integrity, resume-integrity, and provisioning-recovery tests passed."
         },
         {
           "date": "2026-08-14",
@@ -144,7 +183,7 @@
       },
       "performanceBudget": {
         "required": true,
-        "evidence": "Ordinary writes remain byte-identical and create no feature sidecar. Reads add one bounded feature-file existence check; sorted feature comparisons avoid unchanged rewrites, and durable companion writes occur only when compatibility metadata changes. Cleanup adds one unrefed timer per active destroy process and clears it on settlement; there is no polling, background scan, or remote fanout."
+        "evidence": "Ordinary writes remain byte-identical and create no feature sidecar. Reads add one bounded feature-file existence check; sorted feature comparisons avoid unchanged rewrites, and durable companion writes occur only when compatibility metadata changes. Cleanup adds one unrefed timer per active destroy process and clears it on settlement. Provisioning adds one source-host Git ref-resolution command only when a ref was requested and runs it before provider create; adoption adds no remote subprocess beyond its existing checkout probes, and resume adds only in-memory comparisons."
       },
       "promotionCriteria": [
         "Keep the pinned baseline/latest/candidate/revert oracle green in CI.",
@@ -156,7 +195,7 @@
         "No packaged-build downgrade installer journey; the exact released source reader and service are executed in-process.",
         "Live Docker SSH evidence runs locally on macOS and in the changed-file PR E2E lane on Ubuntu; Windows desktop behavior is covered by the platform-neutral filesystem codec and package job."
       ],
-      "demotionRule": "Demote if a new write fails the pinned rollback reader, a downgrade lifecycle mutation is lost after re-upgrade, malformed/future metadata overwrites recoverable bytes, ordinary v1 bytes change, a destroy can remain permanently in flight, cleanup loses retry ownership, or the focused gate flakes without an identified harness defect."
+      "demotionRule": "Demote if a new write fails the pinned rollback reader, a downgrade lifecycle mutation is lost after re-upgrade, malformed/future metadata overwrites recoverable bytes, ordinary v1 bytes change, a destroy can remain permanently in flight, cleanup loses retry ownership, an unrecoverable context leaves a permanent hidden SSH registration, or the focused gate flakes without an identified harness defect."
     },
     {
       "id": "terminal-session.shell-ready-exec-prompt-fallback",
