@@ -83,13 +83,13 @@ test('adopts a recipe-provisioned SSH root without creating a linked worktree', 
     ).toBe(workspaceName)
 
     const removeDialog = orcaPage.getByRole('dialog', { name: 'Remove Project' })
+    const removeMenuItem = orcaPage.getByRole('menuitem', { name: 'Remove Project from Orca' })
     await expect(async () => {
       await orcaPage
         .getByRole('option', { name: new RegExp(workspaceName) })
         .click({ button: 'right' })
-      await orcaPage
-        .getByRole('menuitem', { name: 'Remove Project from Orca' })
-        .click({ timeout: 1_000 })
+      await expect(removeMenuItem).toBeVisible({ timeout: 1_000 })
+      await removeMenuItem.click({ force: true, timeout: 1_000 })
       await expect(removeDialog).toBeVisible({ timeout: 1_000 })
     }).toPass({ timeout: 10_000 })
     await removeDialog.getByRole('button', { name: 'Remove', exact: true }).click()
