@@ -639,24 +639,13 @@ describe('push-on-idle orchestration delivery absence gate', () => {
         probePtyLiveness: async () => null,
         hasPty: (ptyId) => ptyId === STALE_PTY_ID
       })
-      const internals = runtime as unknown as {
-        messageDeliveryFlightsByPtyId: Map<string, unknown>
-        parkedMessageRedeliveriesByPtyId: Map<string, unknown>
-        pointedMessageWatermarkOwnerByHandle: Map<string, unknown>
-      }
       stub.insert('first')
       runtime.deliverPendingMessagesForHandle(handle)
       stub.insert('second')
       runtime.deliverPendingMessagesForHandle(handle)
       await Promise.resolve()
-      expect(internals.messageDeliveryFlightsByPtyId.size).toBe(1)
-      expect(internals.parkedMessageRedeliveriesByPtyId.size).toBe(1)
-      expect(internals.pointedMessageWatermarkOwnerByHandle.size).toBe(1)
 
       runtime.onPtyExit(STALE_PTY_ID, 0)
-      expect(internals.messageDeliveryFlightsByPtyId.size).toBe(0)
-      expect(internals.parkedMessageRedeliveriesByPtyId.size).toBe(0)
-      expect(internals.pointedMessageWatermarkOwnerByHandle.size).toBe(0)
 
       await vi.advanceTimersByTimeAsync(500)
       expect(write.mock.calls.filter(([, data]) => data === '\r')).toHaveLength(0)

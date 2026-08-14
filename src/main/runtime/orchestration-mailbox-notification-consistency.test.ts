@@ -70,6 +70,35 @@ describe('orchestration notification mailbox consistency', () => {
     db.close()
   })
 
+  it('does not point unbound direct mail that a later Run binding would hide', async () => {
+    vi.useFakeTimers()
+    const db = createDatabase('orca-mailbox-unbound-bind-race-')
+    const harness = createRuntime(db)
+    const runA = createBoundRun(db, 'Unbound Run A')
+    const message = insertDirectRunMessage(db, runA.id, 'Run A before later binding')
+    db.bindRun({
+      runId: runA.id,
+      coordinatorHandle: SECOND_TERMINAL_HANDLE,
+      coordinatorPaneKey: SECOND_PANE_KEY
+    })
+    sqliteFor(db)
+      .prepare('UPDATE messages SET to_handle = ? WHERE id = ?')
+      .run(TERMINAL_HANDLE, message.id)
+
+    await driveToLiveIdle(harness.runtime)
+    const runB = createBoundRun(db, 'Later Run B')
+    const checked = await checkBoundMailbox(harness.runtime)
+
+    expect(pointerCount(harness.write)).toBe(0)
+    expect(checked).toMatchObject({ runId: runB.id, deliveryId: null, count: 0, messages: [] })
+    expect(db.getMessageById(message.id)).toMatchObject({
+      to_handle: TERMINAL_HANDLE,
+      read: 0,
+      delivered_at: null
+    })
+    db.close()
+  })
+
   it('reconciles the persisted production mismatch after runtime restart', async () => {
     vi.useFakeTimers()
     const directory = mkdtempSync(join(tmpdir(), 'orca-mailbox-upgrade-restart-'))
@@ -415,15 +444,6 @@ describe('orchestration notification mailbox consistency', () => {
     expect(checked).toMatchObject({ runId: run.id, count: 1 })
 
     await vi.advanceTimersByTimeAsync(500)
-    const internals = harness.runtime as unknown as {
-      pointedMessageWatermarkOwnerByHandle: Map<string, unknown>
-      pointedMessageMailboxHandlesByPtyId: Map<string, Set<string>>
-      parkedMessageRedeliveryTypesByMailboxHandle: Map<string, unknown>
-    }
-    expect(internals.pointedMessageWatermarkOwnerByHandle.size).toBe(0)
-    expect(internals.pointedMessageMailboxHandlesByPtyId.size).toBe(0)
-    expect(internals.parkedMessageRedeliveryTypesByMailboxHandle.size).toBe(0)
-
     const redrive = vi.spyOn(harness.runtime, 'deliverPendingMessagesForHandle')
     harness.runtime.onPtyExit(PTY_ID, 0)
     await Promise.resolve()
@@ -616,14 +636,6 @@ describe('orchestration notification mailbox consistency', () => {
       read: 1,
       delivered_at: null
     })
-    const internals = harness.runtime as unknown as {
-      pointedMessageWatermarkOwnerByHandle: Map<string, unknown>
-      pointedMessageMailboxHandlesByPtyId: Map<string, Set<string>>
-    }
-    expect(internals.pointedMessageWatermarkOwnerByHandle.has(`dispatch:${dispatch.id}`)).toBe(
-      false
-    )
-    expect(internals.pointedMessageMailboxHandlesByPtyId.has(PTY_ID)).toBe(false)
     db.close()
   })
 

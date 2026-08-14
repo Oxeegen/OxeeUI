@@ -34506,7 +34506,7 @@ describe('OrcaRuntimeService', () => {
 
       await vi.advanceTimersByTimeAsync(1_500)
       expect(pointers()).toHaveLength(2)
-      expect(pointers()[1]?.[1]).toContain('You have 2 orchestration messages')
+      expect(pointers()[1]?.[1]).toContain('You have 1 orchestration message')
       db.close()
     } finally {
       vi.useRealTimers()
@@ -34528,6 +34528,7 @@ describe('OrcaRuntimeService', () => {
       syncSinglePty(runtime)
 
       const [terminal] = (await runtime.listTerminals()).terminals
+      bindSinglePtyRun(db, terminal.handle)
       runtime.onPtyData('pty-1', '\x1b]0;Codex working\x07', 100)
       db.insertMessage({
         from: 'term_worker',
@@ -34579,8 +34580,13 @@ describe('OrcaRuntimeService', () => {
       syncSinglePty(runtime)
 
       const [terminal] = (await runtime.listTerminals()).terminals
+      bindSinglePtyRun(db, terminal.handle)
       runtime.onPtyData('pty-1', '\x1b]0;Codex working\x07', 100)
-      db.insertMessage({ from: 'term_worker', to: terminal.handle, subject: 'wait for idle' })
+      db.insertMessage({
+        from: 'term_worker',
+        to: terminal.handle,
+        subject: 'wait for idle'
+      })
       runtime.notifyMessageArrived(terminal.handle, 'status')
       await Promise.resolve()
 
@@ -34614,11 +34620,16 @@ describe('OrcaRuntimeService', () => {
       syncSinglePty(runtime)
 
       const [terminal] = (await runtime.listTerminals()).terminals
+      bindSinglePtyRun(db, terminal.handle)
       runtime.registerPreAllocatedHandleForPty('pty-1', terminal.handle)
       runtime.onPtyData('pty-1', '\x1b]0;Codex working\x07', 100)
       runtime.onPtyData('pty-1', '\x1b]0;Codex done\x07', 101)
       runtime.markRendererReloading(1)
-      db.insertMessage({ from: 'term_worker', to: terminal.handle, subject: 'restored' })
+      db.insertMessage({
+        from: 'term_worker',
+        to: terminal.handle,
+        subject: 'restored'
+      })
       setInMemoryOrchestrationMessages(runtime, db)
 
       await vi.advanceTimersByTimeAsync(2_000)
@@ -34650,9 +34661,14 @@ describe('OrcaRuntimeService', () => {
       syncSinglePty(runtime)
 
       const [terminal] = (await runtime.listTerminals()).terminals
+      bindSinglePtyRun(db, terminal.handle)
       runtime.onPtyData('pty-1', '\x1b]0;Codex working\x07', 100)
       runtime.onPtyData('pty-1', '\x1b]0;Codex done\x07', 101)
-      db.insertMessage({ from: 'term_worker', to: terminal.handle, subject: 'once' })
+      db.insertMessage({
+        from: 'term_worker',
+        to: terminal.handle,
+        subject: 'once'
+      })
       runtime.notifyMessageArrived(terminal.handle, 'status')
       await Promise.resolve()
       await vi.advanceTimersByTimeAsync(2_500)
@@ -34684,6 +34700,7 @@ describe('OrcaRuntimeService', () => {
       syncSinglePty(runtime)
 
       const [terminal] = (await runtime.listTerminals()).terminals
+      bindSinglePtyRun(db, terminal.handle)
       runtime.onPtyData('pty-1', '\x1b]0;Codex working\x07', 100)
       runtime.onPtyData('pty-1', '\x1b]0;Codex done\x07', 101)
       db.insertMessage({

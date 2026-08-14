@@ -4,7 +4,6 @@
 import {
   detectAgentStatusFromTitle,
   isClaudeManagementTitle,
-  isCursorAgentTitle,
   isCursorNativeAgentTitle,
   isOpenCodeNativeTitle,
   isQuarterCircleSpinnerOnlyAgentTitle,
@@ -118,7 +117,7 @@ import { isAbsolute, join, resolve } from 'node:path'
 import { mkdir, readFile, readdir, rm, stat } from 'node:fs/promises'
 import { resolveWorktreeCreateBase } from '../worktree-create-base'
 import { resolveWorktreeAddBaseRef } from '../../shared/worktree/base-ref'
-import { ORCHESTRATION_DELIVERY_BATCH_LIMIT, OrchestrationDb } from './orchestration/db'
+import { OrchestrationDb } from './orchestration/db'
 import { reconcileRequestedWorkerTerminalReleases } from './orchestration/worker-terminal-release-reconciliation'
 import {
   classifyWorkerTerminalProcessIncarnation,
@@ -167,8 +166,14 @@ import {
   releaseFederationAckCheckpoint
 } from './orchestration/federation-ack-checkpoints'
 import { syncFederatedDispatch } from './orchestration/federation-sync'
-import { formatMessagePointer } from './orchestration/formatter'
 import { MailPointerRepointScheduler } from './orchestration/mail-pointer-repoint-scheduler'
+import { OrchestrationMailboxOwner } from './orchestration/mailbox-owner'
+import { OrchestrationMailboxNotificationCoordinator } from './orchestration/mailbox-notification-coordinator'
+import { OrchestrationMailboxDeliveryTarget } from './orchestration/mailbox-delivery-target'
+import {
+  OrchestrationMailboxPointerDelivery,
+  type OrchestrationMessageWaiter
+} from './orchestration/mailbox-pointer-delivery'
 import { selectExactWorkerProviderSession } from './orchestration/worker-provider-session'
 import type {
   Automation,
@@ -1303,13 +1308,6 @@ type RuntimeLeafRecord = RuntimeSyncedLeaf & {
   paneTitleUpdatedAt: number | null
 }
 
-function isCursorAgentOrchestrationTarget(
-  leaf: RuntimeLeafRecord,
-  tabTitle: string | null | undefined
-): boolean {
-  return [leaf.lastOscTitle, leaf.paneTitle, tabTitle].some(isCursorAgentTitle)
-}
-
 type RuntimePtyWorktreeRecord = {
   ptyId: string
   incarnationId: PtyIncarnationId | null
@@ -2068,33 +2066,14 @@ type TerminalWaiter = {
   abortCleanup: (() => void) | null
 }
 
-type MessageWaiter = {
+type MessageWaiter = OrchestrationMessageWaiter & {
   handle: string
-  typeFilter: string[] | undefined
   resolve: (result: MessageWaitResult) => void
   timeout: NodeJS.Timeout | null
   abortCleanup: (() => void) | null
 }
 
 export type MessageWaitResult = 'notified' | 'timed_out' | 'cancelled' | 'waiter_exists'
-
-// Why: an unfiltered waiter claims every type. A row a live waiter will return
-// from orchestration.check must not also be pushed into the pane — check reads
-// by `read`, push stamps `delivered_at`, so neither hides the row from the other.
-function messageTypeHasLiveWaiter(
-  waiters: Set<MessageWaiter> | undefined,
-  messageType: string
-): boolean {
-  if (!waiters) {
-    return false
-  }
-  for (const waiter of waiters) {
-    if (!waiter.typeFilter || waiter.typeFilter.includes(messageType)) {
-      return true
-    }
-  }
-  return false
-}
 
 function omitUndefinedProperties<T extends Record<string, unknown>>(value: T): Partial<T> {
   return Object.fromEntries(
@@ -2856,17 +2835,6 @@ export class OrcaRuntimeService {
   private readonly mailPointerRepointScheduler = new MailPointerRepointScheduler((handle) =>
     this.repointPendingMessagesForHandle(handle)
   )
-  // Why: in-process reservations serialize delayed Enter after durable pointer staging.
-  private readonly pointedMessageWatermarkOwnerByHandle = new Map<
-    string,
-    { ptyId: string; sequence: number; leafKey: string; active: boolean }
-  >()
-  private readonly pointedMessageMailboxHandlesByPtyId = new Map<string, Set<string>>()
-  private readonly parkedMessageRedeliveryTypesByMailboxHandle = new Map<
-    string,
-    ReadonlySet<string> | null
-  >()
-  private readonly pendingDirectMailboxReconciliationsByLeafKey = new Set<string>()
   private syntheticTerminalHandles = new Set<string>()
   private detachedPreAllocatedLeaves = new Map<string, RuntimeLeafRecord>()
   private graphSyncCallbacks: (() => void)[] = []
@@ -2906,6 +2874,54 @@ export class OrcaRuntimeService {
   private ptyDelayedForegroundSnapshotTitleObservations = new Map<string, number>()
   private _orchestrationDb: OrchestrationDb | null = null
   private messageWaitersByHandle = new Map<string, Set<MessageWaiter>>()
+  private readonly orchestrationMailboxOwner = new OrchestrationMailboxOwner({
+    getDb: () => this._orchestrationDb,
+    getLeaf: (leafKey) => this.leaves.get(leafKey),
+    getLeafKey: (tabId, leafId) => this.getLeafKey(tabId, leafId),
+    getTerminalHandleForLeafKey: (leafKey) => this.handleByLeafKey.get(leafKey),
+    getTerminalProcessIncarnation: (handle) => this.getTerminalProcessIncarnation(handle),
+    onRoutedMessageTypes: (mailboxHandle, types) =>
+      this.orchestrationMailboxNotifications.wakeRoutedMessageWaiters(mailboxHandle, types),
+    onForeignMailboxRouted: (mailboxHandle, messageType) =>
+      this.notifyMessageArrived(mailboxHandle, messageType)
+  })
+  private readonly orchestrationMailboxDeliveryTarget = new OrchestrationMailboxDeliveryTarget({
+    getDb: () => this._orchestrationDb,
+    getTerminalHandleForPaneKey: (paneKey) => this.getTerminalHandleForPaneKey(paneKey),
+    hasTerminalHandle: (handle) => this.handles.has(handle),
+    canProbePtyLiveness: () => Boolean(this.ptyController?.probePtyLiveness),
+    controllerKnowsPtyIsLive: (ptyId) => this.controllerKnowsPtyIsLive(ptyId),
+    isLeafPtyProvenAbsent: (ptyId) => this.isLeafPtyProvenAbsent(ptyId)
+  })
+  private readonly orchestrationMailboxPointerDelivery =
+    new OrchestrationMailboxPointerDelivery<MessageWaiter>({
+      mailboxOwner: this.orchestrationMailboxOwner,
+      deliveryTarget: this.orchestrationMailboxDeliveryTarget,
+      getDb: () => this._orchestrationDb,
+      getLeaf: (leafKey) => this.leaves.get(leafKey),
+      getLeafKey: (tabId, leafId) => this.getLeafKey(tabId, leafId),
+      getLiveLeafForHandle: (handle) => this.getLiveLeafForHandle(handle).leaf,
+      getMessageWaiters: (mailboxHandle) => this.messageWaitersByHandle.get(mailboxHandle),
+      getTabTitle: (tabId) => this.tabs.get(tabId)?.title,
+      getTerminalHandleForLeafKey: (leafKey) => this.handleByLeafKey.get(leafKey),
+      isLeafPtyProvenAbsent: (ptyId) => this.isLeafPtyProvenAbsent(ptyId),
+      redriveMailbox: (mailboxHandle, reservedTypes) =>
+        this.deliverPendingMessagesForHandle(mailboxHandle, reservedTypes),
+      writePty: (ptyId, data) => this.ptyController?.write(ptyId, data) ?? false
+    })
+  private readonly orchestrationMailboxNotifications =
+    new OrchestrationMailboxNotificationCoordinator<MessageWaiter>({
+      mailboxOwner: this.orchestrationMailboxOwner,
+      pointerDelivery: this.orchestrationMailboxPointerDelivery,
+      getDb: () => this._orchestrationDb,
+      getLiveLeafForHandle: (handle) => this.getLiveLeafForHandle(handle).leaf,
+      getMessageWaiters: (mailboxHandle) => this.messageWaitersByHandle.get(mailboxHandle),
+      hasTerminalHandle: (handle) => this.handles.has(handle),
+      deliverForHandle: (handle, reservedTypes) =>
+        this.deliverPendingMessagesForHandle(handle, reservedTypes),
+      notifyMessageArrived: (handle, messageType) => this.notifyMessageArrived(handle, messageType),
+      resolveMessageWaiter: (waiter) => this.resolveMessageWaiter(waiter, 'notified')
+    })
   // Why: mobile clients subscribe to terminal output via terminal.subscribe.
   // These listeners fire on every onPtyData call, enabling real-time streaming
   // without polling. Keyed by ptyId for O(1) lookup per data event.
@@ -13832,7 +13848,7 @@ export class OrcaRuntimeService {
     // Why: a cold restore can respawn under the same session id within the
     // delayed-Enter window; the armed Enter would inject \r into the
     // replacement and stamp rows it never received.
-    this.retirePendingMessageDeliveryForPty(ptyId)
+    this.retireOrchestrationMailboxDeliveryForPty(ptyId)
 
     if (this.terminalFitOverrides.has(ptyId)) {
       this.terminalFitOverrides.delete(ptyId)
@@ -16757,10 +16773,6 @@ export class OrcaRuntimeService {
   // verdict per ptyId serves the burst instead of a probe round-trip each call.
   private readonly provenAbsentLeafPtyVerdicts = new Map<string, number>()
   private readonly leafPtyAbsenceProbes = new Map<string, Promise<boolean>>()
-  // Why: probe dedupe shares one promise across callers, but each caller's
-  // continuation would re-deliver the same unread rows; arm one per pty.
-  private readonly probeDeferredDeliveryPtyIds = new Set<string>()
-
   private controllerKnowsPtyIsLive(ptyId: string): boolean {
     try {
       return this.ptyController?.hasPty?.(ptyId) === true
@@ -32141,43 +32153,20 @@ export class OrcaRuntimeService {
   }
 
   deliverPendingMessagesForHandle(handle: string, reservedTypes?: ReadonlySet<string>): void {
-    let terminalHandle = handle
-    if (!this.handles.has(terminalHandle)) {
-      const runId = handle.startsWith('run:') ? handle.slice('run:'.length) : ''
-      const dispatchId = handle.startsWith('dispatch:') ? handle.slice('dispatch:'.length) : ''
-      const dispatch = dispatchId
-        ? this._orchestrationDb?.getDispatchContextById?.(dispatchId)
-        : undefined
-      const remoteAttachment =
-        dispatchId && !dispatch
-          ? this._orchestrationDb?.getRemoteDispatchAttachment?.(dispatchId)
-          : undefined
-      const ownerPaneKey = dispatch?.assignee_pane_key ?? remoteAttachment?.pane_key
-      const ownerHandle = runId
-        ? this._orchestrationDb?.getRun(runId)?.coordinator_handle
-        : ((ownerPaneKey ? this.getTerminalHandleForPaneKey(ownerPaneKey) : null) ??
-          dispatch?.assignee_handle ??
-          remoteAttachment?.terminal_handle)
-      if (!ownerHandle || !this.handles.has(ownerHandle)) {
-        return
+    this.orchestrationMailboxNotifications.deliverForHandle(handle, reservedTypes)
+  }
+
+  private retireOrchestrationMailboxDeliveryForPty(ptyId: string): void {
+    this.orchestrationMailboxNotifications.retirePty(ptyId)
+    for (const leaf of this.getLeavesForPty(ptyId)) {
+      const handle = this.handleByLeafKey.get(this.getLeafKey(leaf.tabId, leaf.leafId))
+      if (handle) {
+        this.mailPointerRepointScheduler.schedule(handle)
       }
-      terminalHandle = ownerHandle
-    }
-    try {
-      const { leaf } = this.getLiveLeafForHandle(terminalHandle)
-      // Why lastAgentStatusObservedLive: a cold restore seeds `idle` from the
-      // title persisted at snapshot time, so an agent that went busy across the
-      // relaunch still reads idle until its first live frame. Pushing on that
-      // would type a message plus Enter into a working agent. Seeded state waits
-      // for a live observation to authorize it.
-      if (leaf.lastAgentStatus === 'idle' && leaf.lastAgentStatusObservedLive) {
-        const mailboxHandle = this.resolveActionableMailboxForLeaf(leaf, handle)
-        if (mailboxHandle) {
-          this.deliverPendingMessages(leaf, { mailboxHandle, reservedTypes })
-        }
+      const run = this._orchestrationDb?.getCurrentRunForPane?.(`${leaf.tabId}:${leaf.leafId}`)
+      if (run) {
+        this.mailPointerRepointScheduler.schedule(`run:${run.id}`)
       }
-    } catch {
-      // Unknown/stale handles can't be pointed now; the persisted message stays available via explicit check or future idle delivery.
     }
   }
 
@@ -32199,217 +32188,7 @@ export class OrcaRuntimeService {
   }
 
   private deliverPendingMessagesForLeaf(leaf: RuntimeLeafRecord): void {
-    this.notifyForwardedOrchestrationMailboxes(this.routeForeignDirectMessagesForLeaf(leaf))
-    const mailboxHandle = this.resolveActionableMailboxForLeaf(leaf)
-    if (mailboxHandle) {
-      this.deliverPendingMessages(leaf, { mailboxHandle })
-    }
-  }
-
-  private scheduleDirectMailboxReconciliation(leaf: RuntimeLeafRecord): void {
-    const leafKey = this.getLeafKey(leaf.tabId, leaf.leafId)
-    if (this.pendingDirectMailboxReconciliationsByLeafKey.has(leafKey)) {
-      return
-    }
-    this.pendingDirectMailboxReconciliationsByLeafKey.add(leafKey)
-    setImmediate(() => {
-      this.pendingDirectMailboxReconciliationsByLeafKey.delete(leafKey)
-      const currentLeaf = this.leaves.get(leafKey)
-      if (!currentLeaf || currentLeaf.ptyId !== leaf.ptyId) {
-        return
-      }
-      this.notifyForwardedOrchestrationMailboxes(
-        this.routeForeignDirectMessagesForLeaf(currentLeaf)
-      )
-      this.resolveActionableMailboxForLeaf(currentLeaf)
-    })
-  }
-
-  private routeForeignDirectMessagesForLeaf(
-    leaf: RuntimeLeafRecord
-  ): { mailboxHandle: string; types: string[] }[] {
-    if (!this._orchestrationDb) {
-      return []
-    }
-    const leafKey = this.getLeafKey(leaf.tabId, leaf.leafId)
-    const handle = this.handleByLeafKey.get(leafKey)
-    if (!handle) {
-      return []
-    }
-    const paneKey = `${leaf.tabId}:${leaf.leafId}`
-    const ownerMailbox = this.resolveActionableMailboxForLeaf(leaf, undefined, {
-      routeDirectMail: false
-    })
-    const ownerRunId = ownerMailbox?.startsWith('run:')
-      ? ownerMailbox.slice('run:'.length)
-      : ownerMailbox?.startsWith('dispatch:')
-        ? this._orchestrationDb.getDispatchContextById?.(ownerMailbox.slice('dispatch:'.length))
-            ?.run_id
-        : undefined
-    if (!ownerRunId) {
-      return []
-    }
-    const routed = this._orchestrationDb.routeForeignDirectMessagesToOwnedMailboxes?.(
-      handle,
-      ownerRunId,
-      paneKey
-    )
-    if (routed?.hasMore) {
-      this.scheduleDirectMailboxReconciliation(leaf)
-    }
-    return routed?.mailboxes ?? []
-  }
-
-  private notifyForwardedOrchestrationMailboxes(
-    forwarded: readonly { mailboxHandle: string; types: string[] }[]
-  ): void {
-    for (const routed of forwarded) {
-      for (const routedType of routed.types) {
-        this.notifyMessageArrived(routed.mailboxHandle, routedType)
-      }
-    }
-  }
-
-  private wakeRoutedMessageWaiters(mailboxHandle: string, types: readonly string[]): void {
-    const waiters = [...(this.messageWaitersByHandle.get(mailboxHandle) ?? [])]
-    if (waiters.length === 0 || types.length === 0) {
-      return
-    }
-    // Why: the arrival hook must snapshot waiter ownership before routed rows wake those waiters.
-    queueMicrotask(() => {
-      const liveWaiters = this.messageWaitersByHandle.get(mailboxHandle)
-      for (const waiter of waiters) {
-        if (
-          liveWaiters?.has(waiter) &&
-          (!waiter.typeFilter || types.some((type) => waiter.typeFilter?.includes(type)))
-        ) {
-          this.resolveMessageWaiter(waiter, 'notified')
-        }
-      }
-    })
-  }
-
-  private resolveActionableMailboxForLeaf(
-    leaf: RuntimeLeafRecord,
-    requestedMailbox?: string,
-    options: { requireRequestedMail?: boolean; routeDirectMail?: boolean } = {}
-  ): string | null {
-    if (!this._orchestrationDb) {
-      return null
-    }
-    const terminalHandle = this.handleByLeafKey.get(this.getLeafKey(leaf.tabId, leaf.leafId))
-    if (!terminalHandle) {
-      return null
-    }
-    const paneKey = `${leaf.tabId}:${leaf.leafId}`
-    const run = this._orchestrationDb.getCurrentRunForPane?.(paneKey)
-    if (run) {
-      const runMailbox = `run:${run.id}`
-      if (
-        requestedMailbox &&
-        requestedMailbox !== terminalHandle &&
-        requestedMailbox !== runMailbox
-      ) {
-        return null
-      }
-      const hasDirectRunMail =
-        options.routeDirectMail === false
-          ? false
-          : (this._orchestrationDb.hasUndeliveredDirectMessageForRun?.(run.id, terminalHandle) ??
-            false)
-      if (
-        options.requireRequestedMail &&
-        requestedMailbox === terminalHandle &&
-        !hasDirectRunMail
-      ) {
-        return null
-      }
-      if (hasDirectRunMail && options.routeDirectMail !== false) {
-        const routed = this._orchestrationDb.routeUnreadDirectMessagesToRunMailbox?.(
-          run.id,
-          terminalHandle
-        )
-        this.wakeRoutedMessageWaiters(runMailbox, routed?.types ?? [])
-        if (routed?.hasMore) {
-          this.scheduleDirectMailboxReconciliation(leaf)
-        }
-      }
-      return runMailbox
-    }
-
-    const dispatch = this._orchestrationDb.getActiveDispatchForIdentity?.(terminalHandle, paneKey)
-    if (dispatch) {
-      const dispatchMailbox = `dispatch:${dispatch.id}`
-      if (
-        requestedMailbox &&
-        requestedMailbox !== terminalHandle &&
-        requestedMailbox !== dispatchMailbox
-      ) {
-        return null
-      }
-      const hasDirectDispatchMail =
-        options.routeDirectMail === false
-          ? false
-          : (this._orchestrationDb.hasUndeliveredDirectMessageForRun?.(
-              dispatch.run_id,
-              terminalHandle
-            ) ?? false)
-      if (
-        options.requireRequestedMail &&
-        requestedMailbox === terminalHandle &&
-        !hasDirectDispatchMail
-      ) {
-        return null
-      }
-      if (hasDirectDispatchMail && options.routeDirectMail !== false) {
-        const routed = this._orchestrationDb.routeUnreadDirectMessagesToDispatchMailbox?.(
-          dispatch.id,
-          dispatch.run_id,
-          terminalHandle
-        )
-        this.wakeRoutedMessageWaiters(dispatchMailbox, routed?.types ?? [])
-        if (routed?.hasMore) {
-          this.scheduleDirectMailboxReconciliation(leaf)
-        }
-      }
-      return dispatchMailbox
-    }
-
-    const remoteAttachment = this._orchestrationDb.findActiveRemoteAttachmentForPane?.(paneKey)
-    if (remoteAttachment) {
-      const isCurrent = this._orchestrationDb.isRemoteAttachmentProcessCurrent?.({
-        dispatchId: remoteAttachment.dispatch_id,
-        paneKey,
-        processIncarnation: this.getTerminalProcessIncarnation(terminalHandle)
-      })
-      if (!isCurrent || (options.requireRequestedMail && requestedMailbox === terminalHandle)) {
-        return null
-      }
-      const dispatchMailbox = `dispatch:${remoteAttachment.dispatch_id}`
-      return !requestedMailbox || requestedMailbox === dispatchMailbox ? dispatchMailbox : null
-    }
-
-    return !requestedMailbox || requestedMailbox === terminalHandle ? terminalHandle : null
-  }
-
-  private resolveArrivedMessageMailboxes(handle: string): {
-    mailboxHandle: string | null
-    forwarded: { mailboxHandle: string; types: string[] }[]
-  } {
-    if (!this.handles.has(handle) || !this._orchestrationDb) {
-      return { mailboxHandle: handle, forwarded: [] }
-    }
-    try {
-      const { leaf } = this.getLiveLeafForHandle(handle)
-      return {
-        mailboxHandle: this.resolveActionableMailboxForLeaf(leaf, handle, {
-          requireRequestedMail: true
-        }),
-        forwarded: this.routeForeignDirectMessagesForLeaf(leaf)
-      }
-    } catch {
-      return { mailboxHandle: null, forwarded: [] }
-    }
+    this.orchestrationMailboxNotifications.deliverForLeaf(leaf)
   }
 
   // Why: wake blocking orchestration.check --wait calls on this handle so they return the new message immediately instead of polling.
@@ -32417,49 +32196,7 @@ export class OrcaRuntimeService {
     if (!handle.startsWith('dispatch:')) {
       this.mailPointerRepointScheduler.schedule(handle)
     }
-    const { mailboxHandle, forwarded } = this.resolveArrivedMessageMailboxes(handle)
-    this.notifyForwardedOrchestrationMailboxes(forwarded)
-    if (!mailboxHandle) {
-      return
-    }
-    // Why: push-on-idle is driven by status transitions; a message that
-    // arrives while the recipient is already idle never sees a transition, so
-    // deliver now (#12536). deliverPendingMessagesForHandle no-ops when the
-    // leaf is not idle. Main's messageDeliveryFlights serialize mid-Enter
-    // re-notifies without a separate settle barrier.
-    // Why skip when a waiter will consume this: a blocked check owns the row,
-    // so also pointing and submitting the pane would wake it twice. The pull wins.
-    // Why "will consume" and not "exists": a waiter filtered to other types
-    // never returns this row — check re-reads under the same filter on timeout
-    // — so treating it as the consumer strands the message in exactly the
-    // already-idle state #12536 is about.
-    const waiters = this.messageWaitersByHandle.get(mailboxHandle)
-    // Why: don't wake a coordinator waiting for worker_done/escalation on heartbeat noise it would misread as idleness.
-    const consumers = waiters
-      ? [...waiters].filter(
-          (waiter) => !messageType || !waiter.typeFilter || waiter.typeFilter.includes(messageType)
-        )
-      : []
-    if (consumers.length === 0) {
-      // Why snapshot the reservation here: every remaining waiter filters this
-      // type out, but the push reads ALL pending rows. A waiter resolved later in
-      // this same drain is gone by the time the push runs, so reading waiters
-      // then would miss what its check is about to return. Captured now, the
-      // types those waiters claim stay out of the batch.
-      const reservedTypes = new Set(waiters ? [...waiters].flatMap((w) => w.typeFilter ?? []) : [])
-      // Why queueMicrotask: resolveMessageWaiter removes the waiter synchronously
-      // but its check handler marks the rows read a microtask later. Two sends
-      // that resumed adjacently off one shared in-flight promise (group send
-      // awaits listTerminals) put a no-waiter notify inside that window, where a
-      // synchronous push would inject rows the resolved check is about to return.
-      // Deferring one hop puts the push behind any already-queued check, and it
-      // re-reads undelivered rows when it runs so nothing strands.
-      queueMicrotask(() => this.deliverPendingMessagesForHandle(mailboxHandle, reservedTypes))
-      return
-    }
-    for (const waiter of consumers) {
-      this.resolveMessageWaiter(waiter, 'notified')
-    }
+    this.orchestrationMailboxNotifications.notifyMessageArrived(handle, messageType)
   }
 
   waitForMessage(
@@ -33043,450 +32780,6 @@ export class OrcaRuntimeService {
       }
     }
     return null
-  }
-
-  // Why: the whole pointer→Enter span must be single-flight per pty. Triggers
-  // landing mid-flight park their mailbox and re-run once on settle. The
-  // flight object is the settle identity: a stale settle surviving an exit
-  // retire must not clear a newer same-id flight or flush its parked trigger.
-  private readonly messageDeliveryFlightsByPtyId = new Map<
-    string,
-    { enterTimer: ReturnType<typeof setTimeout> | null; stagedMessageIds: string[] }
-  >()
-
-  private readonly parkedMessageRedeliveriesByPtyId = new Map<
-    string,
-    Map<string, { leaf: RuntimeLeafRecord; reservedTypes?: ReadonlySet<string> }>
-  >()
-
-  private settlePendingMessageDelivery(
-    ptyId: string,
-    flight: { enterTimer: ReturnType<typeof setTimeout> | null; stagedMessageIds: string[] }
-  ): void {
-    if (this.messageDeliveryFlightsByPtyId.get(ptyId) !== flight) {
-      return
-    }
-    this.messageDeliveryFlightsByPtyId.delete(ptyId)
-    const parked = this.parkedMessageRedeliveriesByPtyId.get(ptyId)
-    if (!parked) {
-      return
-    }
-    this.parkedMessageRedeliveriesByPtyId.delete(ptyId)
-    for (const [mailboxHandle, delivery] of parked) {
-      const currentLeaf = this.leaves.get(
-        this.getLeafKey(delivery.leaf.tabId, delivery.leaf.leafId)
-      )
-      if (
-        currentLeaf?.ptyId !== ptyId ||
-        this.resolveActionableMailboxForLeaf(currentLeaf, mailboxHandle) !== mailboxHandle
-      ) {
-        this.parkMessageRedeliveryForMailbox(mailboxHandle, delivery.reservedTypes)
-        this.redrivePendingMessageMailbox(mailboxHandle)
-        continue
-      }
-      this.deliverPendingMessages(currentLeaf, {
-        mailboxHandle,
-        reservedTypes: delivery.reservedTypes
-      })
-    }
-  }
-
-  private setPointedMessageWatermark(
-    mailboxHandle: string,
-    sequence: number,
-    ptyId: string,
-    leafKey: string
-  ): void {
-    const prior = this.pointedMessageWatermarkOwnerByHandle.get(mailboxHandle)
-    if (prior && prior.ptyId !== ptyId) {
-      const priorMailboxes = this.pointedMessageMailboxHandlesByPtyId.get(prior.ptyId)
-      priorMailboxes?.delete(mailboxHandle)
-      if (priorMailboxes?.size === 0) {
-        this.pointedMessageMailboxHandlesByPtyId.delete(prior.ptyId)
-      }
-    }
-    this.pointedMessageWatermarkOwnerByHandle.set(mailboxHandle, {
-      ptyId,
-      sequence,
-      leafKey,
-      active: true
-    })
-    const mailboxes = this.pointedMessageMailboxHandlesByPtyId.get(ptyId) ?? new Set<string>()
-    mailboxes.add(mailboxHandle)
-    this.pointedMessageMailboxHandlesByPtyId.set(ptyId, mailboxes)
-  }
-
-  private clearPointedMessageWatermark(
-    mailboxHandle: string,
-    sequence: number,
-    ptyId: string
-  ): boolean {
-    const owner = this.pointedMessageWatermarkOwnerByHandle.get(mailboxHandle)
-    if (!owner || owner.ptyId !== ptyId || owner.sequence !== sequence) {
-      return false
-    }
-    this.pointedMessageWatermarkOwnerByHandle.delete(mailboxHandle)
-    const mailboxes = this.pointedMessageMailboxHandlesByPtyId.get(ptyId)
-    mailboxes?.delete(mailboxHandle)
-    if (mailboxes?.size === 0) {
-      this.pointedMessageMailboxHandlesByPtyId.delete(ptyId)
-    }
-    return true
-  }
-
-  private deactivatePointedMessageWatermark(
-    mailboxHandle: string,
-    sequence: number,
-    ptyId: string
-  ): boolean {
-    const owner = this.pointedMessageWatermarkOwnerByHandle.get(mailboxHandle)
-    if (!owner || owner.ptyId !== ptyId || owner.sequence !== sequence) {
-      return false
-    }
-    owner.active = false
-    return true
-  }
-
-  private parkMessageRedeliveryForMailbox(
-    mailboxHandle: string,
-    reservedTypes: ReadonlySet<string> | undefined
-  ): void {
-    const prior = this.parkedMessageRedeliveryTypesByMailboxHandle.get(mailboxHandle)
-    if (!this.parkedMessageRedeliveryTypesByMailboxHandle.has(mailboxHandle) && !reservedTypes) {
-      this.parkedMessageRedeliveryTypesByMailboxHandle.set(mailboxHandle, null)
-      return
-    }
-    this.parkedMessageRedeliveryTypesByMailboxHandle.set(
-      mailboxHandle,
-      new Set([...(prior ?? []), ...(reservedTypes ?? [])])
-    )
-  }
-
-  private redrivePendingMessageMailbox(mailboxHandle: string, force = false): void {
-    const parkedTypes = this.parkedMessageRedeliveryTypesByMailboxHandle.get(mailboxHandle)
-    if (!force && parkedTypes === undefined) {
-      return
-    }
-    this.parkedMessageRedeliveryTypesByMailboxHandle.delete(mailboxHandle)
-    queueMicrotask(() => {
-      try {
-        this.deliverPendingMessagesForHandle(mailboxHandle, parkedTypes ?? undefined)
-      } catch {
-        // The durable row remains available to a later idle edge or explicit check.
-      }
-    })
-  }
-
-  // Why: a dead session's Enter or watermark must not affect a same-id cold restore.
-  private retirePendingMessageDeliveryForPty(ptyId: string): void {
-    const flight = this.messageDeliveryFlightsByPtyId.get(ptyId)
-    if (flight?.enterTimer != null) {
-      clearTimeout(flight.enterTimer)
-    }
-    if (flight?.stagedMessageIds.length) {
-      this._orchestrationDb?.markAsUndelivered(flight.stagedMessageIds)
-    }
-    this.messageDeliveryFlightsByPtyId.delete(ptyId)
-    this.parkedMessageRedeliveriesByPtyId.delete(ptyId)
-    for (const leaf of this.getLeavesForPty(ptyId)) {
-      const handle = this.handleByLeafKey.get(this.getLeafKey(leaf.tabId, leaf.leafId))
-      if (handle) {
-        this.mailPointerRepointScheduler.schedule(handle)
-      }
-      const run = this._orchestrationDb?.getCurrentRunForPane?.(`${leaf.tabId}:${leaf.leafId}`)
-      if (run) {
-        this.mailPointerRepointScheduler.schedule(`run:${run.id}`)
-      }
-    }
-    const mailboxes = [...(this.pointedMessageMailboxHandlesByPtyId.get(ptyId) ?? [])]
-    for (const mailboxHandle of mailboxes) {
-      const owner = this.pointedMessageWatermarkOwnerByHandle.get(mailboxHandle)
-      if (
-        owner?.ptyId === ptyId &&
-        this.clearPointedMessageWatermark(mailboxHandle, owner.sequence, ptyId)
-      ) {
-        this.redrivePendingMessageMailbox(mailboxHandle, true)
-      }
-    }
-    this.pointedMessageMailboxHandlesByPtyId.delete(ptyId)
-  }
-
-  private getMessagePointerSubmitDecision(
-    leaf: RuntimeLeafRecord,
-    mailboxHandle: string,
-    messages: readonly { id: string; type: string }[]
-  ): 'submit' | 'release' {
-    if (this.resolveActionableMailboxForLeaf(leaf) !== mailboxHandle) {
-      return 'release'
-    }
-    if (
-      mailboxHandle.startsWith('run:') &&
-      this._orchestrationDb?.hasOutstandingRunDelivery?.(mailboxHandle.slice('run:'.length))
-    ) {
-      return 'release'
-    }
-    const waiters = this.messageWaitersByHandle.get(mailboxHandle)
-    if (messages.some((message) => messageTypeHasLiveWaiter(waiters, message.type))) {
-      return 'release'
-    }
-    return (this._orchestrationDb?.areUnreadMessages?.(
-      mailboxHandle,
-      messages.map((message) => message.id)
-    ) ?? true)
-      ? 'submit'
-      : 'release'
-  }
-
-  // Why: push-on-idle delivery is event-driven (no polling) because the runtime owns both the message store and terminal status detection.
-  private deliverPendingMessages(
-    leaf: RuntimeLeafRecord,
-    options: {
-      mailboxHandle?: string
-      reservedTypes?: ReadonlySet<string>
-      skipAbsenceProbe?: boolean
-    } = {}
-  ): void {
-    if (!this._orchestrationDb) {
-      return
-    }
-
-    const handle = this.handleByLeafKey.get(this.getLeafKey(leaf.tabId, leaf.leafId))
-    if (!handle) {
-      return
-    }
-    const mailboxHandle = options.mailboxHandle ?? handle
-    if (!mailboxHandle.startsWith('run:')) {
-      return
-    }
-
-    if (this._orchestrationDb.hasOutstandingRunDelivery?.(mailboxHandle.slice('run:'.length))) {
-      return
-    }
-
-    if (leaf.ptyId && this.messageDeliveryFlightsByPtyId.has(leaf.ptyId)) {
-      let parked = this.parkedMessageRedeliveriesByPtyId.get(leaf.ptyId)
-      if (!parked) {
-        parked = new Map()
-        this.parkedMessageRedeliveriesByPtyId.set(leaf.ptyId, parked)
-      }
-      const priorReservedTypes = parked.get(mailboxHandle)?.reservedTypes
-      const reservedTypes =
-        priorReservedTypes || options.reservedTypes
-          ? new Set([...(priorReservedTypes ?? []), ...(options.reservedTypes ?? [])])
-          : undefined
-      parked.set(mailboxHandle, { leaf, reservedTypes })
-      return
-    }
-
-    if (this.pointedMessageWatermarkOwnerByHandle.get(mailboxHandle)?.active) {
-      this.parkMessageRedeliveryForMailbox(mailboxHandle, options.reservedTypes)
-      return
-    }
-
-    // Why filter here and not at the trigger: the push reads every pending row,
-    // not just the one that woke it, so a row a pull has claimed would be typed
-    // into the pane AND returned by that pull's check. Live waiters cover the
-    // still-blocked case; reservedTypes carries the notify-time snapshot for a
-    // waiter resolved later in the same drain, which is already gone from the map.
-    const waiters = this.messageWaitersByHandle.get(mailboxHandle)
-    if ([...(waiters ?? [])].some((waiter) => !waiter.typeFilter)) {
-      return
-    }
-    const excludedTypes = new Set(options.reservedTypes)
-    for (const waiter of waiters ?? []) {
-      for (const type of waiter.typeFilter ?? []) {
-        excludedTypes.add(type)
-      }
-    }
-    const pending = this._orchestrationDb.getUndeliveredUnreadMessages(mailboxHandle, undefined, {
-      excludeTypes: [...excludedTypes],
-      limit: ORCHESTRATION_DELIVERY_BATCH_LIMIT
-    })
-    const unread = pending
-      .filter(
-        (message) =>
-          !options.reservedTypes?.has(message.type) &&
-          !messageTypeHasLiveWaiter(waiters, message.type)
-      )
-      .slice(0, ORCHESTRATION_DELIVERY_BATCH_LIMIT)
-    if (unread.length === 0) {
-      return
-    }
-
-    if (!leaf.writable || !leaf.ptyId) {
-      return
-    }
-    const newestSequence = unread.at(-1)?.sequence
-    if (newestSequence === undefined) {
-      return
-    }
-    const pointedSequence =
-      this.pointedMessageWatermarkOwnerByHandle.get(mailboxHandle)?.sequence ?? -1
-    if (newestSequence <= pointedSequence) {
-      const owner = this.pointedMessageWatermarkOwnerByHandle.get(mailboxHandle)
-      const leafKey = this.getLeafKey(leaf.tabId, leaf.leafId)
-      if (
-        !owner ||
-        owner.active ||
-        (owner.ptyId === leaf.ptyId && owner.leafKey === leafKey) ||
-        !this.clearPointedMessageWatermark(mailboxHandle, owner.sequence, owner.ptyId)
-      ) {
-        return
-      }
-    }
-
-    if (
-      !options.skipAbsenceProbe &&
-      this.ptyController?.probePtyLiveness &&
-      !this.controllerKnowsPtyIsLive(leaf.ptyId)
-    ) {
-      // Why: a fire-and-forget write to a prior process's ptyId reports success
-      // and would mark these delivered while losing them. Proven absence keeps
-      // them queued for a future surface; unknown liveness still delivers.
-      const probedPtyId = leaf.ptyId
-      // Why: triggers arriving mid-probe must not each arm a continuation — the
-      // Every continuation would re-read the same unread rows. The single armed
-      // continuation re-reads fresh rows when it fires, so nothing is lost.
-      if (this.probeDeferredDeliveryPtyIds.has(probedPtyId)) {
-        return
-      }
-      this.probeDeferredDeliveryPtyIds.add(probedPtyId)
-      void this.isLeafPtyProvenAbsent(probedPtyId)
-        .then((absent) => {
-          this.probeDeferredDeliveryPtyIds.delete(probedPtyId)
-          if (!absent && leaf.ptyId === probedPtyId) {
-            // Why a macrotask and not the stale reservation snapshot: a `remote:`
-            // pty answers the probe null before its first await, so this chain can
-            // settle in microtasks and overtake the resumption of a check resolved
-            // meanwhile — that check's waiter is already out of the map and its
-            // rows are not yet read, so the push would inject what it returns.
-            // Yielding the turn lets every queued check mark its rows read first;
-            // re-reading then (rather than replaying a reservation this probe may
-            // have outlived) is what keeps an orphaned row from stranding.
-            setTimeout(() => {
-              // Why current state, not the closure: the gate that authorized this
-              // push ran before the probe. A same-id cold restore inside the probe
-              // window keeps ptyId identical and makes the leaf writable again, so
-              // an id-only check would type the pointer plus Enter into a process
-              // whose idle was never observed. Re-read the live-idle gate.
-              const currentLeaf = this.leaves.get(this.getLeafKey(leaf.tabId, leaf.leafId))
-              if (
-                currentLeaf?.ptyId === probedPtyId &&
-                currentLeaf.lastAgentStatus === 'idle' &&
-                currentLeaf.lastAgentStatusObservedLive
-              ) {
-                this.deliverPendingMessages(currentLeaf, {
-                  mailboxHandle,
-                  skipAbsenceProbe: true
-                })
-              }
-            }, 0)
-          }
-        })
-        .catch(() => {
-          this.probeDeferredDeliveryPtyIds.delete(probedPtyId)
-        })
-      return
-    }
-
-    const deliveryPtyId = leaf.ptyId
-    const flight: {
-      enterTimer: ReturnType<typeof setTimeout> | null
-      stagedMessageIds: string[]
-    } = { enterTimer: null, stagedMessageIds: [] }
-    this.messageDeliveryFlightsByPtyId.set(deliveryPtyId, flight)
-    let settlesInEnterCallback = false
-    try {
-      const payload = formatMessagePointer(unread.length, mailboxHandle)
-      const wrote = this.ptyController?.write(deliveryPtyId, payload) ?? false
-      if (!wrote) {
-        return
-      }
-      flight.stagedMessageIds = unread.map((message) => message.id)
-      this._orchestrationDb.markAsDelivered(flight.stagedMessageIds)
-      this.setPointedMessageWatermark(
-        mailboxHandle,
-        newestSequence,
-        deliveryPtyId,
-        this.getLeafKey(leaf.tabId, leaf.leafId)
-      )
-
-      const tabTitle = this.tabs.get(leaf.tabId)?.title
-      if (isCursorAgentOrchestrationTarget(leaf, tabTitle)) {
-        this.clearPointedMessageWatermark(mailboxHandle, newestSequence, deliveryPtyId)
-        this.redrivePendingMessageMailbox(mailboxHandle)
-        return
-      }
-
-      // Why: agent TUIs can swallow a \r in the same PTY write; submit separately after a delay.
-      flight.enterTimer = setTimeout(() => {
-        let clearAndRedrive = false
-        let submitted = false
-        let releaseWithoutRedrive = false
-        let finalizeReservation = true
-        void this.isLeafPtyProvenAbsent(deliveryPtyId)
-          .then((absent) => {
-            if (absent) {
-              clearAndRedrive = true
-              return
-            }
-            if (this.messageDeliveryFlightsByPtyId.get(deliveryPtyId) !== flight) {
-              finalizeReservation = false
-              return
-            }
-            const currentLeaf = this.leaves.get(this.getLeafKey(leaf.tabId, leaf.leafId))
-            if (!currentLeaf || currentLeaf.ptyId !== deliveryPtyId || !currentLeaf.writable) {
-              clearAndRedrive = true
-              return
-            }
-            if (this.resolveActionableMailboxForLeaf(currentLeaf) !== mailboxHandle) {
-              clearAndRedrive = true
-              return
-            }
-            if (
-              currentLeaf.lastAgentStatus !== 'idle' ||
-              !currentLeaf.lastAgentStatusObservedLive
-            ) {
-              return
-            }
-            if (
-              this.getMessagePointerSubmitDecision(currentLeaf, mailboxHandle, unread) === 'release'
-            ) {
-              releaseWithoutRedrive = true
-              return
-            }
-            submitted = this.ptyController?.write(deliveryPtyId, '\r') ?? false
-          })
-          .catch(() => {
-            // Terminal liveness is uncertain; mail remains queued for explicit check.
-          })
-          .finally(() => {
-            let released = false
-            if (finalizeReservation) {
-              if (clearAndRedrive) {
-                this._orchestrationDb?.markAsUndelivered(unread.map((message) => message.id))
-              }
-              released =
-                submitted || clearAndRedrive || releaseWithoutRedrive
-                  ? this.clearPointedMessageWatermark(mailboxHandle, newestSequence, deliveryPtyId)
-                  : this.deactivatePointedMessageWatermark(
-                      mailboxHandle,
-                      newestSequence,
-                      deliveryPtyId
-                    )
-            }
-            this.settlePendingMessageDelivery(deliveryPtyId, flight)
-            if (released && !releaseWithoutRedrive) {
-              this.redrivePendingMessageMailbox(mailboxHandle, clearAndRedrive)
-            }
-          })
-      }, 500)
-      settlesInEnterCallback = true
-    } finally {
-      if (!settlesInEnterCallback) {
-        this.settlePendingMessageDelivery(deliveryPtyId, flight)
-      }
-    }
   }
 
   private resolveWaiter(waiter: TerminalWaiter, result: RuntimeTerminalWait): void {

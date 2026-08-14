@@ -1,6 +1,7 @@
 import { rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { OrchestrationMailboxPointerState } from './orchestration/mailbox-pointer-state'
 import {
   checkBoundMailbox,
   createBoundRun,
@@ -275,23 +276,12 @@ describe('orchestration mailbox routing races', () => {
   })
 
   it('preserves a later filtered reservation behind an unfiltered redrive', () => {
-    const db = createDatabase('orca-mailbox-reservation-union-')
-    const harness = createRuntime(db)
-    const internals = harness.runtime as unknown as {
-      parkMessageRedeliveryForMailbox: (
-        mailboxHandle: string,
-        reservedTypes: ReadonlySet<string> | undefined
-      ) => void
-      parkedMessageRedeliveryTypesByMailboxHandle: Map<string, ReadonlySet<string> | null>
-    }
+    const state = new OrchestrationMailboxPointerState()
 
-    internals.parkMessageRedeliveryForMailbox('run:run_test', undefined)
-    internals.parkMessageRedeliveryForMailbox('run:run_test', new Set(['worker_done']))
+    state.parkRedelivery('run:run_test')
+    state.parkRedelivery('run:run_test', new Set(['worker_done']))
 
-    expect(internals.parkedMessageRedeliveryTypesByMailboxHandle.get('run:run_test')).toEqual(
-      new Set(['worker_done'])
-    )
-    db.close()
+    expect(state.takeRedelivery('run:run_test', false)).toEqual(new Set(['worker_done']))
   })
 
   it('uses a bounded indexed pane lookup for reminted Dispatch identity', () => {
