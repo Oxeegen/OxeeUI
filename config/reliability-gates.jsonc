@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-08-13",
+  "updatedAt": "2026-08-14",
   "policy": {
     "maturityLevels": ["experimental", "soak", "blocking", "accepted-gap", "deprecated"],
     "blockingPromotion": {
@@ -10,6 +10,104 @@
     }
   },
   "gates": [
+    {
+      "id": "ephemeral-vm-runtime.rollback-readable-sidecar",
+      "title": "VM lifecycle records remain readable across provisioned-root rollback",
+      "maturity": "experimental",
+      "protection": "partial",
+      "owner": "ephemeral-vm-runtime-store",
+      "layer": "desktop-main-persistence",
+      "surfaces": ["VM runtime sidecar", "recipe lifecycle", "provisioned-root direct SSH"],
+      "platforms": ["macos", "linux", "windows"],
+      "providers": ["orca-server", "direct-ssh"],
+      "coveredPlatforms": ["macos", "linux", "windows"],
+      "coveredProviders": ["orca-server", "direct-ssh"],
+      "coverageNotes": "A pinned exact-source harness runs the pre-#14352 reader and lifecycle service against baseline, affected-main, candidate, and fix-reverted stores. Platform-neutral store tests cover v1 byte stability, mixed records, current-main migration, downgrade mutation, malformed/future metadata preservation, bounded writes, and provider userData round-tripping. The direct-SSH provisioned-root Electron journey remains the live transport and destroy proof; this desktop sidecar is not mobile-facing and changes no RPC or remote wire payload.",
+      "motivatingLinks": [
+        "https://linear.app/stably/issue/STA-4274",
+        "https://github.com/stablyai/orca/pull/14352",
+        "https://github.com/stablyai/orca/issues/13044"
+      ],
+      "invariant": "A sidecar written by the new build cannot make the previous production build lose otherwise compatible VM runtimes. Downgrade lifecycle writes remain authoritative after re-upgrade, provisioned-root metadata remains recoverable, and corrupt or future feature metadata is preserved without poisoning the rollback-readable v1 store.",
+      "oracle": "Write one ordinary schema-v1 runtime and one provisioned-root runtime. Require the exact pre-#14352 reader to return both, run the old destroy lifecycle against the projected provisioned record, then require the candidate to retain the cleaned state while restoring schema-v2 and checkout-mode metadata. The same old reader must reject affected-main and fix-reverted bytes. Malformed, oversized, unknown-record, and future-version feature sidecars must leave rollback-compatible records accessible and must not be overwritten during compatible lifecycle mutations.",
+      "commands": [
+        "node config/scripts/run-ephemeral-vm-runtime-store-rollback-repro.mjs config/scripts/ephemeral-vm-runtime-store-cross-version.test.ts",
+        "pnpm exec vitest run --config config/vitest.config.ts src/shared/ephemeral-vm-runtime-store.test.ts src/shared/ephemeral-vm-runtime-store-rollback.test.ts src/main/ephemeral-vm-runtime-service.test.ts src/main/ephemeral-vm-recipe-runner.test.ts src/main/ephemeral-vm-runtime-ssh-cleanup.test.ts src/main/ipc/ephemeral-vm-runtime-handler-cleanup.test.ts src/main/ipc/ephemeral-vm.test.ts src/main/provisioned-root-ssh-adoption.test.ts",
+        "ORCA_E2E_SSH_DOCKER=1 pnpm exec playwright test tests/e2e/ephemeral-vm-provisioned-root.spec.ts --config tests/playwright.config.ts --project electron-headless --workers=1"
+      ],
+      "testFiles": [
+        "config/scripts/ephemeral-vm-runtime-store-cross-version.test.ts",
+        "config/scripts/run-ephemeral-vm-runtime-store-rollback-repro.mjs",
+        "src/shared/ephemeral-vm-runtime-store-rollback.test.ts",
+        "src/shared/ephemeral-vm-runtime-store.test.ts",
+        "src/main/ephemeral-vm-runtime-service.test.ts",
+        "tests/e2e/ephemeral-vm-provisioned-root.spec.ts"
+      ],
+      "assertionRefs": [
+        {
+          "file": "config/scripts/ephemeral-vm-runtime-store-cross-version.test.ts",
+          "assertions": [
+            "the exact rollback reader accepts both projected records",
+            "the rollback lifecycle service destroys the provisioned resource using schema-v1 provider data",
+            "re-upgrade restores provisioned-root metadata without reverting lifecycle state"
+          ]
+        },
+        {
+          "file": "src/shared/ephemeral-vm-runtime-store-rollback.test.ts",
+          "assertions": [
+            "ordinary runtime bytes remain unchanged and create no feature sidecar",
+            "malformed, future, oversized, and unknown feature data is preserved without poisoning v1 records",
+            "current-main poisoned bytes migrate to a rollback-readable projection"
+          ]
+        }
+      ],
+      "evidenceRuns": [
+        {
+          "date": "2026-08-14",
+          "runner": "local",
+          "platform": "macos",
+          "command": "node config/scripts/run-ephemeral-vm-runtime-store-rollback-repro.mjs config/scripts/ephemeral-vm-runtime-store-cross-version.test.ts",
+          "result": "passed",
+          "durationSeconds": 11,
+          "summary": "The pinned baseline and affected-main oracles passed, candidate downgrade ran the exact old destroy service, candidate re-upgrade retained lifecycle state, and both affected-main and fix-reverted bytes failed the old reader as expected."
+        },
+        {
+          "date": "2026-08-14",
+          "runner": "local",
+          "platform": "macos",
+          "command": "pnpm exec vitest run --config config/vitest.config.ts src/shared/ephemeral-vm-runtime-store.test.ts src/shared/ephemeral-vm-runtime-store-rollback.test.ts src/main/ephemeral-vm-runtime-service.test.ts src/main/ephemeral-vm-recipe-runner.test.ts src/main/ephemeral-vm-runtime-ssh-cleanup.test.ts src/main/ipc/ephemeral-vm-runtime-handler-cleanup.test.ts src/main/ipc/ephemeral-vm.test.ts src/main/provisioned-root-ssh-adoption.test.ts",
+          "result": "passed",
+          "durationSeconds": 2,
+          "summary": "Fifty-eight focused store, recipe, lifecycle, cleanup-handler, and provisioned-root adoption tests passed."
+        }
+      ],
+      "runtimeBudget": {
+        "p95Seconds": 180,
+        "scope": "pinned cross-version source oracle, focused lifecycle contracts, and one Docker SSH Electron journey"
+      },
+      "flakeHistory": {
+        "status": "unknown",
+        "evidence": "The deterministic local contract runs are stable; CI and Docker Electron soak history have not started."
+      },
+      "redGreenEvidence": {
+        "status": "complete",
+        "evidence": "The same pinned oracle passes the pre-#14352 ordinary store, fails the affected-main mixed store with file-is-invalid, passes the candidate mixed store plus old-service destroy and re-upgrade, and fails again when the candidate compatibility files are reverted to affected main."
+      },
+      "performanceBudget": {
+        "required": true,
+        "evidence": "Ordinary writes remain byte-identical and create no feature sidecar. Reads add one bounded feature-file existence check; feature parsing and atomic writes occur only on VM lifecycle store access, with no polling, timers, subprocesses, renderer work, RPC traffic, or remote fanout."
+      },
+      "promotionCriteria": [
+        "Keep the pinned baseline/latest/candidate/revert oracle green in CI.",
+        "Keep the Docker provisioned-root create/adopt/terminal/remove/destroy journey green.",
+        "Collect soak history without unexplained lifecycle or sidecar flakes."
+      ],
+      "knownGaps": [
+        "No packaged-build downgrade installer journey; the exact released source reader and service are executed in-process.",
+        "Live Docker SSH coverage runs on macOS CI; Windows and Linux desktop behavior is covered by the platform-neutral filesystem codec."
+      ],
+      "demotionRule": "Demote if a new write fails the pinned rollback reader, a downgrade lifecycle mutation is lost after re-upgrade, malformed/future metadata overwrites recoverable bytes, ordinary v1 bytes change, or the focused gate flakes without an identified harness defect."
+    },
     {
       "id": "terminal-session.shell-ready-exec-prompt-fallback",
       "title": "Startup exec falls back to the identified shell's line editor",

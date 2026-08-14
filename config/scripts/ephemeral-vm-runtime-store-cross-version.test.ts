@@ -1,4 +1,4 @@
-import { mkdtempSync } from 'node:fs'
+import { existsSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -87,9 +87,78 @@ test.skipIf(!targetRoot || !operation)(`STA-4274 ${operation ?? 'disabled'}`, as
     return
   }
   if (operation === 'read') {
-    expect(
-      store.listEphemeralVmRuntimes(userDataPath).map((record: { id: string }) => record.id)
-    ).toEqual(['provisioned-root-runtime', 'ordinary-runtime'])
+    const runtimes = store.listEphemeralVmRuntimes(userDataPath)
+    expect(runtimes.map((record: { id: string }) => record.id)).toEqual([
+      'provisioned-root-runtime',
+      'ordinary-runtime'
+    ])
+    return
+  }
+  if (operation === 'read-rollback-projection') {
+    const runtimes = store.listEphemeralVmRuntimes(userDataPath)
+    expect(runtimes).toHaveLength(2)
+    expect(runtimes[0].recipe).not.toHaveProperty('checkoutMode')
+    expect(runtimes[0].recipeResult).toMatchObject({ schemaVersion: 1 })
+    return
+  }
+  if (operation === 'mutate-lifecycle') {
+    store.updateEphemeralVmRuntimeStatus(userDataPath, 'ordinary-runtime', {
+      status: 'suspended',
+      updatedAt: 3_000
+    })
+    const repoPath = mkdtempSync(join(tmpdir(), 'sta-4274-cleanup-'))
+    const cleanupPath = join(repoPath, 'cleanup.js')
+    const proofPath = join(repoPath, 'cleanup-proof')
+    writeFileSync(
+      cleanupPath,
+      [
+        "let input = ''",
+        "process.stdin.on('data', (chunk) => { input += chunk })",
+        "process.stdin.on('end', () => {",
+        '  const payload = JSON.parse(input)',
+        '  if (payload.recipeResult.schemaVersion !== 1) process.exit(12)',
+        "  if (payload.recipeResult.userData.resourceId !== 'provisioned-resource') process.exit(13)",
+        `  require('fs').writeFileSync(${JSON.stringify(proofPath)}, 'destroyed')`,
+        '})'
+      ].join('\n')
+    )
+    const serviceUrl = pathToFileURL(
+      resolve(targetRoot, 'src/main/ephemeral-vm-runtime-service.ts')
+    ).href
+    const service = await import(/* @vite-ignore */ serviceUrl)
+    const result = await service.cleanupEphemeralVmRuntime({
+      userDataPath,
+      repoPath,
+      runtimeId: 'provisioned-root-runtime',
+      recipe: {
+        id: 'provisioned-root-recipe',
+        name: 'Provisioned Root VM',
+        create: './provisioned-root-create.sh',
+        destroy: `${JSON.stringify(process.execPath)} ${JSON.stringify(cleanupPath)}`
+      },
+      now: 3_000
+    })
+    expect(result).toMatchObject({
+      ok: true,
+      runtime: { status: 'cleaned', cleanupStatus: 'succeeded' }
+    })
+    expect(existsSync(proofPath)).toBe(true)
+    return
+  }
+  if (operation === 'read-after-downgrade') {
+    expect(store.listEphemeralVmRuntimes(userDataPath)).toEqual([
+      expect.objectContaining({
+        id: 'provisioned-root-runtime',
+        status: 'cleaned',
+        cleanupStatus: 'succeeded',
+        recipe: expect.objectContaining({ checkoutMode: 'provisioned-root' }),
+        recipeResult: expect.objectContaining({
+          schemaVersion: 2,
+          checkoutMode: 'provisioned-root'
+        })
+      }),
+      expect.objectContaining({ id: 'ordinary-runtime', status: 'suspended' })
+    ])
     return
   }
   if (operation === 'read-legacy') {
