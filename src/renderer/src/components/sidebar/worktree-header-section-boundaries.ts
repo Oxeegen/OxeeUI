@@ -1,4 +1,4 @@
-import { estimateRenderRowSize, type RenderRow } from './worktree-list-virtual-rows'
+import { estimateRenderRowSize, type RenderRow } from './worktree-list/viewport/virtual-rows'
 
 function getEstimatedRenderRowStarts(
   rows: readonly RenderRow[],

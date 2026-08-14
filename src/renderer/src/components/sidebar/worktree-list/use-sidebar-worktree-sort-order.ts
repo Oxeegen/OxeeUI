@@ -14,7 +14,7 @@ import {
   type WorktreeAttention
 } from '../smart-attention'
 import { useReusedArrayIdentity } from './use-reused-array-identity'
-import { SORT_SETTLE_MS } from './worktree-sidebar-scroll-tuning'
+import { SORT_SETTLE_MS } from './scroll/tuning'
 
 function trackSmartClassDistribution(attention: ReadonlyMap<string, WorktreeAttention>): void {
   let class1 = 0

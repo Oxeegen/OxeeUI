@@ -3,7 +3,7 @@ import type { FolderWorkspace } from '../../../../shared/folder-workspace-types'
 import type { ProjectGroup } from '../../../../shared/project-group-types'
 import type { Repo } from '../../../../shared/repo-types'
 import type { Worktree } from '../../../../shared/worktree/types'
-import { PINNED_GROUP_KEY, type Row } from './worktree-list-groups'
+import { PINNED_GROUP_KEY, type Row } from './worktree-list/rows/groups'
 import { addHostSectionRows, type HostSectionRow } from './host-section-rows'
 
 function repo(id: string, connectionId?: string | null): Repo {

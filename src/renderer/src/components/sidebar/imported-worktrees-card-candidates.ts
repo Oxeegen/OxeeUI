@@ -6,7 +6,7 @@ import {
   effectiveExternalWorktreeVisibility,
   isLegacyRepoForExternalWorktreeVisibility
 } from '../../../../shared/worktree/ownership'
-import type { ImportedWorktreesCardCandidate } from './worktree-list-groups'
+import type { ImportedWorktreesCardCandidate } from './worktree-list/rows/groups'
 
 export function getHiddenImportedWorktrees(
   detected: DetectedWorktreeListResult | undefined

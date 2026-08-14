@@ -12,7 +12,7 @@ import {
   getProjectGroupHeaderKey,
   getProjectHeaderRevealTarget,
   type ProjectGroupingModel
-} from '../sidebar/worktree-list-groups'
+} from '../sidebar/worktree-list/rows/groups'
 
 export type CmdJProjectGroupResult = {
   id: string

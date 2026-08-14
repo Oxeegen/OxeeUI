@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'reac
 import type React from 'react'
 import type { Worktree } from '../../../../../shared/worktree/types'
 import type { HostSectionRow } from '../host-section-rows'
-import type { PinnedWorktreeDisplayPolicy } from '../worktree-list-groups'
+import type { PinnedWorktreeDisplayPolicy } from './rows/groups'
 import { getRenderedWorktreesInSidebarOrder } from '../worktree-sidebar-row-preference'
 import { setVisibleWorktreeIds } from '../visible-worktrees'
 import {

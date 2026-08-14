@@ -17,7 +17,7 @@ import {
   type ProjectGroupingModel,
   type Row,
   type WorktreeGroupBy
-} from '../worktree-list-groups'
+} from './rows/groups'
 import { getLogicalRepoOrderRankById } from '../project-header-drop'
 import { getEmptyProjectPlaceholderRepoIds } from '../empty-project-placeholder-repos'
 import { addHostSectionRows } from '../host-section-rows'

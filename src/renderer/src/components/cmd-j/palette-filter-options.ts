@@ -9,7 +9,7 @@ import type { Worktree } from '../../../../shared/worktree/types'
 import {
   getProjectHeaderRevealTarget,
   type ProjectGroupingModel
-} from '../sidebar/worktree-list-groups'
+} from '../sidebar/worktree-list/rows/groups'
 import type { SidebarHostOption } from '../sidebar/sidebar-host-options'
 import { buildPaletteFilterOptionSearchText } from './palette-filter-option-list'
 

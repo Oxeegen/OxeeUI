@@ -5,7 +5,7 @@ import {
   PINNED_GROUP_KEY,
   type PinnedWorktreeDisplayPolicy,
   type WorktreeRow
-} from './worktree-list-groups'
+} from './worktree-list/rows/groups'
 
 export function getPreferredWorktreeRows(
   rows: readonly WorktreeRow[],

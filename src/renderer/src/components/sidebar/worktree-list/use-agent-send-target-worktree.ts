@@ -1,13 +1,14 @@
 import { useMemo } from 'react'
 import { useAppStore } from '@/store'
+import type { AppState } from '@/store/types'
 import { deriveRunningAgentSendTargets } from '@/lib/running-agent-targets'
-import {
-  EMPTY_AGENT_STATUS_BY_PANE_KEY,
-  EMPTY_PTY_IDS_BY_TAB_ID,
-  EMPTY_RUNTIME_PANE_TITLES_BY_TAB_ID,
-  EMPTY_TABS_BY_WORKTREE,
-  EMPTY_TERMINAL_LAYOUTS_BY_TAB_ID
-} from './stable-empty-store-slices'
+
+// Why: selectors that opt out of a slice must return one stable reference, or every store tick looks like a change.
+const EMPTY_AGENT_STATUS_BY_PANE_KEY: AppState['agentStatusByPaneKey'] = {}
+const EMPTY_TABS_BY_WORKTREE: AppState['tabsByWorktree'] = {}
+const EMPTY_TERMINAL_LAYOUTS_BY_TAB_ID: AppState['terminalLayoutsByTabId'] = {}
+const EMPTY_PTY_IDS_BY_TAB_ID: AppState['ptyIdsByTabId'] = {}
+const EMPTY_RUNTIME_PANE_TITLES_BY_TAB_ID: AppState['runtimePaneTitlesByTabId'] = {}
 
 // The agent send picker forces its target workspace visible, but only while a running
 // agent there can actually receive the message.

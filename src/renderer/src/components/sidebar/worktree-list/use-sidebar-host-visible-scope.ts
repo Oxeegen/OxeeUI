@@ -9,7 +9,7 @@ import {
   filterFolderWorkspacesForVisibleHosts,
   filterProjectGroupsForVisibleHosts,
   getVisibleSidebarHostIdSet
-} from '../worktree-list-host-filtering'
+} from './viewport/host-filtering'
 
 // Narrows repos, project groups, and folder workspaces to the hosts (and devices) the
 // current host filter admits.

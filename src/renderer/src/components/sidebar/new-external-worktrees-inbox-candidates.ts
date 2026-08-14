@@ -2,7 +2,7 @@ import type { Repo } from '../../../../shared/repo-types'
 import type { DetectedWorktreeListResult, Worktree } from '../../../../shared/worktree/types'
 import { getNewExternalWorktreeInboxWorktrees } from '../../../../shared/external-worktree-inbox'
 import { isGitRepoKind } from '../../../../shared/repo-kind'
-import type { NewExternalWorktreesInboxCandidate } from './worktree-list-groups'
+import type { NewExternalWorktreesInboxCandidate } from './worktree-list/rows/groups'
 
 export function buildNewExternalWorktreesInboxCandidates(args: {
   repos: readonly Repo[]

@@ -17,8 +17,9 @@ import {
 } from '../visible-worktree-activity-inputs'
 import type { SortBy } from '../smart-sort'
 import type { SidebarWorktreeFilters } from './use-sidebar-worktree-filters'
-import { EMPTY_WORKTREE_ID_SET } from './stable-empty-store-slices'
 import { useReusedArrayIdentity } from './use-reused-array-identity'
+
+const EMPTY_WORKTREE_ID_SET: ReadonlySet<string> = new Set()
 
 // Applies every sidebar filter to the sorted id stream. Flatten/filter/sort goes through the
 // shared utility so card order matches Cmd+1–9 numbering.

@@ -235,8 +235,8 @@ inline src/renderer/src/components/sidebar/WorkspaceKanbanDrawer.tsx
 inline src/renderer/src/components/sidebar/WorktreeContextMenu.tsx
 inline src/renderer/src/components/sidebar/WorktreeList.lineage-child-card.test.ts
 inline src/renderer/src/components/sidebar/use-workspace-kanban-area-selection.ts
-inline src/renderer/src/components/sidebar/worktree-list-groups.test.ts
-inline src/renderer/src/components/sidebar/worktree-list-groups.ts
+inline src/renderer/src/components/sidebar/worktree-list/rows/groups.test.ts
+inline src/renderer/src/components/sidebar/worktree-list/rows/groups.ts
 inline src/renderer/src/components/stats/usage-overview-model.ts
 inline src/renderer/src/components/status-bar/ResourceUsageStatusSegment.tsx
 inline src/renderer/src/components/status-bar/StatusBar.tsx

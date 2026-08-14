@@ -1,6 +1,6 @@
 import type { Repo } from '../../../../shared/repo-types'
 import type { Worktree } from '../../../../shared/worktree/types'
-import type { WorktreeGroupBy } from './worktree-list-groups'
+import type { WorktreeGroupBy } from './worktree-list/rows/groups'
 
 export function getEmptyProjectPlaceholderRepoIds(args: {
   groupBy: WorktreeGroupBy

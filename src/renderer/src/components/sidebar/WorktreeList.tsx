@@ -14,29 +14,29 @@ import {
   getSettingsFocusedExecutionHostId
 } from '../../../../shared/execution-host'
 import { getActiveSidebarWorkspaceId } from '../../../../shared/workspace-scope'
-import { getPinnedWorktreeDisplayPolicy } from './worktree-list-groups'
-import { selectWorktreeListReviewCacheInputs } from './worktree-list-review-cache-inputs'
+import { getPinnedWorktreeDisplayPolicy } from './worktree-list/rows/groups'
+import { selectWorktreeListReviewCacheInputs } from './worktree-list/viewport/review-cache-inputs'
 import type { VirtualizedScrollAnchor } from '@/hooks/useVirtualizedScrollAnchor'
 import { SidebarWorktreeListDialogs } from './worktree-list/SidebarWorktreeListDialogs'
 import { SidebarWorktreeListEmptyState } from './worktree-list/SidebarWorktreeListEmptyState'
-import { VirtualizedWorktreeViewport } from './worktree-list/VirtualizedWorktreeViewport'
-import { markSidebarWorktreeActiveImmediately } from './worktree-list/worktree-option-dom'
+import { VirtualizedWorktreeViewport } from './worktree-list/viewport/VirtualizedWorktreeViewport'
+import { markSidebarWorktreeActiveImmediately } from './worktree-list/option-dom'
 import {
   EMPTY_PROJECT_GROUPS,
   NOOP_WORKSPACE_BOARD_DRAG_PREVIEW_CALLBACK
-} from './worktree-list/virtualized-worktree-viewport-props'
+} from './worktree-list/viewport/viewport-props'
 import { useAgentSendTargetWorktreeId } from './worktree-list/use-agent-send-target-worktree'
 import { useEffectiveCollapsedGroups } from './worktree-list/use-effective-collapsed-groups'
 import { useProjectGroupDialogs } from './worktree-list/use-project-group-dialogs'
 import { useSidebarExternalWorktreeCards } from './worktree-list/use-sidebar-external-worktree-cards'
 import { useSidebarHostVisibleScope } from './worktree-list/use-sidebar-host-visible-scope'
-import { useSidebarRevealRequests } from './worktree-list/use-sidebar-reveal-requests'
+import { useSidebarRevealRequests } from './worktree-list/reveal/use-requests'
 import { useSidebarSectionRows } from './worktree-list/use-sidebar-section-rows'
 import { useSidebarWorktreeFilters } from './worktree-list/use-sidebar-worktree-filters'
 import { useSidebarWorktreeSelection } from './worktree-list/use-sidebar-worktree-selection'
 import { useSidebarWorktreeSortOrder } from './worktree-list/use-sidebar-worktree-sort-order'
 import { useVisibleSidebarWorktrees } from './worktree-list/use-visible-sidebar-worktrees'
-import { useWorktreeStatusMutations } from './worktree-list/use-worktree-status-mutations'
+import { useWorktreeStatusMutations } from './worktree-list/use-status-mutations'
 
 type WorktreeListProps = {
   scrollOffsetRef: React.MutableRefObject<number>

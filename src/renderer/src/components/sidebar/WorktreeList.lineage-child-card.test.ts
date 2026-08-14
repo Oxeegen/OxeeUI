@@ -8,7 +8,7 @@ import type { Repo } from '../../../../shared/repo-types'
 import type { WorktreeLineage } from '../../../../shared/worktree/lineage-types'
 import type { Worktree } from '../../../../shared/worktree/types'
 import { folderWorkspaceKey } from '../../../../shared/workspace-scope'
-import { getPinnedWorktreeRevealCollapsedGroupKeys } from './worktree-list/sidebar-row-reveal-ancestors'
+import { getPinnedWorktreeRevealCollapsedGroupKeys } from './worktree-list/reveal/ancestors'
 import { cloneDefaultWorkspaceStatuses } from '../../../../shared/workspace-statuses'
 
 const mockStore = vi.hoisted(() => ({

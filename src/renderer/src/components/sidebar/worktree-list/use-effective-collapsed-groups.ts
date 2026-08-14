@@ -10,7 +10,7 @@ import {
   PINNED_GROUP_KEY,
   type ProjectGroupingModel,
   type WorktreeGroupBy
-} from '../worktree-list-groups'
+} from './rows/groups'
 import { getWorktreeLineageAncestors } from '../worktree-lineage-projection'
 
 // While the agent send picker targets a workspace, force open every section that hides it.

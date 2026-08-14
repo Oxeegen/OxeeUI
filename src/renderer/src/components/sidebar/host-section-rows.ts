@@ -14,7 +14,7 @@ import type { SshConnectionStatus } from '../../../../shared/ssh-types'
 import type { FolderWorkspace } from '../../../../shared/folder-workspace-types'
 import type { ProjectGroup } from '../../../../shared/project-group-types'
 import type { Repo } from '../../../../shared/repo-types'
-import type { Row } from './worktree-list-groups'
+import type { Row } from './worktree-list/rows/groups'
 
 export type HostHeaderRow = {
   type: 'host-header'
