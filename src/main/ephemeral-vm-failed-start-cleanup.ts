@@ -21,10 +21,10 @@ type FailedStart = {
 export async function cleanupFailedEphemeralVmStart(
   args: ProvisionEphemeralVmRuntimeArgs,
   start: FailedStart
-): Promise<void> {
+): Promise<boolean> {
   const cleanupError = await getCleanupError(args, start)
   if (cleanupError === null) {
-    return
+    return true
   }
 
   const now = args.now ?? Date.now()
@@ -56,6 +56,7 @@ export async function cleanupFailedEphemeralVmStart(
     // Why: cleanup retry metadata must survive even when its feature companion is unreadable.
     upsertEphemeralVmRuntimeRollbackRecovery(args.userDataPath, recovery)
   }
+  return false
 }
 
 async function getCleanupError(

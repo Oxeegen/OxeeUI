@@ -269,18 +269,23 @@ describe('ephemeral VM runtime store rollback projection', () => {
     }
   )
 
-  it('does not overwrite an oversized feature sidecar or poison the v1 store', () => {
+  it('publishes lifecycle authority before an unreadable feature companion', () => {
     const userDataPath = makeUserDataPath()
     upsertEphemeralVmRuntime(userDataPath, runtimeRecord())
     const featurePath = getEphemeralVmRuntimeFeatureStorePath(userDataPath)
     writeFileSync(featurePath, '{}')
     truncateSync(featurePath, MAX_EPHEMERAL_VM_RUNTIME_FEATURE_STORE_FILE_BYTES + 1)
-    const before = readFileSync(getEphemeralVmRuntimeStorePath(userDataPath), 'utf8')
-
     expect(() => upsertEphemeralVmRuntime(userDataPath, provisionedRootRecord())).toThrow(
       EphemeralVmRuntimeStoreError
     )
-    expect(readFileSync(getEphemeralVmRuntimeStorePath(userDataPath), 'utf8')).toBe(before)
-    expect(listEphemeralVmRuntimes(userDataPath)).toEqual([runtimeRecord()])
+    const persisted = JSON.parse(readFileSync(getEphemeralVmRuntimeStorePath(userDataPath), 'utf8'))
+    expect(RollbackEphemeralVmRuntimeStoreSchema.parse(persisted).runtimes).toHaveLength(2)
+    expect(readFileSync(featurePath, 'utf8')).toHaveLength(
+      MAX_EPHEMERAL_VM_RUNTIME_FEATURE_STORE_FILE_BYTES + 1
+    )
+    expect(listEphemeralVmRuntimes(userDataPath).map((runtime) => runtime.id)).toEqual([
+      'provisioned-runtime',
+      'ordinary-runtime'
+    ])
   })
 })

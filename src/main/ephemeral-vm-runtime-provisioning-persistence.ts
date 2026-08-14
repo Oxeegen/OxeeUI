@@ -1,7 +1,11 @@
 import { randomUUID } from 'node:crypto'
 import { assertEphemeralVmRuntimeCheckoutModeCanPersist } from '../shared/ephemeral-vm-runtime-feature-store'
 import { getEphemeralVmRecipeResultConnection } from '../shared/ephemeral-vm-recipes'
-import { upsertEphemeralVmRuntime } from '../shared/ephemeral-vm-runtime-store'
+import {
+  listEphemeralVmRuntimes,
+  removeEphemeralVmRuntime,
+  upsertEphemeralVmRuntime
+} from '../shared/ephemeral-vm-runtime-store'
 import type { EphemeralVmRuntimeRecord } from '../shared/ephemeral-vm-runtimes'
 import type {
   ProvisionEphemeralVmRuntimeArgs,
@@ -20,6 +24,7 @@ export function prepareEphemeralVmCompatibilityPersistence(
   if (!args.recipe.checkoutMode) {
     return null
   }
+  listEphemeralVmRuntimes(args.userDataPath)
   const compatibility = {
     instanceId: `orca-${randomUUID()}`,
     createdAt: args.now ?? Date.now()
@@ -59,10 +64,18 @@ export async function persistProvisionedEphemeralVmRuntime(
     })
   } catch (error) {
     if (compatibility) {
-      await cleanupFailedEphemeralVmStart(args, {
+      const cleaned = await cleanupFailedEphemeralVmStart(args, {
         context: start.context,
         recipeResult: start.result
       })
+      if (
+        cleaned &&
+        listEphemeralVmRuntimes(args.userDataPath).some(
+          (runtime) => runtime.id === compatibility.instanceId
+        )
+      ) {
+        removeEphemeralVmRuntime(args.userDataPath, compatibility.instanceId)
+      }
     }
     throw error
   }

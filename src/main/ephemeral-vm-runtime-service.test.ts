@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { encodePairingOffer, PAIRING_OFFER_VERSION } from '../shared/pairing'
 import {
+  getEphemeralVmRuntimeStorePath,
   listEphemeralVmRuntimes,
   upsertEphemeralVmRuntime
 } from '../shared/ephemeral-vm-runtime-store'
@@ -209,6 +210,30 @@ describe('ephemeral VM runtime service', () => {
     expect(existsSync(markerPath)).toBe(false)
   })
 
+  it('rejects an unreadable lifecycle store before a checkout-mode recipe creates resources', async () => {
+    const userDataPath = makeDir('orca-ephemeral-vm-service-user-data-')
+    const repoPath = makeDir('orca-ephemeral-vm-service-repo-')
+    const startPath = join(repoPath, 'start.js')
+    const markerPath = join(repoPath, 'create-ran.txt')
+    writeFileSync(startPath, `require('fs').writeFileSync(${JSON.stringify(markerPath)}, 'yes')`)
+    writeFileSync(getEphemeralVmRuntimeStorePath(userDataPath), '{')
+
+    await expect(
+      provisionEphemeralVmRuntime({
+        userDataPath,
+        repoPath,
+        recipe: {
+          id: 'cloud-sandbox',
+          name: 'Cloud Sandbox',
+          checkoutMode: 'provisioned-root',
+          create: nodeCommand(startPath),
+          destroyDisabled: true
+        }
+      })
+    ).rejects.toThrow('file is invalid')
+    expect(existsSync(markerPath)).toBe(false)
+  })
+
   it('destroys a checkout-mode resource when compatibility persistence fails after create', async () => {
     const userDataPath = makeDir('orca-ephemeral-vm-service-user-data-')
     const repoPath = makeDir('orca-ephemeral-vm-service-repo-')
@@ -250,6 +275,7 @@ describe('ephemeral VM runtime service', () => {
       })
     ).rejects.toThrow('Could not preserve ephemeral VM runtime compatibility metadata')
     expect(readFileSync(cleanupMarkerPath, 'utf8')).toBe('yes')
+    expect(listEphemeralVmRuntimes(userDataPath)).toEqual([])
   })
 
   it('keeps rollback-readable cleanup recovery when post-create destroy also fails', async () => {

@@ -260,24 +260,25 @@ function writeEphemeralVmRuntimeStore(
         return feature ? [feature] : []
       })
     )
-    if (!features.writable && requiredFeatures.length > 0) {
-      throw new EphemeralVmRuntimeStoreError(
-        'runtime_error',
-        'Could not preserve ephemeral VM runtime compatibility metadata.'
-      )
-    }
     const preparedFeatures = mergeRuntimeFeatures(features.features, requiredFeatures)
-    if (features.writable && !runtimeFeatureListsEqual(features.features, preparedFeatures)) {
-      writeEphemeralVmRuntimeFeatureStore(userDataPath, features, preparedFeatures)
-    }
     writeSecureJsonFileWithinLimit(
       path,
       RollbackEphemeralVmRuntimeStoreSchema.parse({
         version: 1,
         runtimes: parsed.runtimes.map(projectRuntimeForRollback)
       }),
-      MAX_EPHEMERAL_VM_RUNTIME_STORE_FILE_BYTES
+      MAX_EPHEMERAL_VM_RUNTIME_STORE_FILE_BYTES,
+      { durable: preparedFeatures.length > 0 || features.features.length > 0 }
     )
+    if (!features.writable && requiredFeatures.length > 0) {
+      throw new EphemeralVmRuntimeStoreError(
+        'runtime_error',
+        'Could not preserve ephemeral VM runtime compatibility metadata.'
+      )
+    }
+    if (features.writable && !runtimeFeatureListsEqual(features.features, preparedFeatures)) {
+      writeEphemeralVmRuntimeFeatureStore(userDataPath, features, preparedFeatures)
+    }
     if (features.writable && !runtimeFeatureListsEqual(preparedFeatures, requiredFeatures)) {
       try {
         writeEphemeralVmRuntimeFeatureStore(userDataPath, features, requiredFeatures)
