@@ -42,6 +42,11 @@
         "src/shared/ephemeral-vm-runtime-store-rollback.test.ts",
         "src/shared/ephemeral-vm-runtime-store.test.ts",
         "src/main/ephemeral-vm-runtime-service.test.ts",
+        "src/main/ephemeral-vm-recipe-runner.test.ts",
+        "src/main/ephemeral-vm-runtime-ssh-cleanup.test.ts",
+        "src/main/ipc/ephemeral-vm-runtime-handler-cleanup.test.ts",
+        "src/main/ipc/ephemeral-vm.test.ts",
+        "src/main/provisioned-root-ssh-adoption.test.ts",
         "tests/e2e/ephemeral-vm-provisioned-root.spec.ts"
       ],
       "assertionRefs": [

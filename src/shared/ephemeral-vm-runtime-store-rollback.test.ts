@@ -5,11 +5,12 @@ import {
   rmSync,
   statSync,
   truncateSync,
+  utimesSync,
   writeFileSync
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import {
   getEphemeralVmRuntimeFeatureStorePath,
   MAX_EPHEMERAL_VM_RUNTIME_FEATURE_STORE_FILE_BYTES
@@ -94,16 +95,8 @@ function provisionedRootRecord(): EphemeralVmRuntimeRecord {
 
 describe('ephemeral VM runtime store rollback projection', () => {
   const tempDirs: string[] = []
-  const originalPlatform = Object.getOwnPropertyDescriptor(process, 'platform')
-
-  beforeEach(() => {
-    Object.defineProperty(process, 'platform', { configurable: true, value: 'linux' })
-  })
 
   afterEach(() => {
-    if (originalPlatform) {
-      Object.defineProperty(process, 'platform', originalPlatform)
-    }
     for (const dir of tempDirs.splice(0)) {
       rmSync(dir, { recursive: true, force: true })
     }
@@ -170,11 +163,15 @@ describe('ephemeral VM runtime store rollback projection', () => {
     upsertEphemeralVmRuntime(userDataPath, older)
     upsertEphemeralVmRuntime(userDataPath, newer)
     const featurePath = getEphemeralVmRuntimeFeatureStorePath(userDataPath)
-    const inode = statSync(featurePath).ino
+    const oldTimestamp = new Date('2020-01-01T00:00:00.000Z')
+    utimesSync(featurePath, oldTimestamp, oldTimestamp)
+    const beforeBytes = readFileSync(featurePath, 'utf8')
+    const beforeMtime = statSync(featurePath).mtimeMs
 
     updateEphemeralVmRuntimeStatus(userDataPath, newer.id, { status: 'suspended' })
 
-    expect(statSync(featurePath).ino).toBe(inode)
+    expect(readFileSync(featurePath, 'utf8')).toBe(beforeBytes)
+    expect(statSync(featurePath).mtimeMs).toBe(beforeMtime)
   })
 
   it('migrates current-main poisoned bytes when they are first read', () => {

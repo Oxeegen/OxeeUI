@@ -1,12 +1,24 @@
-import { existsSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { expect, test } from 'vitest'
+import { afterAll, expect, test } from 'vitest'
 
 const targetRoot = process.env.STA_4274_TARGET_ROOT
 const operation = process.env.STA_4274_OPERATION
-const userDataPath = process.env.STA_4274_USER_DATA_PATH ?? mkdtempSync(join(tmpdir(), 'sta-4274-'))
+const ownedDirs: string[] = []
+
+function makeOwnedDir(prefix: string): string {
+  const dir = mkdtempSync(join(tmpdir(), prefix))
+  ownedDirs.push(dir)
+  return dir
+}
+
+afterAll(() => {
+  for (const dir of ownedDirs.splice(0)) {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
 
 const ordinary = {
   id: 'ordinary-runtime',
@@ -72,6 +84,7 @@ test.skipIf(!targetRoot || !operation)(`STA-4274 ${operation ?? 'disabled'}`, as
   if (!targetRoot || !operation) {
     throw new Error('STA_4274_TARGET_ROOT and STA_4274_OPERATION are required')
   }
+  const userDataPath = process.env.STA_4274_USER_DATA_PATH ?? makeOwnedDir('sta-4274-')
   const moduleUrl = pathToFileURL(
     resolve(targetRoot, 'src/shared/ephemeral-vm-runtime-store.ts')
   ).href
@@ -106,7 +119,7 @@ test.skipIf(!targetRoot || !operation)(`STA-4274 ${operation ?? 'disabled'}`, as
       status: 'suspended',
       updatedAt: 3_000
     })
-    const repoPath = mkdtempSync(join(tmpdir(), 'sta-4274-cleanup-'))
+    const repoPath = makeOwnedDir('sta-4274-cleanup-')
     const cleanupPath = join(repoPath, 'cleanup.js')
     const proofPath = join(repoPath, 'cleanup-proof')
     writeFileSync(
