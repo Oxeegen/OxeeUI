@@ -92,6 +92,9 @@ test('adopts a recipe-provisioned SSH root without creating a linked worktree', 
       await removeMenuItem.click({ force: true, timeout: 1_000 })
       await expect(removeDialog).toBeVisible({ timeout: 1_000 })
     }).toPass({ timeout: 10_000 })
+    await expect(removeDialog).toContainText(
+      'Its VM recipe determines whether the environment and its files are permanently deleted.'
+    )
     await removeDialog.getByRole('button', { name: 'Remove', exact: true }).click()
     await expect
       .poll(
