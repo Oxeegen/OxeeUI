@@ -111,8 +111,9 @@ export function registerEphemeralVmRuntimeHandlers(store: Store): void {
           // environment row; users can still remove that manually.
         }
       }
-      // Remove even on cleanup_failed (removal is idempotent via the deterministic
-      // id) so a terminal cleanup never orphans the hidden SSH target.
+      if (!result.ok) {
+        return result.runtime
+      }
       return removeEphemeralVmRuntimeSshTarget({
         userDataPath,
         runtime: result.runtime,

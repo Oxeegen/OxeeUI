@@ -12,12 +12,17 @@
   "gates": [
     {
       "id": "ephemeral-vm-runtime.rollback-readable-sidecar",
-      "title": "VM lifecycle records remain readable across provisioned-root rollback",
+      "title": "VM lifecycle stays rollback-readable and cleanup-retryable",
       "maturity": "experimental",
       "protection": "partial",
       "owner": "ephemeral-vm-runtime-store",
       "layer": "desktop-main-persistence",
-      "surfaces": ["VM runtime sidecar", "recipe lifecycle", "provisioned-root direct SSH"],
+      "surfaces": [
+        "VM runtime sidecar",
+        "recipe lifecycle",
+        "cleanup retry",
+        "provisioned-root direct SSH"
+      ],
       "platforms": ["macos", "linux", "windows"],
       "providers": ["orca-server", "direct-ssh"],
       "coveredPlatforms": ["macos", "linux", "windows"],
@@ -28,11 +33,11 @@
         "https://github.com/stablyai/orca/pull/14352",
         "https://github.com/stablyai/orca/issues/13044"
       ],
-      "invariant": "A sidecar written by the new build cannot make the previous production build lose otherwise compatible VM runtimes. Downgrade lifecycle writes remain authoritative after re-upgrade, provisioned-root metadata remains recoverable, and corrupt or future feature metadata is preserved without poisoning the rollback-readable v1 store.",
-      "oracle": "Write one ordinary schema-v1 runtime and one provisioned-root runtime. Require the exact pre-#14352 reader to return both, run the old destroy lifecycle against the projected provisioned record, then require the candidate to retain the cleaned state while restoring schema-v2 and checkout-mode metadata. The same old reader must reject affected-main and fix-reverted bytes. Malformed, oversized, unknown-record, and future-version feature sidecars must leave rollback-compatible records accessible and must not be overwritten during compatible lifecycle mutations.",
+      "invariant": "A sidecar written by the new build cannot make the previous production build lose otherwise compatible VM runtimes. Downgrade lifecycle writes remain authoritative after re-upgrade, provisioned-root metadata remains recoverable, and corrupt or future feature metadata is preserved without poisoning the rollback-readable v1 store. Destroy attempts settle at a bounded deadline, retry starts fresh, and provider failure retains the SSH/project context needed for safe cleanup.",
+      "oracle": "Write one ordinary schema-v1 runtime and one provisioned-root runtime. Require the exact pre-#14352 reader to return both, run the old destroy lifecycle against the projected provisioned record, then require the candidate to retain the cleaned state while restoring schema-v2 and checkout-mode metadata. The same old reader must reject affected-main and fix-reverted bytes. Malformed, oversized, unknown-record, and future-version feature sidecars must leave rollback-compatible records accessible and must not be overwritten during compatible lifecycle mutations. Force destroy to outlive its deadline, require cleanup_failed plus a fresh successful retry, and prove provider or project-host rollback failure retains every ownership record required to retry.",
       "commands": [
         "node config/scripts/run-ephemeral-vm-runtime-store-rollback-repro.mjs config/scripts/ephemeral-vm-runtime-store-cross-version.test.ts",
-        "pnpm exec vitest run --config config/vitest.config.ts src/shared/ephemeral-vm-runtime-store.test.ts src/shared/ephemeral-vm-runtime-store-rollback.test.ts src/main/ephemeral-vm-runtime-service.test.ts src/main/ephemeral-vm-recipe-runner.test.ts src/main/ephemeral-vm-runtime-ssh-cleanup.test.ts src/main/ipc/ephemeral-vm-runtime-handler-cleanup.test.ts src/main/ipc/ephemeral-vm.test.ts src/main/provisioned-root-ssh-adoption.test.ts",
+        "pnpm exec vitest run --config config/vitest.config.ts src/shared/ephemeral-vm-runtime-store.test.ts src/shared/ephemeral-vm-runtime-store-rollback.test.ts src/shared/ephemeral-vm-recipe-process.test.ts src/main/ephemeral-vm-runtime-service.test.ts src/main/ephemeral-vm-recipe-runner.test.ts src/main/ephemeral-vm-runtime-ssh-cleanup.test.ts src/main/ipc/ephemeral-vm-runtime-handler-cleanup.test.ts src/main/ipc/ephemeral-vm.test.ts src/main/provisioned-root-ssh-adoption.test.ts src/renderer/src/lib/ephemeral-vm-failed-create-cleanup.test.ts src/renderer/src/lib/ephemeral-vm-runtime-cleanup.test.ts",
         "ORCA_E2E_SSH_DOCKER=1 pnpm exec playwright test tests/e2e/ephemeral-vm-provisioned-root.spec.ts --config tests/playwright.config.ts --project electron-headless --workers=1",
         "SKIP_BUILD=1 ORCA_E2E_SSH_DOCKER=1 pnpm exec playwright test tests/e2e/ephemeral-vm-provisioned-root.spec.ts --config tests/playwright.config.ts --project electron-headless --workers=1"
       ],
@@ -41,12 +46,15 @@
         "config/scripts/run-ephemeral-vm-runtime-store-rollback-repro.mjs",
         "src/shared/ephemeral-vm-runtime-store-rollback.test.ts",
         "src/shared/ephemeral-vm-runtime-store.test.ts",
+        "src/shared/ephemeral-vm-recipe-process.test.ts",
         "src/main/ephemeral-vm-runtime-service.test.ts",
         "src/main/ephemeral-vm-recipe-runner.test.ts",
         "src/main/ephemeral-vm-runtime-ssh-cleanup.test.ts",
         "src/main/ipc/ephemeral-vm-runtime-handler-cleanup.test.ts",
         "src/main/ipc/ephemeral-vm.test.ts",
         "src/main/provisioned-root-ssh-adoption.test.ts",
+        "src/renderer/src/lib/ephemeral-vm-failed-create-cleanup.test.ts",
+        "src/renderer/src/lib/ephemeral-vm-runtime-cleanup.test.ts",
         "tests/e2e/ephemeral-vm-provisioned-root.spec.ts"
       ],
       "assertionRefs": [
@@ -74,6 +82,23 @@
             "post-create persistence failure destroys the provider resource when possible",
             "failed destroy persists a durable rollback-readable cleanup recovery record"
           ]
+        },
+        {
+          "file": "src/shared/ephemeral-vm-recipe-process.test.ts",
+          "assertions": [
+            "a destroy process that never closes is killed and settled at its bounded deadline"
+          ]
+        },
+        {
+          "file": "src/renderer/src/lib/ephemeral-vm-runtime-cleanup.test.ts",
+          "assertions": [
+            "provider failure retains runtime-owned SSH targets and confirmed success releases them",
+            "unknown runtime inventory retains an explicitly requested target"
+          ]
+        },
+        {
+          "file": "src/renderer/src/lib/ephemeral-vm-failed-create-cleanup.test.ts",
+          "assertions": ["failed or unconfirmed project-host rollback prevents provider destroy"]
         }
       ],
       "evidenceRuns": [
@@ -90,10 +115,10 @@
           "date": "2026-08-14",
           "runner": "local",
           "platform": "macos",
-          "command": "pnpm exec vitest run --config config/vitest.config.ts src/shared/ephemeral-vm-runtime-store.test.ts src/shared/ephemeral-vm-runtime-store-rollback.test.ts src/main/ephemeral-vm-runtime-service.test.ts src/main/ephemeral-vm-recipe-runner.test.ts src/main/ephemeral-vm-runtime-ssh-cleanup.test.ts src/main/ipc/ephemeral-vm-runtime-handler-cleanup.test.ts src/main/ipc/ephemeral-vm.test.ts src/main/provisioned-root-ssh-adoption.test.ts",
+          "command": "pnpm exec vitest run --config config/vitest.config.ts src/shared/ephemeral-vm-runtime-store.test.ts src/shared/ephemeral-vm-runtime-store-rollback.test.ts src/shared/ephemeral-vm-recipe-process.test.ts src/main/ephemeral-vm-runtime-service.test.ts src/main/ephemeral-vm-recipe-runner.test.ts src/main/ephemeral-vm-runtime-ssh-cleanup.test.ts src/main/ipc/ephemeral-vm-runtime-handler-cleanup.test.ts src/main/ipc/ephemeral-vm.test.ts src/main/provisioned-root-ssh-adoption.test.ts src/renderer/src/lib/ephemeral-vm-failed-create-cleanup.test.ts src/renderer/src/lib/ephemeral-vm-runtime-cleanup.test.ts",
           "result": "passed",
           "durationSeconds": 2,
-          "summary": "Sixty-two focused store, recipe, lifecycle, cleanup-handler, provisioning-recovery, and provisioned-root adoption tests passed."
+          "summary": "Seventy-nine focused store, recipe-process, lifecycle, cleanup-handler, retry-context, provisioning-recovery, and provisioned-root adoption tests passed."
         },
         {
           "date": "2026-08-14",
@@ -119,18 +144,19 @@
       },
       "performanceBudget": {
         "required": true,
-        "evidence": "Ordinary writes remain byte-identical and create no feature sidecar. Reads add one bounded feature-file existence check; sorted feature comparisons avoid unchanged rewrites, and durable companion writes occur only when compatibility metadata changes. There is no polling, timer, renderer work, RPC traffic, or remote fanout."
+        "evidence": "Ordinary writes remain byte-identical and create no feature sidecar. Reads add one bounded feature-file existence check; sorted feature comparisons avoid unchanged rewrites, and durable companion writes occur only when compatibility metadata changes. Cleanup adds one unrefed timer per active destroy process and clears it on settlement; there is no polling, background scan, or remote fanout."
       },
       "promotionCriteria": [
         "Keep the pinned baseline/latest/candidate/revert oracle green in CI.",
         "Keep the Docker provisioned-root create/adopt/terminal/remove/destroy journey green.",
+        "Keep hung destroy, fresh retry, and retained-context failure tests green.",
         "Collect soak history without unexplained lifecycle or sidecar flakes."
       ],
       "knownGaps": [
         "No packaged-build downgrade installer journey; the exact released source reader and service are executed in-process.",
         "Live Docker SSH evidence runs locally on macOS and in the changed-file PR E2E lane on Ubuntu; Windows desktop behavior is covered by the platform-neutral filesystem codec and package job."
       ],
-      "demotionRule": "Demote if a new write fails the pinned rollback reader, a downgrade lifecycle mutation is lost after re-upgrade, malformed/future metadata overwrites recoverable bytes, ordinary v1 bytes change, or the focused gate flakes without an identified harness defect."
+      "demotionRule": "Demote if a new write fails the pinned rollback reader, a downgrade lifecycle mutation is lost after re-upgrade, malformed/future metadata overwrites recoverable bytes, ordinary v1 bytes change, a destroy can remain permanently in flight, cleanup loses retry ownership, or the focused gate flakes without an identified harness defect."
     },
     {
       "id": "terminal-session.shell-ready-exec-prompt-fallback",

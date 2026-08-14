@@ -159,6 +159,61 @@ describe('ephemeral VM runtime service', () => {
     expect(readFileSync(join(repoPath, 'cleanup-count.txt'), 'utf8')).toBe('x')
   })
 
+  it('times out a hung destroy and starts a fresh retry', async () => {
+    const userDataPath = makeDir('orca-ephemeral-vm-service-user-data-')
+    const repoPath = makeDir('orca-ephemeral-vm-service-repo-')
+    const cleanupPath = join(repoPath, 'cleanup.js')
+    const countPath = join(repoPath, 'cleanup-count.txt')
+    writeFileSync(
+      cleanupPath,
+      `require('fs').appendFileSync(${JSON.stringify(countPath)}, 'x'); setInterval(() => {}, 1000)`
+    )
+    const recipe: OrcaVmRecipe = {
+      id: 'cloud-sandbox',
+      name: 'Cloud Sandbox',
+      create: 'unused',
+      destroy: nodeCommand(cleanupPath)
+    }
+    upsertEphemeralVmRuntime(userDataPath, {
+      id: 'runtime-1',
+      recipeId: recipe.id,
+      recipe,
+      status: 'running',
+      cleanupStatus: 'not_started',
+      createdAt: 1_000,
+      updatedAt: 1_000,
+      recipeResult: {
+        schemaVersion: 1,
+        connection: {
+          type: 'ssh',
+          projectRoot: '/workspace/repo',
+          target: { label: 'VM', host: 'host', port: 22, username: 'orca' }
+        }
+      }
+    })
+    const cleanupArgs = {
+      userDataPath,
+      repoPath,
+      recipe,
+      runtimeId: 'runtime-1',
+      destroyTimeoutMs: 100
+    }
+
+    await expect(cleanupEphemeralVmRuntime(cleanupArgs)).resolves.toMatchObject({
+      ok: false,
+      runtime: { status: 'cleanup_failed', cleanupStatus: 'failed' },
+      error: expect.stringContaining('timed out')
+    })
+    writeFileSync(cleanupPath, `require('fs').appendFileSync(${JSON.stringify(countPath)}, 'x')`)
+    await expect(
+      cleanupEphemeralVmRuntime({ ...cleanupArgs, destroyTimeoutMs: 2_000 })
+    ).resolves.toMatchObject({
+      ok: true,
+      runtime: { status: 'cleaned', cleanupStatus: 'succeeded' }
+    })
+    expect(readFileSync(countPath, 'utf8')).toBe('xx')
+  })
+
   it('does not persist a runtime when recipe output cannot be parsed', async () => {
     const userDataPath = makeDir('orca-ephemeral-vm-service-user-data-')
     const repoPath = makeDir('orca-ephemeral-vm-service-repo-')

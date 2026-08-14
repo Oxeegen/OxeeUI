@@ -47,7 +47,7 @@ afterEach(() => {
   }
 })
 
-it('removes the hidden SSH target when recipe context is unavailable', async () => {
+it('removes the hidden SSH target when provider cleanup cannot start', async () => {
   const userDataPath = mkdtempSync(join(tmpdir(), 'orca-vm-runtime-handler-'))
   tempDirs.push(userDataPath)
   getPathMock.mockReturnValue(userDataPath)
@@ -79,6 +79,7 @@ it('removes the hidden SSH target when recipe context is unavailable', async () 
   expect(cleaned).toMatchObject({
     status: 'cleanup_failed',
     cleanupStatus: 'failed',
+    connectionMode: undefined,
     sshTargetId: undefined
   })
   expect(removeRuntimeOwnedSshTargetMock).toHaveBeenCalledWith('runtime-ssh-missing-context')

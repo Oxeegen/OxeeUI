@@ -1,12 +1,15 @@
+import { EventEmitter } from 'node:events'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { PassThrough } from 'node:stream'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { runRecipeCommand } from './ephemeral-vm-recipe-process'
 
 const tmpRoots: string[] = []
 
 afterEach(() => {
+  vi.useRealTimers()
   for (const root of tmpRoots.splice(0)) {
     rmSync(root, { recursive: true, force: true })
   }
@@ -23,6 +26,33 @@ function nodeCommand(scriptPath: string): string {
 }
 
 describe('runRecipeCommand', () => {
+  it('settles and kills a destroy process at its deadline even if close never arrives', async () => {
+    vi.useFakeTimers()
+    const child = Object.assign(new EventEmitter(), {
+      pid: undefined,
+      stdin: new PassThrough(),
+      stdout: new PassThrough(),
+      stderr: new PassThrough(),
+      kill: vi.fn(),
+      unref: vi.fn()
+    })
+    const resultPromise = runRecipeCommand({
+      command: 'destroy',
+      repoPath: makeRepo(),
+      mode: 'destroy',
+      resultSchemaVersion: 1,
+      context: { recipeId: 'cloud-sandbox', repoPath: makeRepo() },
+      timeoutMs: 1_000,
+      spawnCommand: vi.fn(() => child) as never
+    })
+
+    await vi.advanceTimersByTimeAsync(1_000)
+
+    await expect(resultPromise).resolves.toMatchObject({ timedOut: true, exitCode: null })
+    expect(child.kill).toHaveBeenCalledWith('SIGKILL')
+    expect(child.unref).toHaveBeenCalledOnce()
+  })
+
   it.each([
     { output: 'abcdef', maxCaptureBytes: 4, expected: 'cdef' },
     { output: 'A😀B', maxCaptureBytes: 5, expected: '😀B' },

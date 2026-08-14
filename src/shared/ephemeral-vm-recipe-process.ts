@@ -8,6 +8,7 @@ export type ProcessRunResult = {
   stderr: string
   exitCode: number | null
   signal: NodeJS.Signals | null
+  timedOut?: true
 }
 
 export function quoteShellToken(value: string): string {
@@ -29,6 +30,7 @@ export async function runRecipeCommand(args: {
   stdin?: string
   env?: NodeJS.ProcessEnv
   maxCaptureBytes?: number
+  timeoutMs?: number
   signal?: AbortSignal
   onStdout?: (chunk: string) => void
   onStderr?: (chunk: string) => void
@@ -36,6 +38,9 @@ export async function runRecipeCommand(args: {
 }): Promise<ProcessRunResult> {
   const maxBytes = args.maxCaptureBytes ?? DEFAULT_MAX_CAPTURE_BYTES
   const spawnCommand = args.spawnCommand ?? spawn
+  if (args.timeoutMs !== undefined && (!Number.isFinite(args.timeoutMs) || args.timeoutMs <= 0)) {
+    throw new Error('Recipe command timeout must be a positive finite number.')
+  }
 
   return new Promise((resolve, reject) => {
     let child: ChildProcessWithoutNullStreams
@@ -55,6 +60,29 @@ export async function runRecipeCommand(args: {
     let stdout = ''
     let stderr = ''
     let settled = false
+    let timeout: ReturnType<typeof setTimeout> | undefined
+    const finish = (result: ProcessRunResult): void => {
+      if (settled) {
+        return
+      }
+      settled = true
+      if (timeout) {
+        clearTimeout(timeout)
+      }
+      args.signal?.removeEventListener('abort', abort)
+      resolve(result)
+    }
+    const fail = (error: Error): void => {
+      if (settled) {
+        return
+      }
+      settled = true
+      if (timeout) {
+        clearTimeout(timeout)
+      }
+      args.signal?.removeEventListener('abort', abort)
+      reject(error)
+    }
     const abort = (): void => {
       if (settled) {
         return
@@ -62,7 +90,11 @@ export async function runRecipeCommand(args: {
       killRecipeProcess(child)
     }
 
-    args.signal?.addEventListener('abort', abort, { once: true })
+    if (args.signal?.aborted) {
+      abort()
+    } else {
+      args.signal?.addEventListener('abort', abort, { once: true })
+    }
 
     child.stdout.setEncoding('utf8')
     child.stderr.setEncoding('utf8')
@@ -75,15 +107,23 @@ export async function runRecipeCommand(args: {
       args.onStderr?.(chunk)
     })
     child.on('error', (error) => {
-      settled = true
-      args.signal?.removeEventListener('abort', abort)
-      reject(error)
+      fail(error)
     })
     child.on('close', (exitCode, signal) => {
-      settled = true
-      args.signal?.removeEventListener('abort', abort)
-      resolve({ stdout, stderr, exitCode, signal })
+      finish({ stdout, stderr, exitCode, signal })
     })
+
+    if (args.timeoutMs !== undefined) {
+      timeout = setTimeout(() => {
+        finish({ stdout, stderr, exitCode: null, signal: null, timedOut: true })
+        killRecipeProcess(child, true)
+        child.stdin.destroy()
+        child.stdout.destroy()
+        child.stderr.destroy()
+        child.unref()
+      }, args.timeoutMs)
+      timeout.unref()
+    }
 
     if (args.stdin) {
       child.stdin.end(args.stdin)
@@ -93,7 +133,8 @@ export async function runRecipeCommand(args: {
   })
 }
 
-function killRecipeProcess(child: ChildProcessWithoutNullStreams): void {
+function killRecipeProcess(child: ChildProcessWithoutNullStreams, force = false): void {
+  const signal = force ? 'SIGKILL' : 'SIGTERM'
   if (process.platform === 'win32') {
     // Recipes run through `cmd.exe /c` (shell: true), so child.kill() would only
     // terminate the wrapper and orphan the actual recipe subprocess (e.g. a cloud
@@ -103,22 +144,22 @@ function killRecipeProcess(child: ChildProcessWithoutNullStreams): void {
         windowsHide: true,
         stdio: 'ignore'
       })
-      killer.on('error', () => child.kill())
+      killer.on('error', () => child.kill(signal))
       return
     }
-    child.kill()
+    child.kill(signal)
     return
   }
   if (child.pid) {
     try {
       // Recipes run through a shell; kill the process group so shell children do not linger.
-      process.kill(-child.pid, 'SIGTERM')
+      process.kill(-child.pid, signal)
       return
     } catch {
       // Fall back to killing the direct child if the process group is already gone.
     }
   }
-  child.kill()
+  child.kill(signal)
 }
 
 function buildRecipeEnv(

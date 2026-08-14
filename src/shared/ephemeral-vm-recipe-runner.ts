@@ -9,6 +9,10 @@ import {
 } from './ephemeral-vm-recipe-checkout-mode'
 import { runRecipeCommand } from './ephemeral-vm-recipe-process'
 import {
+  EPHEMERAL_VM_RECIPE_DESTROY_TIMEOUT_MS,
+  getEphemeralVmRecipeDestroyFailure
+} from './ephemeral-vm-recipe-destroy-result'
+import {
   buildEphemeralVmRecipeCleanupPayload,
   buildEphemeralVmRecipeLifecyclePayload
 } from './ephemeral-vm-recipe-lifecycle-payload'
@@ -74,6 +78,7 @@ export type EphemeralVmRecipeCleanupArgs = {
   recipeResult: EphemeralVmRecipeResult
   env?: NodeJS.ProcessEnv
   maxCaptureBytes?: number
+  timeoutMs?: number
   signal?: AbortSignal
   onStdout?: (chunk: string) => void
   onStderr?: (chunk: string) => void
@@ -169,6 +174,7 @@ export async function runEphemeralVmRecipeCleanup(
   }
 
   const payload = buildEphemeralVmRecipeCleanupPayload(args)
+  const timeoutMs = args.timeoutMs ?? EPHEMERAL_VM_RECIPE_DESTROY_TIMEOUT_MS
   const processResult = await runRecipeCommand({
     command: args.recipe.destroy,
     repoPath: args.repoPath,
@@ -178,19 +184,16 @@ export async function runEphemeralVmRecipeCleanup(
     stdin: `${JSON.stringify(payload)}\n`,
     env: args.env,
     maxCaptureBytes: args.maxCaptureBytes,
+    timeoutMs,
     signal: args.signal,
     onStdout: args.onStdout,
     onStderr: args.onStderr,
     spawnCommand: args.spawnCommand
   })
 
-  if (processResult.exitCode !== 0) {
-    return {
-      ok: false,
-      skipped: false,
-      error: `Destroy exited with code ${processResult.exitCode ?? 'unknown'}.`,
-      ...processResult
-    }
+  const failure = getEphemeralVmRecipeDestroyFailure(processResult, timeoutMs)
+  if (failure) {
+    return failure
   }
 
   return { ok: true, skipped: false, ...processResult }
