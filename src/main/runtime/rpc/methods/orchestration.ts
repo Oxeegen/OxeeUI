@@ -57,6 +57,9 @@ async function routeAllMailboxPages(
       return
     }
     await yieldToEventLoop()
+    if (signal?.aborted) {
+      throw new OrchestrationError('request_aborted', 'Mailbox routing was cancelled.')
+    }
   }
 }
 
@@ -987,19 +990,40 @@ export const ORCHESTRATION_METHODS: RpcMethod[] = [
             (!latestDispatch ||
               (latestDispatch.status !== 'pending' && latestDispatch.status !== 'dispatched'))
           ) {
-            const routedTypes = new Set<MessageType>()
-            await routeAllMailboxPages(() => {
-              const routed = db.routeUnreadDispatchMailboxToRunMailbox(
-                workerMailbox.dispatchId,
-                owningRunId
-              )
-              for (const routedType of routed.types) {
-                routedTypes.add(routedType)
+            const throughSequence = db.getLatestUnreadMessageSequence(address)
+            if (throughSequence !== undefined) {
+              const routedTypes = new Set<MessageType>()
+              const routePage = (): { routedCount: number; hasMore: boolean } => {
+                const routed = db.routeUnreadDispatchMailboxToRunMailbox(
+                  workerMailbox.dispatchId,
+                  owningRunId,
+                  throughSequence
+                )
+                for (const routedType of routed.types) {
+                  routedTypes.add(routedType)
+                }
+                return routed
               }
-              return routed
-            })
-            for (const routedType of routedTypes) {
-              runtime.notifyMessageArrived(`run:${owningRunId}`, routedType)
+              const notifyRoutedTypes = (): void => {
+                for (const routedType of routedTypes) {
+                  runtime.notifyMessageArrived(`run:${owningRunId}`, routedType)
+                }
+                routedTypes.clear()
+              }
+              try {
+                await routeAllMailboxPages(routePage, signal)
+              } catch (error) {
+                notifyRoutedTypes()
+                if (error instanceof OrchestrationError && error.code === 'request_aborted') {
+                  setImmediate(() => {
+                    void routeAllMailboxPages(routePage)
+                      .catch(() => undefined)
+                      .finally(notifyRoutedTypes)
+                  })
+                }
+                throw error
+              }
+              notifyRoutedTypes()
             }
           }
           throw new OrchestrationError(

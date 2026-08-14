@@ -90,13 +90,13 @@ function parseWorkerTerminalPriorOwnerIds(value: string): string[] | null {
 const MESSAGE_ID_UPDATE_BATCH_SIZE = 500
 export const ORCHESTRATION_DELIVERY_BATCH_LIMIT = 50
 
-export type DirectMailboxRoutingPage = {
+export type MailboxRoutingPage = {
   routedCount: number
   hasMore: boolean
   types: MessageType[]
 }
 
-export type ForeignDirectMailboxRoutingPage = DirectMailboxRoutingPage & {
+export type ForeignDirectMailboxRoutingPage = MailboxRoutingPage & {
   mailboxes: { mailboxHandle: string; types: MessageType[] }[]
 }
 // Why: indexable pre-filter for isEquivalentPaneKey — equal strings and equal leaves both share the
@@ -3644,7 +3644,7 @@ export class OrchestrationDb {
     runId: string,
     directHandle: string,
     throughSequence?: number
-  ): DirectMailboxRoutingPage {
+  ): MailboxRoutingPage {
     const throughClause = throughSequence === undefined ? '' : ' AND sequence <= ?'
     const params: (string | number)[] = [runId, directHandle]
     if (throughSequence !== undefined) {
@@ -3681,7 +3681,7 @@ export class OrchestrationDb {
     runId: string,
     directHandle: string,
     throughSequence?: number
-  ): DirectMailboxRoutingPage {
+  ): MailboxRoutingPage {
     return this.routeDirectMessagePage(`run:${runId}`, runId, directHandle, throughSequence)
   }
 
@@ -3690,7 +3690,7 @@ export class OrchestrationDb {
     runId: string,
     directHandle: string,
     throughSequence?: number
-  ): DirectMailboxRoutingPage {
+  ): MailboxRoutingPage {
     return this.routeDirectMessagePage(
       `dispatch:${dispatchId}`,
       runId,
@@ -3701,16 +3701,23 @@ export class OrchestrationDb {
 
   routeUnreadDispatchMailboxToRunMailbox(
     dispatchId: string,
-    runId: string
-  ): DirectMailboxRoutingPage {
+    runId: string,
+    throughSequence?: number
+  ): MailboxRoutingPage {
     const dispatchMailbox = `dispatch:${dispatchId}`
+    const throughClause = throughSequence === undefined ? '' : ' AND sequence <= ?'
+    const params: (string | number)[] = [dispatchMailbox]
+    if (throughSequence !== undefined) {
+      params.push(throughSequence)
+    }
+    params.push(ORCHESTRATION_DELIVERY_BATCH_LIMIT + 1)
     const rows = this.db
       .prepare(
         `SELECT id, type FROM messages INDEXED BY idx_messages_unread_current_inbox
-         WHERE to_handle = ? AND read = 0 AND delivery_contract = 'current_delivery'
+         WHERE to_handle = ? AND read = 0 AND delivery_contract = 'current_delivery'${throughClause}
          ORDER BY sequence LIMIT ?`
       )
-      .all(dispatchMailbox, ORCHESTRATION_DELIVERY_BATCH_LIMIT + 1) as {
+      .all(...params) as {
       id: string
       type: MessageType
     }[]
@@ -3727,6 +3734,17 @@ export class OrchestrationDb {
       hasMore: rows.length > ORCHESTRATION_DELIVERY_BATCH_LIMIT,
       types: [...new Set(page.map((row) => row.type))]
     }
+  }
+
+  getLatestUnreadMessageSequence(mailboxHandle: string): number | undefined {
+    const row = this.db
+      .prepare(
+        `SELECT sequence FROM messages INDEXED BY idx_messages_unread_current_inbox
+         WHERE to_handle = ? AND read = 0 AND delivery_contract = 'current_delivery'
+         ORDER BY sequence DESC LIMIT 1`
+      )
+      .get(mailboxHandle) as { sequence: number } | undefined
+    return row?.sequence
   }
 
   private findActiveDispatchForDirectMessageOwner(

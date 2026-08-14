@@ -171,7 +171,10 @@ describe('orchestration mailbox routing races', () => {
     controller.abort()
     const response = await waiting
 
-    expect(response).toMatchObject({ ok: false, error: { code: 'dispatch_inactive' } })
+    expect(response).toMatchObject({ ok: false, error: { code: 'runtime_error' } })
+    await vi.waitFor(() => {
+      expect(db.getUnreadMessages(`dispatch:${dispatch.id}`)).toHaveLength(0)
+    })
     const checked = await checkBoundMailbox(harness.runtime, {
       terminal: SECOND_TERMINAL_HANDLE,
       paneKey: SECOND_PANE_KEY,
@@ -185,6 +188,73 @@ describe('orchestration mailbox routing races', () => {
       launchToken: SECOND_LAUNCH_TOKEN
     })
     expect(acknowledged).toMatchObject({ count: 0, acknowledged: checked.deliveryId })
+    db.close()
+  })
+
+  it('finishes only the captured inactive-Dispatch snapshot after cancellation', async () => {
+    const db = createDatabase('orca-mailbox-dispatch-migration-cancel-')
+    const harness = createRuntime(db)
+    registerSecondPane(harness.runtime)
+    const run = db.createRun({
+      objective: 'Dispatch migration cancellation',
+      coordinatorHandle: SECOND_TERMINAL_HANDLE,
+      coordinatorPaneKey: SECOND_PANE_KEY
+    })
+    const task = db.createTask({ spec: 'Cancelled worker check', runId: run.id })
+    const dispatch = db.createDispatchContext(task.id, TERMINAL_HANDLE, PANE_KEY)
+    for (let index = 0; index < 151; index += 1) {
+      insertDirectRunMessage(db, run.id, `Before cancelled migration ${index}`)
+    }
+    const route = db.routeUnreadDirectMessagesToDispatchMailbox.bind(db)
+    let completed = false
+    vi.spyOn(db, 'routeUnreadDirectMessagesToDispatchMailbox').mockImplementation((...args) => {
+      const page = route(...args)
+      if (page.hasMore && !completed) {
+        completed = true
+        setImmediate(() => db.completeDispatch(dispatch.id))
+      }
+      return page
+    })
+    const controller = new AbortController()
+    const migrate = db.routeUnreadDispatchMailboxToRunMailbox.bind(db)
+    let cancelled = false
+    let postSnapshot: ReturnType<typeof db.insertMessage> | undefined
+    const migrationSpy = vi
+      .spyOn(db, 'routeUnreadDispatchMailboxToRunMailbox')
+      .mockImplementation((...args) => {
+        const page = migrate(...args)
+        if (page.hasMore && !cancelled) {
+          cancelled = true
+          postSnapshot = db.insertMessage({
+            from: 'term_remote_worker',
+            to: `dispatch:${dispatch.id}`,
+            subject: 'After cancelled migration snapshot',
+            type: 'status',
+            runId: run.id
+          })
+          setImmediate(() => controller.abort())
+        }
+        return page
+      })
+    const arrivalSpy = vi.spyOn(harness.runtime, 'notifyMessageArrived')
+
+    const response = await dispatchMailboxCheck(harness.runtime, { signal: controller.signal })
+
+    expect(response).toMatchObject({ ok: false, error: { code: 'runtime_error' } })
+    await vi.waitFor(() => {
+      expect(migrationSpy).toHaveBeenCalledTimes(4)
+    })
+    expect(db.getUnreadMessages(`dispatch:${dispatch.id}`)).toEqual([
+      expect.objectContaining({ id: postSnapshot?.id })
+    ])
+    expect(arrivalSpy).toHaveBeenCalledTimes(2)
+    expect(arrivalSpy).toHaveBeenNthCalledWith(1, `run:${run.id}`, 'status')
+    expect(arrivalSpy).toHaveBeenNthCalledWith(2, `run:${run.id}`, 'status')
+    expect(
+      sqliteFor(db)
+        .prepare('SELECT COUNT(*) AS count FROM messages WHERE to_handle = ?')
+        .get(`run:${run.id}`)
+    ).toEqual({ count: 151 })
     db.close()
   })
 
