@@ -196,6 +196,7 @@ export class RpcDispatcher {
             pairing: options?.pairing,
             sendBinary: options?.sendBinary,
             registerBinaryStreamHandler: options?.registerBinaryStreamHandler,
+            registerBinaryMessageHandler: options?.registerBinaryMessageHandler,
             legacyCoordinatorRunId,
             legacyCoordinatorAuthority: legacyCoordinator?.authority,
             revalidateLegacyCoordinator: legacyCoordinator?.revalidate,
@@ -253,7 +254,8 @@ export class RpcDispatcher {
           orchestrationCapability: request.orchestrationCapability,
           pairing: options?.pairing,
           sendBinary: options?.sendBinary,
-          registerBinaryStreamHandler: options?.registerBinaryStreamHandler
+          registerBinaryStreamHandler: options?.registerBinaryStreamHandler,
+          registerBinaryMessageHandler: options?.registerBinaryMessageHandler
         },
         emit
       )

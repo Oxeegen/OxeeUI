@@ -15,4 +15,7 @@ export type RpcDispatchStreamingOptions = {
     streamId: number,
     handler: (frame: TerminalStreamFrame) => void
   ) => () => void
+  registerBinaryMessageHandler?: (
+    handler: (bytes: Uint8Array<ArrayBufferLike>) => void
+  ) => () => void
 }
