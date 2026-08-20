@@ -1,7 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 700" fill="none" role="img">
-  <!-- Oxeegen mark. Solid white on purpose: the titlebar inverts it in light mode
-       (see .titlebar-logo in main.css), so a colored source would invert wrong. -->
-  <rect x="0" y="59" width="150" height="582" rx="75" fill="#ffffff"/>
-  <rect x="195" y="0" width="150" height="700" rx="75" fill="#ffffff"/>
-  <rect x="390" y="59" width="150" height="582" rx="75" fill="#ffffff"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img">
+  <defs>
+    <linearGradient id="logo-fill" x1="0.1" y1="0" x2="0.75" y2="1">
+      <stop offset="0" stop-color="#7742F9"/>
+      <stop offset="0.55" stop-color="#5A21F2"/>
+      <stop offset="1" stop-color="#4A11DC"/>
+    </linearGradient>
+    <clipPath id="logo-gloss">
+      <path d="M0 800 C 280 720 690 540 1024 404 L1024 0 L0 0 Z"/>
+    </clipPath>
+  </defs>
+  <g fill="url(#logo-fill)">
+    <path d="M 334.7 925.6 A 450 450 0 0 1 334.7 98.4 Z"/>
+    <path d="M 578.6 957.044 A 450 450 0 0 1 444.5 956.909 L 444.5 67.091 A 450 450 0 0 1 578.6 66.956 Z"/>
+    <path d="M 689.3 98.4 A 450 450 0 0 1 689.3 925.6 Z"/>
+  </g>
+  <g clip-path="url(#logo-gloss)" fill="#fff" opacity="0.14">
+    <path d="M 334.7 925.6 A 450 450 0 0 1 334.7 98.4 Z"/>
+    <path d="M 578.6 957.044 A 450 450 0 0 1 444.5 956.909 L 444.5 67.091 A 450 450 0 0 1 578.6 66.956 Z"/>
+    <path d="M 689.3 98.4 A 450 450 0 0 1 689.3 925.6 Z"/>
+  </g>
+  <g fill="none" stroke="#BFA9FF" stroke-width="6.5" stroke-linejoin="round">
+    <path d="M 334.7 925.6 A 450 450 0 0 1 334.7 98.4 Z"/>
+    <path d="M 578.6 957.044 A 450 450 0 0 1 444.5 956.909 L 444.5 67.091 A 450 450 0 0 1 578.6 66.956 Z"/>
+    <path d="M 689.3 98.4 A 450 450 0 0 1 689.3 925.6 Z"/>
+  </g>
 </svg>
