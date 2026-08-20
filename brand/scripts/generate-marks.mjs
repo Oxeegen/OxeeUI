@@ -35,7 +35,7 @@ const COL = { light: '#7742F9', base: '#5A21F2', deep: '#4A11DC', edge: '#BFA9FF
 // distinguishable from an installed one in the dock. Same geometry, drained of
 // chroma, so it still reads as the same mark at a glance.
 const COL_DEV = { light: '#7C7796', base: '#565175', deep: '#3B3757', edge: '#B9B4D4' }
-const PALETTES = { icon: COL, 'icon-dev': COL_DEV, logo: COL }
+const PALETTES = { icon: COL, 'icon-dev': COL_DEV }
 
 const LEFT_X = [L, L + ARC]
 const CENTER_X = [L + ARC + ENTAILLE, L + ARC + ENTAILLE + BAR]
@@ -53,16 +53,14 @@ function bands(topFrac, gap = ENTREFER) {
 const rect = (x, [y0, y1]) => ({ x0: x[0], x1: x[1], y0, y1 })
 
 const MARKS = {
-  // Chosen direction: long band top-left and bottom-right, so the diagonal runs
-  // with the gloss instead of against it.
+  // Long band top-left and bottom-right: the halves match at 180°, nothing
+  // repeats horizontally, and the diagonal runs with the gloss instead of
+  // against it. Flip the two fractions to reverse it.
   icon: [
     ...bands(2 / 3).map((b) => rect(LEFT_X, b)),
     rect(CENTER_X, [-10, 1034]),
     ...bands(1 / 3).map((b) => rect(RIGHT_X, b))
-  ],
-  // Small-size mark: the parent's three slices, which survive 16px where the
-  // banded version closes up.
-  logo: [rect(LEFT_X, [-10, 1034]), rect(CENTER_X, [-10, 1034]), rect(RIGHT_X, [-10, 1034])]
+  ]
 }
 
 const EPS = 1e-7
@@ -168,9 +166,8 @@ function outline(r) {
 }
 
 function svg(name, { mono }) {
-  const geometry = name === 'icon-dev' ? 'icon' : name
   const col = PALETTES[name]
-  const paths = MARKS[geometry].map(outline).filter(Boolean)
+  const paths = MARKS.icon.map(outline).filter(Boolean)
   const d = paths.map((p) => `    <path d="${p}"/>`).join('\n')
   if (mono) {
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img">
@@ -206,10 +203,9 @@ ${d}
 
 for (const name of Object.keys(PALETTES)) {
   writeFileSync(`brand/assets/${name}.svg`, svg(name, { mono: false }))
-  if (name !== 'icon-dev') {
-    writeFileSync(`brand/assets/${name}-mono.svg`, svg(name, { mono: true }))
-  }
 }
+// The titlebar slot inverts its source in light mode, so it needs a flat cut.
+writeFileSync('brand/assets/icon-mono.svg', svg('icon', { mono: true }))
 console.log('entaille', n(ENTAILLE), '· entrefer', ENTREFER, '· arc', n(ARC), '· barre', n(BAR))
 console.log(
   'bandes gauche',
@@ -223,4 +219,4 @@ console.log(
     .map(([a, b]) => n(b - a))
     .join(' / ')
 )
-console.log('wrote brand/assets/{icon,logo}{,-mono}.svg')
+console.log('wrote brand/assets/icon.svg, icon-dev.svg, icon-mono.svg')

@@ -27,7 +27,7 @@ const ROOT = path.resolve(import.meta.dirname, '..', '..')
 const ASSET_MAP = [
   // Why the mono file: .titlebar-logo inverts the mark in light mode, so the
   // source has to be flat white — a colored logo would invert to its negative.
-  ['assets/logo-mono.svg', 'resources/logo.svg', true],
+  ['assets/icon-mono.svg', 'resources/logo.svg', true],
   // electron-builder derives .icns and .ico from this PNG at package time, so
   // neither container format has to be produced or committed here.
   ['assets/generated/icon.png', 'resources/build/icon.png', false],
