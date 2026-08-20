@@ -12,6 +12,7 @@ that read from this directory, so merges stay mechanical.
 | `config/brand.ts`                | Typed accessor (`BRAND`, `IS_REBRANDED`). Import via the `@brand` alias.            |
 | `i18n/rebrand.ts`                | Rewrites the upstream product name in user-visible copy at render time.             |
 | `assets/icon.svg`                | App icon: the banded mark. Generated — do not hand-edit.                            |
+| `assets/icon-dev.svg` | Same mark drained of chroma. This is what `pnpm dev` shows. |
 | `assets/logo.svg`                | Small-size mark: the three-slice mark. Generated — do not hand-edit.                |
 | `assets/*-mono.svg`              | Flat-white cuts of both, for the titlebar and any inverted slot.                    |
 | `assets/brand-theme.css`         | Token overrides layered on `src/renderer/src/assets/main.css`.                      |
@@ -71,6 +72,13 @@ direction is the two fractions in `MARKS.icon`.
 Pieces are emitted as exact outlines (arc plus line segments), not as a circle
 behind a clip rectangle: the light edge has to run along the straight cuts too,
 and a clip strips the stroke from exactly those sides.
+
+**Three files, two marks.** `app-icon.ts` resolves the `classic` icon to
+`resources/icon-dev.png` whenever `is.dev`, so a dev run never displays
+`icon.png`. `icon-dev.svg` keeps upstream's dev/prod distinction — same geometry,
+no chroma — rather than dropping it. The two alternate icons the Settings picker
+offers (`resources/app-icons/orca-*.png`) are still upstream artwork; only the
+default `classic` entry is branded.
 
 **Two marks, one geometry.** Below roughly 24px the banded arcs close up and the
 cuts vanish. No tuning fixes that — it is inherent to slicing a crescent. So
