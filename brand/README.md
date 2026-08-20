@@ -14,6 +14,7 @@ that read from this directory, so merges stay mechanical.
 | `assets/icon.svg`                | App icon: the banded mark. Generated — do not hand-edit.                            |
 | `assets/icon-dev.svg`            | Same mark drained of chroma. This is what `pnpm dev` shows.                         |
 | `assets/icon-mono.svg`           | Flat-white cut, for the titlebar and any inverted slot.                             |
+| `settings/hidden-sections.ts` | Settings sections removed from the sidebar and the Cmd+J palette. |
 | `assets/brand-theme.css`         | Token overrides layered on `src/renderer/src/assets/main.css`.                      |
 | `scripts/generate-marks.mjs`     | Draws both marks from the shared circle geometry.                                   |
 | `scripts/rasterize-marks.mjs`    | Renders `icon.svg` to a 1024px PNG through Chromium.                                |
@@ -24,7 +25,7 @@ electron-builder resolves sibling paths like `config/nsis/` relative to itself.
 
 ## The hooks in upstream files
 
-Twelve lines total. If a merge conflicts, these are the places to re-apply.
+Fourteen lines total. If a merge conflicts, these are the places to re-apply.
 
 | File                                                          | Hook                                                          |
 | ------------------------------------------------------------- | ------------------------------------------------------------- |
@@ -36,6 +37,7 @@ Twelve lines total. If a merge conflicts, these are the places to re-apply.
 | `src/renderer/src/assets/main.css`                            | `@import` of `brand-theme.css`.                               |
 | `src/shared/release-channel.ts`                               | `MAIN_RELEASE_REPO` derived from the brand publish target.    |
 | `src/main/updater-prerelease-feed.ts`                         | Prerelease feed URLs derived from `MAIN_RELEASE_REPO`.        |
+| `src/renderer/src/hooks/useSettingsNavigationMetadata.ts` | Filters hidden sections out of the sidebar and Cmd+J. |
 
 ## Why the product name is swapped at runtime
 
@@ -134,14 +136,38 @@ real one is now `com.oxeegen.oxeeui`.
   appId into local dev builds. Both sides compare the same constant so the feature
   works, but an upstream Orca local build would read as compatible with this app.
 
+## Settings pruning
+
+`brand/settings/hidden-sections.ts` removes 13 of the 33 Settings sections. Three
+reach an upstream first-party service and are not merely off-brand — a fork build
+would authenticate with someone else's OAuth client (`orca-account`) or publish to
+someone else's host (`artifacts`, `plugins`). Three are development and first-run
+scaffolding. Seven are capabilities outside what this product ships.
+
+The filter lives in the `useSettingsNavigationMetadata` hook, not in
+`buildSettingsNavigationMetadata`. Both the Settings sidebar and the Cmd+J palette
+read the hook, so one line covers both surfaces while upstream's own metadata
+tests keep asserting upstream's full registry and never need touching.
+
+**This removes entry points, not capabilities.** A hidden feature is still
+compiled in and often still reachable from its own UI — browser tabs, mobile
+pairing, and voice each have surfaces of their own. Anything that must be
+genuinely unavailable needs a real gate. Deep links into a hidden pane are safe:
+Settings already falls back to the first visible section when the active one is
+not in the nav (the `visibleSectionIds` effect in `Settings.tsx`).
+
+`hidden-sections.test.ts` asserts every hidden id still exists in the upstream
+registry, so a rename upstream fails loudly instead of quietly restoring a pane.
+
 ## Not yet branded
 
-Settings pruning and forced/locked configuration are not wired. The registry at
-`src/renderer/src/hooks/useSettingsNavigationMetadata.ts` returns one array with an
-`id` per section and backs both the Settings sidebar and the Cmd+J palette, so a
-single filter there hides a section from both. Forced defaults belong in
-`getDefaultPersistedState()` in `src/main/persistence.ts`, and locked keys need
-re-application in the save handler at `src/main/ipc/settings.ts`.
+Forced and locked configuration is not wired. Defaults belong in
+`getDefaultPersistedState()` in `src/main/persistence.ts`; locking a key further
+needs it re-applied in the save handler at `src/main/ipc/settings.ts` and rendered
+read-only through a helper.
+
+The two alternate icons in the Settings picker (`resources/app-icons/orca-*.png`)
+are still upstream artwork; only the default `classic` entry is branded.
 
 Telemetry needs no work: `ORCA_BUILD_IDENTITY` and `ORCA_POSTHOG_WRITE_KEY` are
 substituted at compile time only by upstream's release CI, so any fork build
