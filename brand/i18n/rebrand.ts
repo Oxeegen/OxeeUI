@@ -11,12 +11,27 @@ import { BRAND, IS_REBRANDED } from '@brand/config/brand'
  * suites), which all assert against upstream values. Swapping at render time leaves
  * every catalog byte-identical to upstream.
  *
- * Only the capitalized standalone word is replaced. Lowercase `orca` is load-bearing
- * — the CLI binary, `orca.yaml`, `~/.orca`, and reverse-proxy paths — and the
- * screaming-snake `ORCA_*` env vars must survive verbatim; both are left alone by the
- * case-sensitive word-boundary match.
+ * Only the two display spellings are replaced. Lowercase `orca` is load-bearing —
+ * the CLI binary, `orca.yaml`, `~/.orca`, reverse-proxy paths — and the
+ * screaming-snake `ORCA_*` env vars must survive verbatim. Both are left alone by
+ * the case-sensitive, word-boundary match.
  */
-const UPSTREAM_NAME_PATTERN = new RegExp(`\\b${BRAND.upstream.productName}\\b`, 'g')
+const UPSTREAM = BRAND.upstream.productName
+
+/**
+ * Both display forms of the upstream name, in the order they are applied.
+ *
+ * The all-caps form is the landing wordmark. It is safe to swap even though the
+ * `ORCA_*` environment variables share the prefix: `_` is a word character, so
+ * `\b` never matches between `ORCA` and `_` and those names are left whole.
+ *
+ * The replacement keeps the brand's own casing rather than upper-casing it — a
+ * wordmark carries the product's capitalization, not the slot's.
+ */
+const PATTERNS: readonly RegExp[] = [
+  new RegExp(`\\b${UPSTREAM}\\b`, 'g'),
+  new RegExp(`\\b${UPSTREAM.toUpperCase()}\\b`, 'g')
+]
 
 /**
  * The same swap the post-processor applies, exposed for tests that assert on
@@ -24,7 +39,10 @@ const UPSTREAM_NAME_PATTERN = new RegExp(`\\b${BRAND.upstream.productName}\\b`, 
  * assertion follows brand.config.json instead of hardcoding either name.
  */
 export function rebrandCopy(value: string): string {
-  return IS_REBRANDED ? value.replace(UPSTREAM_NAME_PATTERN, BRAND.productName) : value
+  if (!IS_REBRANDED) {
+    return value
+  }
+  return PATTERNS.reduce((text, pattern) => text.replace(pattern, BRAND.productName), value)
 }
 
 export const brandNamePostProcessor: PostProcessorModule = {

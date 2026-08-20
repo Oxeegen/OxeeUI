@@ -26,6 +26,7 @@ export default defineConfig({
       resolve('config/scripts/vitest-host-ports-setup.ts')
     ],
     include: [
+      'brand/**/*.test.ts',
       'src/**/*.test.ts',
       'src/**/*.test.tsx',
       'config/scripts/**/*.test.ts',
