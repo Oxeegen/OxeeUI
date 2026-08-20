@@ -15,6 +15,7 @@ on:
 
 jobs:
   verify:
+    if: github.repository == 'stablyai/orca'
     runs-on: ubuntu-latest
 
     defaults:

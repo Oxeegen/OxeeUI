@@ -26,6 +26,7 @@ concurrency:
 
 jobs:
   spike:
+    if: github.repository == 'stablyai/orca'
     name: relocation file-set spike
     runs-on: windows-2022
     timeout-minutes: 40

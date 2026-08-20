@@ -30,6 +30,7 @@ on:
 
 jobs:
   build:
+    if: github.repository == 'stablyai/orca'
     name: build e2e app
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -88,7 +89,7 @@ jobs:
   e2e:
     name: e2e ${{ matrix.shard_name }}
     needs: build
-    if: inputs.test_files == ''
+    if: github.repository == 'stablyai/orca' && (inputs.test_files == '')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -191,7 +192,7 @@ jobs:
   changed-e2e:
     name: changed e2e specs
     needs: build
-    if: inputs.test_files != ''
+    if: github.repository == 'stablyai/orca' && (inputs.test_files != '')
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -264,9 +265,11 @@ jobs:
     name: ssh docker watcher isolation
     needs: build
     if: >-
+      github.repository == 'stablyai/orca' && (
       inputs.test_files == '' ||
       contains(inputs.test_files, 'tests/e2e/ssh-startup-exec-readiness.spec.ts') ||
       contains(inputs.test_files, 'tests/e2e/paired-startup-exec-readiness.spec.ts')
+      )
     runs-on: ubuntu-latest
     # Why 35: the parking, retention, startup-exec, and paired parity specs run
     # serially on isolated Electron/SSH fixtures after watcher isolation.

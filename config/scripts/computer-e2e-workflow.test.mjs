@@ -3,6 +3,9 @@ import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { parse } from 'yaml'
 
+// Why toContain rather than toBe: this fork prefixes every job `if` with a
+// repository guard, so exact-match assertions would assert the guard away.
+
 const projectDir = resolve(import.meta.dirname, '../..')
 
 describe('computer-use e2e workflow', () => {
@@ -127,7 +130,7 @@ describe('computer-use e2e workflow', () => {
     const runs = job.steps.map((step) => step.run).filter((run) => typeof run === 'string')
     const checkout = job.steps.find((step) => step.uses === 'actions/checkout@v6')
 
-    expect(job.if).toBe("github.event_name == 'pull_request'")
+    expect(job.if).toContain("github.event_name == 'pull_request'")
     expect(job['runs-on']).toBe('macos-15')
     expect(checkout.with['persist-credentials']).toBe(false)
     expect(runs).toContain('pnpm bench:macos-computer-helper-owner-loss --expect reaped --trials 1')

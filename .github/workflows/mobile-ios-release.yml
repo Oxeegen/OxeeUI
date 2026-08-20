@@ -25,6 +25,7 @@ on:
 
 jobs:
   ios-build:
+    if: github.repository == 'stablyai/orca'
     # GitHub-hosted macOS runner: required for Xcode. Expo SDK 55's
     # expo-modules-core declares swift_version 6.0 and uses Swift 6 syntax
     # (@MainActor isolation). Xcode 16.x (macos-15) can't even parse it
@@ -142,6 +143,7 @@ jobs:
           if-no-files-found: ignore
 
   ios-distribute:
+    if: github.repository == 'stablyai/orca'
     name: Distribute to external TestFlight testers
     needs: ios-build
     runs-on: ubuntu-latest

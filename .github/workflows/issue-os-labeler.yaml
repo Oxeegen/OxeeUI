@@ -12,6 +12,7 @@ permissions:
 
 jobs:
   apply-os-label:
+    if: github.repository == 'stablyai/orca'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

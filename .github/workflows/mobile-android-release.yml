@@ -21,6 +21,7 @@ on:
 
 jobs:
   android-build:
+    if: github.repository == 'stablyai/orca'
     runs-on: ubuntu-latest
 
     # Why: the "Create GitHub Release" step below uses the default GITHUB_TOKEN
