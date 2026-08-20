@@ -9,6 +9,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      '@brand': resolve('brand'),
       '@renderer': resolve('src/renderer/src'),
       '@': resolve('src/renderer/src')
     }

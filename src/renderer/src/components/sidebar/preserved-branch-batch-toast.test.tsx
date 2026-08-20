@@ -10,6 +10,7 @@ import {
   forceDeletePreservedBranchBatch,
   showPreservedBranchBatchToast
 } from './preserved-branch-batch-toast'
+import { rebrandCopy } from '@brand/i18n/rebrand'
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
 
@@ -118,7 +119,9 @@ describe('showPreservedBranchBatchToast', () => {
       expect.objectContaining({ dismissible: true, duration: Infinity })
     )
     expect(body.textContent).toContain('Kept branches do not retain workspace folders')
-    expect(body.textContent).toContain('Orca may continue freeing workspace disk space')
+    expect(body.textContent).toContain(
+      rebrandCopy('Orca may continue freeing workspace disk space')
+    )
 
     await clickButton(body, 'Review 2 Branches')
 
