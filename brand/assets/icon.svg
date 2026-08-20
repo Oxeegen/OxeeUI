@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" fill="none">
+  <defs>
+    <linearGradient id="oxeeuiIconGradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4744E2"/>
+      <stop offset="1" stop-color="#805BFE"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="230" fill="url(#oxeeuiIconGradient)"/>
+  <rect x="242" y="221" width="150" height="582" rx="75" fill="#ffffff"/>
+  <rect x="437" y="162" width="150" height="700" rx="75" fill="#ffffff"/>
+  <rect x="632" y="221" width="150" height="582" rx="75" fill="#ffffff"/>
+</svg>

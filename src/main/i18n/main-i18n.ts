@@ -10,6 +10,7 @@ import { isPseudoLocalizationLocale, pseudoLocalizeString } from '../../shared/p
 import { DEFAULT_UI_LOCALE, resolveUiLocale, type SupportedUiLocale } from '../../shared/ui-locale'
 import { UI_LANGUAGE_SYSTEM, type UiLanguage } from '../../shared/ui-language'
 import type { PluginLanguagePackRegistration } from '../../shared/plugins/plugin-language-pack-artifact'
+import { BRAND_POST_PROCESS, brandNamePostProcessor } from '@brand/i18n/rebrand'
 
 export const mainI18n: I18nInstance = i18next.createInstance()
 
@@ -58,6 +59,7 @@ export function getMainSystemLocale(): string {
 
 export async function ensureMainI18n(): Promise<I18nInstance> {
   if (!initialized) {
+    mainI18n.use(brandNamePostProcessor)
     await mainI18n.use(lazyLocaleBackend).init({
       fallbackLng: DEFAULT_UI_LOCALE,
       lng: DEFAULT_UI_LOCALE,
@@ -70,6 +72,7 @@ export async function ensureMainI18n(): Promise<I18nInstance> {
           translation: {}
         }
       },
+      postProcess: BRAND_POST_PROCESS,
       interpolation: {
         escapeValue: false
       }

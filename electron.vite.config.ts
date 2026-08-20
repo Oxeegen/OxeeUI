@@ -275,6 +275,7 @@ export const electronViteConfig: UserConfig = {
     // directly at the published main file so the bundler can inline it.
     resolve: {
       alias: {
+        '@brand': resolve('brand'),
         '@xterm/headless': resolve('node_modules/@xterm/headless/lib-headless/xterm-headless.js'),
         '@xterm/addon-serialize': resolve(
           'node_modules/@xterm/addon-serialize/lib/addon-serialize.js'
@@ -292,6 +293,7 @@ export const electronViteConfig: UserConfig = {
   renderer: {
     resolve: {
       alias: {
+        '@brand': resolve('brand'),
         '@renderer': resolve('src/renderer/src'),
         '@': resolve('src/renderer/src')
       }

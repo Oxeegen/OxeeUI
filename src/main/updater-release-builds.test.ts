@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { MAIN_RELEASE_REPO } from '../shared/release-channel'
 
 const fetchMock = vi.fn()
 vi.mock('electron', () => ({ net: { fetch: (...args: unknown[]) => fetchMock(...args) } }))
@@ -17,7 +18,7 @@ const release = (tag: string, extra: Record<string, unknown> = {}) => ({
   tag_name: tag,
   draft: false,
   published_at: '2026-07-28T14:00:00Z',
-  html_url: `https://github.com/stablyai/orca/releases/tag/${tag}`,
+  html_url: `https://github.com/${MAIN_RELEASE_REPO}/releases/tag/${tag}`,
   ...extra
 })
 
@@ -154,7 +155,7 @@ describe('resolveTargetBuild', () => {
 
   it('pins a stable tag at the main repo download path', () => {
     expect(resolveTargetBuild('stable', 'v1.4.159').feedUrl).toBe(
-      'https://github.com/stablyai/orca/releases/download/v1.4.159'
+      `https://github.com/${MAIN_RELEASE_REPO}/releases/download/v1.4.159`
     )
   })
 
