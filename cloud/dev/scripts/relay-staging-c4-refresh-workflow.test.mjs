@@ -100,7 +100,12 @@ test('recovers a failed or cancelled C4 refresh from an independent workflow', (
   assert.match(recoveryWorkflow, /RECOVER_STAGING_ASIA_C4_IMAGE/)
   assert.match(recoveryWorkflow, /outputs:\n\s+recover: \$\{\{ steps\.trigger\.outputs\.recover \}\}/)
   assert.match(recoveryWorkflow, /if test "\$\{count\}" = 0; then\n\s+echo "recover=false"/)
-  assert.match(recoveryWorkflow, /needs: gate\n\s+if: \$\{\{ needs\.gate\.outputs\.recover == 'true' \}\}/)
+  // Why the tolerant prefix: this fork wraps every job `if` in a repository
+  // guard, so an exact match would assert the guard away.
+  assert.match(
+    recoveryWorkflow,
+    /needs: gate\n\s+if: \$\{\{ [^}]*needs\.gate\.outputs\.recover == 'true'/
+  )
   assert.match(recoveryWorkflow, /concurrency:\n\s+group: relay-staging-mutation/)
   assert.match(recoveryWorkflow, /group: relay-staging-mutation/)
   assert.match(recoveryWorkflow, /\.name == "refresh-asia-c4-image"/)

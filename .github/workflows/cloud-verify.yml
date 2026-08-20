@@ -27,6 +27,7 @@ defaults:
 jobs:
   # Public-repository hosted runners preserve Blacksmith allowance for macOS.
   security:
+    if: github.repository == 'stablyai/orca'
     name: Secret scan
     runs-on: ubuntu-22.04
     steps:
@@ -54,6 +55,7 @@ jobs:
   # Compiles the workspace. No Postgres service: nothing here reaches a
   # database, and the service container costs ~13s of startup.
   build:
+    if: github.repository == 'stablyai/orca'
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -74,6 +76,7 @@ jobs:
   # package it needs through the relay pretest hook, so it does not depend on
   # `pnpm build` having run.
   test:
+    if: github.repository == 'stablyai/orca'
     runs-on: ubuntu-22.04
     services:
       postgres:
@@ -108,6 +111,7 @@ jobs:
   # Fork pull requests reach this job, so it never configures a backend, never plans, and never
   # holds a credential. Only the relay root ships here; foundation and apps stay private.
   terraform:
+    if: github.repository == 'stablyai/orca'
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4

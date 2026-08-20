@@ -62,7 +62,7 @@ defaults:
 
 jobs:
   monitor:
-    if: ${{ vars.ORCA_CLOUD_OPERATIONS_ENABLED == 'true' }}
+    if: ${{ github.repository == 'stablyai/orca' && (vars.ORCA_CLOUD_OPERATIONS_ENABLED == 'true') }}
     uses: ./.github/workflows/cloud-monitor-relay-production-job.yml
     with:
       mode: ${{ inputs.mode }}

@@ -14,7 +14,8 @@ that read from this directory, so merges stay mechanical.
 | `assets/icon.svg`                | App icon: the banded mark. Generated — do not hand-edit.                            |
 | `assets/icon-dev.svg`            | Same mark drained of chroma. This is what `pnpm dev` shows.                         |
 | `assets/icon-mono.svg`           | Flat-white cut, for the titlebar and any inverted slot.                             |
-| `settings/hidden-sections.ts` | Settings sections removed from the sidebar and the Cmd+J palette. |
+| `settings/hidden-sections.ts`    | Settings sections removed from the sidebar and the Cmd+J palette.                   |
+| `ci/upstream-workflow-guard.ts`  | Guard expression and the fork-owned workflow allowlist.                             |
 | `assets/brand-theme.css`         | Token overrides layered on `src/renderer/src/assets/main.css`.                      |
 | `scripts/generate-marks.mjs`     | Draws both marks from the shared circle geometry.                                   |
 | `scripts/rasterize-marks.mjs`    | Renders `icon.svg` to a 1024px PNG through Chromium.                                |
@@ -37,7 +38,7 @@ Fourteen lines total. If a merge conflicts, these are the places to re-apply.
 | `src/renderer/src/assets/main.css`                            | `@import` of `brand-theme.css`.                               |
 | `src/shared/release-channel.ts`                               | `MAIN_RELEASE_REPO` derived from the brand publish target.    |
 | `src/main/updater-prerelease-feed.ts`                         | Prerelease feed URLs derived from `MAIN_RELEASE_REPO`.        |
-| `src/renderer/src/hooks/useSettingsNavigationMetadata.ts` | Filters hidden sections out of the sidebar and Cmd+J. |
+| `src/renderer/src/hooks/useSettingsNavigationMetadata.ts`     | Filters hidden sections out of the sidebar and Cmd+J.         |
 
 ## Why the product name is swapped at runtime
 
@@ -158,6 +159,31 @@ not in the nav (the `visibleSectionIds` effect in `Settings.tsx`).
 
 `hidden-sections.test.ts` asserts every hidden id still exists in the upstream
 registry, so a rename upstream fails loudly instead of quietly restoring a pane.
+
+## GitHub Actions
+
+Upstream ships 28 workflows and 16 fire on `push`, `pull_request`, or `schedule`.
+This is a real GitHub fork of `stablyai/orca`, public, with Actions enabled — so
+without a guard the first push would start macOS build matrices, Windows e2e
+suites, and mobile release jobs on our quota for no benefit.
+
+Every one of the 57 jobs carries `if: github.repository == 'stablyai/orca'`. That
+is upstream's own fork-protection idiom: six of their jobs already used that exact
+expression. Jobs resolve and then skip, and skipped jobs bill nothing.
+
+**Guarding rather than deleting was measured, not assumed.** Upstream changed
+`.github/workflows` 232 times in six months. A deleted workflow conflicts on every
+one of those commits that touches it; a guarded one merges cleanly unless the edit
+lands on the guard line. Deleting also broke the 17 upstream test files that read
+these workflows, costing 87 tests and two edits to `reliability-gates.jsonc`.
+Guarding cost four assertions relaxed from `toBe` to `toContain` and no coverage
+at all — the suite still runs its full 756 tests.
+
+**On every upstream merge, re-apply the guard to anything new.** A conflict on the
+guard line is the visible case. The dangerous one is silent: a workflow or job
+added upstream after we guarded arrives as a clean add with no conflict.
+`brand/ci/upstream-workflow-guard.test.ts` fails on any unguarded job, so both
+paths surface as a red test rather than a CI bill.
 
 ## Not yet branded
 

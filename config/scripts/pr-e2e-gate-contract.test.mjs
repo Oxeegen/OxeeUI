@@ -16,6 +16,9 @@ import {
   IME_ENGAGEMENT_RECEIPT_ENV
 } from './terminal-ime-engagement-receipt.mjs'
 
+// Why toContain rather than toBe: this fork prefixes every job `if` with a
+// repository guard, so exact-match assertions would assert the guard away.
+
 const projectDir = resolve(import.meta.dirname, '../..')
 const prWorkflow = parseYaml(readFileSync(join(projectDir, '.github/workflows/pr.yml'), 'utf8'))
 const e2eWorkflow = parseYaml(readFileSync(join(projectDir, '.github/workflows/e2e.yml'), 'utf8'))
@@ -107,7 +110,7 @@ describe('PR E2E gate contract', () => {
     // cost the path filter exists to avoid — while the gate assertions above
     // stay green.
     expect(prWorkflow.jobs.e2e.needs).toBe('code_paths')
-    expect(prWorkflow.jobs.e2e.if).toBe("needs.code_paths.outputs.e2e_should_run == 'true'")
+    expect(prWorkflow.jobs.e2e.if).toContain("needs.code_paths.outputs.e2e_should_run == 'true'")
     expect(prWorkflow.jobs.code_paths.outputs.e2e_should_run).toBe(
       '${{ steps.e2e_filter.outputs.should_run }}'
     )
@@ -153,8 +156,8 @@ describe('PR E2E gate contract', () => {
   })
 
   it('uses one runner for changed specs and keeps full runs sharded', () => {
-    expect(e2eWorkflow.jobs.e2e.if).toBe("inputs.test_files == ''")
-    expect(e2eWorkflow.jobs['changed-e2e'].if).toBe("inputs.test_files != ''")
+    expect(e2eWorkflow.jobs.e2e.if).toContain("inputs.test_files == ''")
+    expect(e2eWorkflow.jobs['changed-e2e'].if).toContain("inputs.test_files != ''")
     expect(e2eWorkflow.jobs['changed-e2e'].strategy).toBeUndefined()
     expect(e2eWorkflow.jobs.e2e.strategy.matrix.include).toEqual(
       Array.from({ length: 14 }, (_, index) => ({
@@ -566,7 +569,7 @@ describe('PR E2E gate contract', () => {
       './.github/workflows/terminal-ime-e2e.yml'
     )
     expect(prWorkflow.jobs.terminal_ime_native.needs).toBe('code_paths')
-    expect(prWorkflow.jobs.terminal_ime_native.if).toBe(
+    expect(prWorkflow.jobs.terminal_ime_native.if).toContain(
       "needs.code_paths.outputs.native_ime_source_changed == 'true'"
     )
     expect(prWorkflow.jobs.code_paths.outputs.native_ime_source_changed).toBe(

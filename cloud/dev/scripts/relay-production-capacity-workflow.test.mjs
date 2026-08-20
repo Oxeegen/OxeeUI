@@ -382,8 +382,10 @@ test('deploy and capacity identities are used in their intended phases', () => {
   const jobStart = workflow.indexOf('  capacity:')
   const stepsStart = workflow.indexOf('    steps:', jobStart)
   const jobHeader = workflow.slice(jobStart, stepsStart)
+  // Why the guard is part of the expectation: this fork wraps every job `if` in
+  // a repository guard, so the exact header carries it alongside upstream's ref test.
   assert.deepEqual(jobHeader.match(/^\s+if:.*$/gm), [
-    "    if: ${{ github.ref == 'refs/heads/main' }}"
+    "    if: ${{ github.repository == 'stablyai/orca' && (github.ref == 'refs/heads/main') }}"
   ])
   const configurationStart = workflow.indexOf('Require production workflow configuration')
   const configurationEnd = workflow.indexOf('- uses: actions/checkout@v4', configurationStart)

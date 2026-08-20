@@ -13,6 +13,7 @@ permissions:
 
 jobs:
   test:
+    if: github.repository == 'stablyai/orca'
     name: tests node ${{ matrix.node }} ${{ matrix.shard }}/${{ matrix.shard_total }}
     runs-on: ubuntu-latest
     strategy:

@@ -16,6 +16,7 @@ permissions:
 
 jobs:
   pullfrog:
+    if: github.repository == 'stablyai/orca'
     runs-on: ubuntu-latest
     permissions:
       id-token: write
