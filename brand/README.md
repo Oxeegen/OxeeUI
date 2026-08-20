@@ -12,9 +12,8 @@ that read from this directory, so merges stay mechanical.
 | `config/brand.ts`                | Typed accessor (`BRAND`, `IS_REBRANDED`). Import via the `@brand` alias.            |
 | `i18n/rebrand.ts`                | Rewrites the upstream product name in user-visible copy at render time.             |
 | `assets/icon.svg`                | App icon: the banded mark. Generated — do not hand-edit.                            |
-| `assets/icon-dev.svg` | Same mark drained of chroma. This is what `pnpm dev` shows. |
-| `assets/logo.svg`                | Small-size mark: the three-slice mark. Generated — do not hand-edit.                |
-| `assets/*-mono.svg`              | Flat-white cuts of both, for the titlebar and any inverted slot.                    |
+| `assets/icon-dev.svg`            | Same mark drained of chroma. This is what `pnpm dev` shows.                         |
+| `assets/icon-mono.svg`           | Flat-white cut, for the titlebar and any inverted slot.                             |
 | `assets/brand-theme.css`         | Token overrides layered on `src/renderer/src/assets/main.css`.                      |
 | `scripts/generate-marks.mjs`     | Draws both marks from the shared circle geometry.                                   |
 | `scripts/rasterize-marks.mjs`    | Renders `icon.svg` to a 1024px PNG through Chromium.                                |
@@ -80,11 +79,14 @@ no chroma — rather than dropping it. The two alternate icons the Settings pick
 offers (`resources/app-icons/orca-*.png`) are still upstream artwork; only the
 default `classic` entry is branded.
 
-**Two marks, one geometry.** Below roughly 24px the banded arcs close up and the
-cuts vanish. No tuning fixes that — it is inherent to slicing a crescent. So
-`icon.svg` is the app icon, dock, and installer mark, and `logo.svg` — the
-parent's three slices — is the titlebar and small-size mark. Same circle, same
-proportions, same family.
+**One mark everywhere.** Below roughly 24px the banded arcs thin out and the
+cuts get muddy — inherent to slicing a crescent, and no tuning fixes it. The
+parent's three slices held that size better, but running two marks costs more in
+recognition than the sharpness it buys back, so the banded mark takes every slot:
+app icon, dock, installer, and the titlebar via `icon-mono.svg`.
+
+If the titlebar ever proves unreadable in practice, the three-slice geometry is
+in this file's history at `59f2c87a1b`.
 
 ```bash
 pnpm run brand:marks   # redraw both SVGs after changing the geometry
