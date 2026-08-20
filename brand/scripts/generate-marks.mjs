@@ -31,6 +31,11 @@ const BAR = 0.149 * D
 const ENTREFER = 38
 
 const COL = { light: '#7742F9', base: '#5A21F2', deep: '#4A11DC', edge: '#BFA9FF' }
+// Why a separate dev palette: `is.dev` swaps the app icon so a dev instance is
+// distinguishable from an installed one in the dock. Same geometry, drained of
+// chroma, so it still reads as the same mark at a glance.
+const COL_DEV = { light: '#7C7796', base: '#565175', deep: '#3B3757', edge: '#B9B4D4' }
+const PALETTES = { icon: COL, 'icon-dev': COL_DEV, logo: COL }
 
 const LEFT_X = [L, L + ARC]
 const CENTER_X = [L + ARC + ENTAILLE, L + ARC + ENTAILLE + BAR]
@@ -163,7 +168,9 @@ function outline(r) {
 }
 
 function svg(name, { mono }) {
-  const paths = MARKS[name].map(outline).filter(Boolean)
+  const geometry = name === 'icon-dev' ? 'icon' : name
+  const col = PALETTES[name]
+  const paths = MARKS[geometry].map(outline).filter(Boolean)
   const d = paths.map((p) => `    <path d="${p}"/>`).join('\n')
   if (mono) {
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img">
@@ -176,9 +183,9 @@ ${d}
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img">
   <defs>
     <linearGradient id="${name}-fill" x1="0.1" y1="0" x2="0.75" y2="1">
-      <stop offset="0" stop-color="${COL.light}"/>
-      <stop offset="0.55" stop-color="${COL.base}"/>
-      <stop offset="1" stop-color="${COL.deep}"/>
+      <stop offset="0" stop-color="${col.light}"/>
+      <stop offset="0.55" stop-color="${col.base}"/>
+      <stop offset="1" stop-color="${col.deep}"/>
     </linearGradient>
     <clipPath id="${name}-gloss">
       <path d="M0 800 C 280 720 690 540 1024 404 L1024 0 L0 0 Z"/>
@@ -190,16 +197,18 @@ ${d}
   <g clip-path="url(#${name}-gloss)" fill="#fff" opacity="0.14">
 ${d}
   </g>
-  <g fill="none" stroke="${COL.edge}" stroke-width="6.5" stroke-linejoin="round">
+  <g fill="none" stroke="${col.edge}" stroke-width="6.5" stroke-linejoin="round">
 ${d}
   </g>
 </svg>
 `
 }
 
-for (const name of Object.keys(MARKS)) {
+for (const name of Object.keys(PALETTES)) {
   writeFileSync(`brand/assets/${name}.svg`, svg(name, { mono: false }))
-  writeFileSync(`brand/assets/${name}-mono.svg`, svg(name, { mono: true }))
+  if (name !== 'icon-dev') {
+    writeFileSync(`brand/assets/${name}-mono.svg`, svg(name, { mono: true }))
+  }
 }
 console.log('entaille', n(ENTAILLE), '· entrefer', ENTREFER, '· arc', n(ARC), '· barre', n(BAR))
 console.log(

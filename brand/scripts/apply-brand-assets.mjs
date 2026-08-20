@@ -31,7 +31,10 @@ const ASSET_MAP = [
   // electron-builder derives .icns and .ico from this PNG at package time, so
   // neither container format has to be produced or committed here.
   ['assets/generated/icon.png', 'resources/build/icon.png', false],
-  ['assets/generated/icon.png', 'resources/icon.png', false]
+  ['assets/generated/icon.png', 'resources/icon.png', false],
+  // Why this one matters in practice: app-icon.ts resolves the `classic` icon to
+  // icon-dev.png whenever is.dev, so `pnpm dev` shows this file, never icon.png.
+  ['assets/generated/icon-dev.png', 'resources/icon-dev.png', false]
 ]
 
 const checkOnly = process.argv.includes('--check')
