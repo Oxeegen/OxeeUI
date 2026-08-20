@@ -6,15 +6,18 @@ that read from this directory, so merges stay mechanical.
 
 ## Layout
 
-| Path                               | Purpose                                                                             |
-| ---------------------------------- | ----------------------------------------------------------------------------------- |
-| `config/brand.config.json`         | Declarative source of truth: product name, appId, executable names, publish target. |
-| `config/brand.ts`                  | Typed accessor (`BRAND`, `IS_REBRANDED`). Import via the `@brand` alias.            |
-| `i18n/rebrand.ts` | Rewrites the upstream product name in user-visible copy at render time.             |
-| `assets/logo.svg`                  | Monochrome mark for the titlebar and in-app logo slots.                             |
-| `assets/icon.svg`                  | Full-color app icon source.                                                         |
-| `assets/brand-theme.css`           | Token overrides layered on `src/renderer/src/assets/main.css`.                      |
-| `scripts/apply-brand-assets.mjs`   | Copies brand assets over the upstream files that read them by fixed path.           |
+| Path                             | Purpose                                                                             |
+| -------------------------------- | ----------------------------------------------------------------------------------- |
+| `config/brand.config.json`       | Declarative source of truth: product name, appId, executable names, publish target. |
+| `config/brand.ts`                | Typed accessor (`BRAND`, `IS_REBRANDED`). Import via the `@brand` alias.            |
+| `i18n/rebrand.ts`                | Rewrites the upstream product name in user-visible copy at render time.             |
+| `assets/icon.svg`                | App icon: the banded mark. Generated — do not hand-edit.                            |
+| `assets/logo.svg`                | Small-size mark: the three-slice mark. Generated — do not hand-edit.                |
+| `assets/*-mono.svg`              | Flat-white cuts of both, for the titlebar and any inverted slot.                    |
+| `assets/brand-theme.css`         | Token overrides layered on `src/renderer/src/assets/main.css`.                      |
+| `scripts/generate-marks.mjs`     | Draws both marks from the shared circle geometry.                                   |
+| `scripts/rasterize-marks.mjs`    | Renders `icon.svg` to a 1024px PNG through Chromium.                                |
+| `scripts/apply-brand-assets.mjs` | Copies brand assets over the upstream files that read them by fixed path.           |
 
 `config/electron-builder.brand.cjs` sits in `config/` (not here) because
 electron-builder resolves sibling paths like `config/nsis/` relative to itself.
@@ -47,25 +50,52 @@ Only the capitalized standalone word is matched. Lowercase `orca` is load-bearin
 — the CLI binary, `orca.yaml`, `~/.orca`, reverse-proxy paths — and `ORCA_*` env
 vars must survive verbatim. Both are untouched by the case-sensitive match.
 
-## Assets
+## The mark
+
+One circle, cut by two vertical entailles and two horizontal entrefers. Every
+proportion is a fraction of the diameter, taken from the Oxeegen mark:
+
+| Element             | Width                                       |
+| ------------------- | ------------------------------------------- |
+| Arc latéral         | `0.303 D`                                   |
+| Entaille verticale  | `0.122 D`                                   |
+| Barre centrale      | `0.149 D`                                   |
+| Entrefer horizontal | `38` — deliberately finer than the entaille |
+
+The banded mark splits each arc in two at `2/3 · 1/3` on the left and `1/3 · 2/3`
+on the right. That inversion replaces mirror symmetry with rotational symmetry —
+the halves match at 180°, nothing repeats horizontally — and the long band sits
+top-left so the diagonal runs with the gloss instead of against it. Flipping the
+direction is the two fractions in `MARKS.icon`.
+
+Pieces are emitted as exact outlines (arc plus line segments), not as a circle
+behind a clip rectangle: the light edge has to run along the straight cuts too,
+and a clip strips the stroke from exactly those sides.
+
+**Two marks, one geometry.** Below roughly 24px the banded arcs close up and the
+cuts vanish. No tuning fixes that — it is inherent to slicing a crescent. So
+`icon.svg` is the app icon, dock, and installer mark, and `logo.svg` — the
+parent's three slices — is the titlebar and small-size mark. Same circle, same
+proportions, same family.
+
+```bash
+pnpm run brand:marks   # redraw both SVGs after changing the geometry
+pnpm run brand:icon    # rasterize icon.svg to a 1024px PNG
+pnpm run brand:assets  # copy everything into the upstream paths
+```
+
+`rasterize-marks.mjs` drives Playwright's Chromium, already a dev dependency for
+the e2e suite. If it is missing, run `pnpm exec playwright install chromium`.
 
 `apply-brand-assets.mjs` overwrites upstream files in place rather than aliasing
 them, because `resources/logo.svg` is imported by relative path from five modules
 and the app icons are read off disk by electron-builder, never through the bundler.
-
-```bash
-pnpm run brand:assets
-```
-
 Those destinations are tracked upstream, so `git merge upstream/main` can conflict
-on them. Resolve with `git checkout --ours <path>` and re-run the command.
+on them — resolve with `git checkout --ours <path>` and re-run `pnpm run brand:assets`.
 
-Raster icons are not generated yet: `.icns` / `.ico` / hicolor PNGs need a
-rasterizer that is not a repo dependency, so the build still ships upstream's icon.
-To produce them, render `assets/icon.svg` into `assets/generated/` as `icon.png`
-(1024×1024), `icon.ico`, and `icon.icns` — the script picks them up automatically.
-On macOS `resources/icon-source/generate.sh` already does this from an Icon
-Composer project and can be pointed at the brand art.
+electron-builder derives `.icns` and `.ico` from the 1024px PNG at package time,
+so neither container format is committed, and neither has to be authored on a
+Linux dev box.
 
 ## Building
 

@@ -5,8 +5,9 @@
  * Spreading upstream rather than forking it means new upstream targets, hooks,
  * and extraResources arrive automatically — only the identity keys are ours.
  *
- * Icons need no override here: brand/scripts/apply-brand-assets.mjs overwrites
- * resources/build/icon.* in place, so upstream's paths already point at brand art.
+ * Icons point at the brand PNG rather than upstream's .icns: electron-builder
+ * derives both .icns and .ico from a 1024px PNG, which avoids committing two
+ * container formats that no tool on a Linux dev box can author.
  *
  * Linux is intentionally AppImage-only. deb/rpm carry an `orca-ide` package name,
  * a PATH symlink, and after-install hooks wired to that name; rebranding those
@@ -21,14 +22,20 @@ const base = require('./electron-builder.config.cjs')
 const brand = require('../brand/config/brand.config.json')
 
 const brandVersion = process.env.BRAND_VERSION
+const BRAND_ICON = 'resources/build/icon.png'
 
 module.exports = {
   ...base,
   appId: brand.appId,
   productName: brand.productName,
+  mac: {
+    ...base.mac,
+    icon: BRAND_ICON
+  },
   ...(brandVersion ? { extraMetadata: { ...base.extraMetadata, version: brandVersion } } : {}),
   win: {
     ...base.win,
+    icon: BRAND_ICON,
     executableName: brand.executableName,
     // Why: upstream signs via SignPath after packaging. A fork has no such
     // pipeline, so claiming their publisherName would make the updater reject
@@ -45,6 +52,7 @@ module.exports = {
   },
   linux: {
     ...base.linux,
+    icon: BRAND_ICON,
     executableName: brand.linuxExecutableName,
     maintainer: brand.maintainer,
     target: ['AppImage'],

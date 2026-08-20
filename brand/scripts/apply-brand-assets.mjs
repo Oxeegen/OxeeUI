@@ -11,9 +11,9 @@
  * The overwritten files are tracked upstream, so `git merge upstream/main` can
  * conflict on them. Resolve with `git checkout --ours` and re-run this script.
  *
- * Raster icons are optional: SVG is the committed source, and the .icns/.ico/.png
- * derivatives need a rasterizer that is not a repo dependency. Generate them into
- * brand/assets/generated/ (see brand/README.md) and this script picks them up.
+ * The icon PNG comes from brand/scripts/rasterize-marks.mjs; run that first when
+ * the mark changes. It is optional here so a checkout without it still applies
+ * the logo and falls back to the upstream icon.
  *
  * Usage: node brand/scripts/apply-brand-assets.mjs [--check]
  */
@@ -25,9 +25,11 @@ const ROOT = path.resolve(import.meta.dirname, '..', '..')
 
 /** [source under brand/, destination under the repo root, required?] */
 const ASSET_MAP = [
-  ['assets/logo.svg', 'resources/logo.svg', true],
-  ['assets/generated/icon.icns', 'resources/build/icon.icns', false],
-  ['assets/generated/icon.ico', 'resources/build/icon.ico', false],
+  // Why the mono file: .titlebar-logo inverts the mark in light mode, so the
+  // source has to be flat white — a colored logo would invert to its negative.
+  ['assets/logo-mono.svg', 'resources/logo.svg', true],
+  // electron-builder derives .icns and .ico from this PNG at package time, so
+  // neither container format has to be produced or committed here.
   ['assets/generated/icon.png', 'resources/build/icon.png', false],
   ['assets/generated/icon.png', 'resources/icon.png', false]
 ]
