@@ -87,6 +87,7 @@
     "brand:icon": "node brand/scripts/rasterize-marks.mjs",
     "brand:assets": "node brand/scripts/apply-brand-assets.mjs",
     "brand:assets:check": "node brand/scripts/apply-brand-assets.mjs --check",
+    "brand:verify": "pnpm run brand:assets:check && vitest run --config config/vitest.config.ts brand --reporter=dot",
     "build:win:brand": "pnpm run brand:assets && pnpm run build:desktop && pnpm run ensure:electron-runtime && electron-builder --config config/electron-builder.brand.cjs --win --publish never",
     "build:mac:brand": "pnpm run brand:assets && pnpm run build:desktop && pnpm run build:computer-macos && pnpm run build:notification-status-macos && pnpm run ensure:electron-runtime && electron-builder --config config/electron-builder.brand.cjs --mac --publish never",
     "build:linux:brand": "pnpm run brand:assets && pnpm run build:desktop && pnpm run ensure:electron-runtime && electron-builder --config config/electron-builder.brand.cjs --linux AppImage --publish never",

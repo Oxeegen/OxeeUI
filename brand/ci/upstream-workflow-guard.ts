@@ -28,4 +28,4 @@ export const WORKFLOW_GUARD = "github.repository == 'stablyai/orca'"
  * Workflows this fork authored, which must run here and therefore must not carry
  * the guard. Add a filename here only for a workflow we own.
  */
-export const FORK_OWNED_WORKFLOWS: readonly string[] = []
+export const FORK_OWNED_WORKFLOWS: readonly string[] = ['release-brand.yml']
