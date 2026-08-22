@@ -3,6 +3,9 @@ import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { parse } from 'yaml'
 
+// Why toContain rather than toBe: this fork prefixes every job `if` with a
+// repository guard, so exact-match assertions would assert the guard away.
+
 const projectDir = resolve(import.meta.dirname, '../..')
 const prWorkflow = parse(readFileSync(join(projectDir, '.github/workflows/pr.yml'), 'utf8'))
 const e2eWorkflow = parse(readFileSync(join(projectDir, '.github/workflows/e2e.yml'), 'utf8'))
@@ -35,7 +38,7 @@ describe('PR E2E gate contract', () => {
     // cost the path filter exists to avoid — while the gate assertions above
     // stay green.
     expect(prWorkflow.jobs.e2e.needs).toBe('e2e-paths')
-    expect(prWorkflow.jobs.e2e.if).toBe("needs.e2e-paths.outputs.should_run == 'true'")
+    expect(prWorkflow.jobs.e2e.if).toContain("needs.e2e-paths.outputs.should_run == 'true'")
     expect(prWorkflow.jobs['e2e-paths'].outputs.should_run).toBe(
       '${{ steps.filter.outputs.should_run }}'
     )
@@ -65,8 +68,8 @@ describe('PR E2E gate contract', () => {
   })
 
   it('uses one runner for changed specs and keeps full runs sharded', () => {
-    expect(e2eWorkflow.jobs.e2e.if).toBe("inputs.test_files == ''")
-    expect(e2eWorkflow.jobs['changed-e2e'].if).toBe("inputs.test_files != ''")
+    expect(e2eWorkflow.jobs.e2e.if).toContain("inputs.test_files == ''")
+    expect(e2eWorkflow.jobs['changed-e2e'].if).toContain("inputs.test_files != ''")
     expect(e2eWorkflow.jobs['changed-e2e'].strategy).toBeUndefined()
     const changedRun = e2eWorkflow.jobs['changed-e2e'].steps.find(
       (step) => step.name === 'Run changed E2E specs'

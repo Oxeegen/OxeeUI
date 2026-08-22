@@ -3,6 +3,9 @@ import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { parse } from 'yaml'
 
+// Why toContain rather than toBe: this fork prefixes every job `if` with a
+// repository guard, so exact-match assertions would assert the guard away.
+
 const projectDir = resolve(import.meta.dirname, '../..')
 const releaseWorkflow = parse(
   readFileSync(join(projectDir, '.github/workflows/release-cut.yml'), 'utf8')
@@ -16,7 +19,7 @@ describe('release E2E dispatch contract', () => {
 
     expect(releaseWorkflow.jobs.e2e).toBeUndefined()
     expect(dispatchJob.needs).toEqual(['cut', 'publish-release'])
-    expect(dispatchJob.if).toBe("${{ needs.cut.outputs.tag != '' }}")
+    expect(dispatchJob.if).toContain("needs.cut.outputs.tag != ''")
     expect(dispatchJob.permissions.actions).toBe('write')
     expect(dispatchStep.env.TAG).toBe('${{ needs.cut.outputs.tag }}')
     expect(dispatchStep.run).toContain('gh workflow run e2e.yml')

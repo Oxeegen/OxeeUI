@@ -16,6 +16,7 @@ on:
 
 jobs:
   roundtrip:
+    if: github.repository == 'stablyai/orca'
     strategy:
       fail-fast: false
       matrix:

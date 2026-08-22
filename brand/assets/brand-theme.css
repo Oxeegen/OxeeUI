@@ -1,0 +1,33 @@
+/* OxeeUI brand tokens.
+ *
+ * Overrides a deliberately small slice of the token set defined in
+ * src/renderer/src/assets/main.css — only the roles that carry brand identity
+ * (primary fill, focus ring, sidebar primary). Every structural gray, radius,
+ * and elevation tier stays upstream so the design system keeps working and
+ * upstream merges stay clean.
+ *
+ * Selectors are doubled (:root:root) to outrank main.css regardless of @import
+ * order — PostCSS hoists @import to the top of the file, so source order alone
+ * would let upstream win.
+ */
+
+:root:root {
+  --primary: #5e4af5;
+  --primary-foreground: #fafafa;
+  --ring: #5e4af5;
+  --sidebar-primary: #5e4af5;
+  --sidebar-primary-foreground: #fafafa;
+  --sidebar-ring: #5e4af5;
+}
+
+/* Why a lighter purple in dark mode: #5e4af5 on a #171717 surface reads as a
+   muddy block. #6e5af6 keeps 4.7:1 against its white foreground (AA) while
+   staying legible as an accent against dark chrome. */
+:root:root.dark {
+  --primary: #6e5af6;
+  --primary-foreground: #ffffff;
+  --ring: #6e5af6;
+  --sidebar-primary: #6e5af6;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-ring: #6e5af6;
+}

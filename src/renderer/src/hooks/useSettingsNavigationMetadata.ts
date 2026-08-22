@@ -92,6 +92,7 @@ import { getActiveRuntimeTarget } from '@/runtime/runtime-rpc-client'
 import { useLinearProviderConnected } from '@/hooks/useLinearProviderConnected'
 import { translate } from '@/i18n/i18n'
 import { getClientCreationActionPolicy } from '@/lib/client-creation-action-policy'
+import { isBrandSettingsSectionHidden } from '@brand/settings/hidden-sections'
 
 export { isWebClientLocation } from '@/lib/web-client-location'
 
@@ -741,7 +742,7 @@ export function useSettingsNavigationMetadata(): SettingsNavSection[] {
         isDev: import.meta.env.DEV,
         isLinearConnected,
         repos
-      }),
+      }).filter((section) => !isBrandSettingsSectionHidden(section.id)),
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- activeLocale is read implicitly by the translate() calls inside buildSettingsNavigationMetadata; without it the memo keeps the previous language's sections.
     [
       isMac,

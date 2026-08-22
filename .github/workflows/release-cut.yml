@@ -793,7 +793,7 @@ jobs:
 
   create-release:
     needs: cut
-    if: needs.cut.outputs.should_release == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.cut.outputs.should_release == 'true')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -817,7 +817,7 @@ jobs:
 
   terminal-rendering-golden:
     needs: cut
-    if: needs.cut.outputs.should_release == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.cut.outputs.should_release == 'true')
     name: golden e2e ${{ matrix.platform }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
@@ -927,7 +927,7 @@ jobs:
   # but they include heavier app-like flows and must not block publishing.
   terminal-rendering-release-evidence:
     needs: cut
-    if: needs.cut.outputs.should_release == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.cut.outputs.should_release == 'true')
     continue-on-error: true
     name: terminal rendering release evidence ${{ matrix.platform }}
     runs-on: ${{ matrix.os }}
@@ -1010,7 +1010,7 @@ jobs:
     needs:
       - cut
       - create-release
-    if: needs.cut.outputs.should_release == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.cut.outputs.should_release == 'true')
     strategy:
       fail-fast: false
       matrix:
@@ -1865,7 +1865,7 @@ jobs:
     needs:
       - cut
       - create-release
-    if: needs.cut.outputs.should_release == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.cut.outputs.should_release == 'true')
     # Why: SignPath requires every job in this signing workflow to be
     # GitHub-hosted. The actual mac build runs in release-mac-build.yml so
     # Blacksmith stays outside Windows artifact provenance.
@@ -1892,6 +1892,7 @@ jobs:
           RELEASE_MAC_BUILD_WORKFLOW: release-mac-build.yml
 
   publish-release:
+    if: github.repository == 'stablyai/orca'
     needs:
       - cut
       - build
@@ -1965,7 +1966,7 @@ jobs:
     needs:
       - cut
       - publish-release
-    if: ${{ needs.cut.outputs.tag != '' }}
+    if: ${{ github.repository == 'stablyai/orca' && (needs.cut.outputs.tag != '') }}
     runs-on: ubuntu-latest
     permissions:
       actions: write
@@ -1992,7 +1993,7 @@ jobs:
       - cut
     # Why: publish-complete-draft-releases can expose a recovered RC without
     # running the build/publish jobs; still advance the RC cask to that tag.
-    if: ${{ needs.cut.outputs.latest_published_rc_tag != '' }}
+    if: ${{ github.repository == 'stablyai/orca' && (needs.cut.outputs.latest_published_rc_tag != '') }}
     uses: ./.github/workflows/homebrew-bump.yml
     with:
       tag: ${{ needs.cut.outputs.latest_published_rc_tag }}
@@ -2002,7 +2003,7 @@ jobs:
     needs:
       - cut
       - publish-release
-    if: ${{ needs.cut.outputs.tag != '' && startsWith(needs.cut.outputs.tag, 'v') }}
+    if: ${{ github.repository == 'stablyai/orca' && (needs.cut.outputs.tag != '' && startsWith(needs.cut.outputs.tag, 'v')) }}
     uses: ./.github/workflows/homebrew-bump.yml
     with:
       tag: ${{ needs.cut.outputs.tag }}

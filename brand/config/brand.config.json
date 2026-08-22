@@ -1,0 +1,19 @@
+{
+  "productName": "OxeeUI",
+  "appId": "com.oxeegen.oxeeui",
+  "artifactSlug": "oxeeui",
+  "executableName": "OxeeUI",
+  "linuxExecutableName": "oxeeui",
+  "startupWmClass": "oxeeui",
+  "maintainer": "Oxeegen",
+  "upstream": {
+    "productName": "Orca",
+    "appId": "com.stablyai.orca"
+  },
+  "publish": {
+    "provider": "github",
+    "owner": "Oxeegen",
+    "repo": "OxeeUI",
+    "releaseType": "release"
+  }
+}

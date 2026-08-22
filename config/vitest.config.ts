@@ -9,6 +9,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      '@brand': resolve('brand'),
       '@renderer': resolve('src/renderer/src'),
       '@': resolve('src/renderer/src')
     }
@@ -21,6 +22,7 @@ export default defineConfig({
     // Why: happy-dom drops MutationObserver callbacks on GC; keep them alive like a browser does.
     setupFiles: [resolve('config/scripts/happy-dom-mutation-observer-retention.ts')],
     include: [
+      'brand/**/*.test.ts',
       'src/**/*.test.ts',
       'src/**/*.test.tsx',
       'config/scripts/**/*.test.ts',

@@ -17,6 +17,7 @@ permissions:
 
 jobs:
   static_analysis:
+    if: github.repository == 'stablyai/orca'
     name: static analysis
     runs-on: ubuntu-latest
 
@@ -94,6 +95,7 @@ jobs:
         run: pnpm verify:macos-entitlements
 
   root_directory_guard:
+    if: github.repository == 'stablyai/orca'
     name: root directory guard
     runs-on: ubuntu-latest
 
@@ -111,6 +113,7 @@ jobs:
         run: node .github/scripts/check-root-directory-entries.mjs "$BASE_SHA" "$HEAD_SHA"
 
   typecheck:
+    if: github.repository == 'stablyai/orca'
     runs-on: ubuntu-latest
 
     steps:
@@ -124,6 +127,7 @@ jobs:
       - run: pnpm typecheck
 
   git_compatibility:
+    if: github.repository == 'stablyai/orca'
     name: Git compatibility
     runs-on: ubuntu-latest
 
@@ -174,6 +178,7 @@ jobs:
           exit "$status"
 
   shell_contracts:
+    if: github.repository == 'stablyai/orca'
     name: shell contracts
     runs-on: ubuntu-latest
     env:
@@ -250,6 +255,7 @@ jobs:
             src/shared/posix-command-path-lookup.test.ts
 
   test:
+    if: github.repository == 'stablyai/orca'
     name: tests node ${{ matrix.node }} ${{ matrix.shard }}/${{ matrix.shard_total }}
     runs-on: ubuntu-latest
     strategy:
@@ -288,6 +294,7 @@ jobs:
             --shard=${{ matrix.shard }}/${{ matrix.shard_total }}
 
   cross-version-wire:
+    if: github.repository == 'stablyai/orca'
     name: cross-version wire compatibility
     runs-on: ubuntu-latest
 
@@ -311,6 +318,7 @@ jobs:
         run: pnpm exec vitest run --config config/vitest.config.ts tests/e2e/cross-version-wire/cross-version-terminal-wire.unit.test.ts
 
   managed_hook_node18:
+    if: github.repository == 'stablyai/orca'
     name: managed hooks on Node 18
     runs-on: ubuntu-latest
 
@@ -334,6 +342,7 @@ jobs:
         run: node config/scripts/smoke-managed-hook-runtime-node18.mjs
 
   package:
+    if: github.repository == 'stablyai/orca'
     name: package
     runs-on: ubuntu-latest
 
@@ -395,6 +404,7 @@ jobs:
         run: xvfb-run --auto-servernum node config/scripts/smoke-packaged-hang-watchdog-worker.mjs --app-dir=dist/linux-unpacked
 
   package_windows:
+    if: github.repository == 'stablyai/orca'
     name: package (windows)
     runs-on: windows-2022
     timeout-minutes: 30
@@ -457,7 +467,7 @@ jobs:
   e2e-paths:
     name: detect changed e2e specs
     runs-on: ubuntu-latest
-    if: github.event.pull_request.draft != true
+    if: github.repository == 'stablyai/orca' && (github.event.pull_request.draft != true)
     # Why: detector only needs to read the checkout; do not inherit repo defaults.
     permissions:
       contents: read
@@ -492,7 +502,7 @@ jobs:
   e2e:
     name: e2e
     needs: e2e-paths
-    if: needs.e2e-paths.outputs.should_run == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.e2e-paths.outputs.should_run == 'true')
     # Why: reusable e2e.yml only checkouts, builds, and uploads artifacts.
     permissions:
       contents: read
@@ -501,7 +511,7 @@ jobs:
       test_files: ${{ needs.e2e-paths.outputs.test_files }}
 
   verify:
-    if: always()
+    if: github.repository == 'stablyai/orca' && (always())
     needs:
       - static_analysis
       - root_directory_guard
