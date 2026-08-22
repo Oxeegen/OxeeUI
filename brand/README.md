@@ -179,6 +179,14 @@ these workflows, costing 87 tests and two edits to `reliability-gates.jsonc`.
 Guarding cost four assertions relaxed from `toBe` to `toContain` and no coverage
 at all — the suite still runs its full 756 tests.
 
+**The guard only takes effect once it is on `main`.** `pull_request` evaluates
+the workflow from the merged base+head, so a guard on a feature branch already
+applies there. `pull_request_target` and `schedule` do not: they run the workflow
+as it exists on the base branch. Until this lands on `main`, those two keep
+executing upstream's unguarded definitions — which is why the fork accumulated
+failing scheduled E2E and Terminal Perf runs before any of this existed. Nothing
+in a branch can prevent that; merging is the fix.
+
 **On every upstream merge, re-apply the guard to anything new.** A conflict on the
 guard line is the visible case. The dangerous one is silent: a workflow or job
 added upstream after we guarded arrives as a clean add with no conflict.
