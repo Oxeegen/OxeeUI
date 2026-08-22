@@ -32,7 +32,22 @@ module.exports = {
     ...base.mac,
     icon: BRAND_ICON
   },
-  ...(brandVersion ? { extraMetadata: { ...base.extraMetadata, version: brandVersion } } : {}),
+  // Why extraMetadata rather than editing package.json: electron-builder reads
+  // description, author, homepage, and license from the packaged manifest, and
+  // package.json is upstream's highest-churn file — 1034 commits in six months.
+  // Overriding at package time keeps that diff at zero.
+  extraMetadata: {
+    ...base.extraMetadata,
+    description: brand.description,
+    author: brand.author,
+    homepage: brand.homepage,
+    license: brand.license,
+    ...(brandVersion ? { version: brandVersion } : {})
+  },
+  // Why explicit: without it electron-builder derives the copyright from the
+  // packaged author, which would credit upstream for this build. MIT requires the
+  // upstream notice to travel with the product, so it is named here too.
+  copyright: brand.copyright,
   win: {
     ...base.win,
     icon: BRAND_ICON,

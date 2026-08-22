@@ -35,6 +35,16 @@ export type BrandConfig = {
   startupWmClass: string
   /** Linux package maintainer field. */
   maintainer: string
+  /** Package description: Windows file description, Linux package summary. */
+  description: string
+  /** Publishing entity. Feeds the Linux maintainer default and the copyright line. */
+  author: string
+  /** Product URL in package metadata and the Linux desktop entry. */
+  homepage: string
+  /** Legal copyright: macOS NSHumanReadableCopyright and the Windows resource. */
+  copyright: string
+  /** SPDX identifier for Linux package metadata. */
+  license: string
   /** Upstream identity this fork rebrands away from. */
   upstream: {
     productName: string

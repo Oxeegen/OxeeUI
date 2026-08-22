@@ -16,6 +16,7 @@ that read from this directory, so merges stay mechanical.
 | `assets/icon-mono.svg`           | Flat-white cut, for the titlebar and any inverted slot.                             |
 | `settings/hidden-sections.ts`    | Settings sections removed from the sidebar and the Cmd+J palette.                   |
 | `ci/upstream-workflow-guard.ts`  | Guard expression and the fork-owned workflow allowlist.                             |
+| `upstream-hooks.test.ts`         | Fails when an upstream file stops reaching into `brand/`.                           |
 | `assets/brand-theme.css`         | Token overrides layered on `src/renderer/src/assets/main.css`.                      |
 | `scripts/generate-marks.mjs`     | Draws both marks from the shared circle geometry.                                   |
 | `scripts/rasterize-marks.mjs`    | Renders `icon.svg` to a 1024px PNG through Chromium.                                |
@@ -32,7 +33,8 @@ Fourteen lines total. If a merge conflicts, these are the places to re-apply.
 | ------------------------------------------------------------- | ------------------------------------------------------------- |
 | `electron.vite.config.ts`                                     | `@brand` alias for the main and renderer bundles.             |
 | `vite.web.config.ts`, `config/vitest.config.ts`               | Same alias for the web build and tests.                       |
-| `tsconfig.json`, `config/tsconfig.{node,web,tc.web}.json`     | `@brand/*` path mapping and `brand/**/*` includes.            |
+| `tsconfig.json`, `config/tsconfig.node.json`                  | `@brand/*` path mapping and `brand/**/*` includes.            |
+| `config/tsconfig.web.json`, `config/tsconfig.tc.web.json`     | Same, for the renderer and typecheck projects.                |
 | `src/main/startup/dev-instance-identity.ts`                   | `BASE_APP_NAME` / `BASE_APP_USER_MODEL_ID` read from `BRAND`. |
 | `src/renderer/src/i18n/i18n.ts`, `src/main/i18n/main-i18n.ts` | Register the brand-name post-processor.                       |
 | `src/renderer/src/assets/main.css`                            | `@import` of `brand-theme.css`.                               |
@@ -125,6 +127,48 @@ safely is its own change.
 
 `BRAND_VERSION` overrides the packaged version, e.g. from a release tag.
 
+## Releasing
+
+Push an `oxeeui-vX.Y.Z` tag. `.github/workflows/release-brand.yml` builds Windows
+and Linux in parallel, then publishes one GitHub Release on this fork.
+
+```bash
+git tag -a oxeeui-v0.1.0 -m "First branded build"
+git push origin oxeeui-v0.1.0
+```
+
+The tag is the source of truth: its name sets `BRAND_VERSION`, which sets
+`extraMetadata.version`, so the packaged app reports the tag's version rather than
+upstream's `package.json`. Versions are numbered independently of Orca — upstream
+bumps `package.json` 618 times in six months and tracking that would put our tags
+on their cadence for no benefit. An annotated tag's message becomes the release
+notes.
+
+The release job refuses to publish when `latest.yml` or `latest-linux.yml` is
+missing. Without those manifests the release exists but no installed client can
+ever see it, which is worse than a failed build.
+
+macOS is deliberately absent. Without an Apple Developer certificate the DMG is
+refused by Gatekeeper until the user works around it, so shipping one would be
+worse than shipping none. Add a mac entry to the build matrix once signing exists.
+
+## Merging from upstream
+
+```bash
+pnpm run brand:verify
+```
+
+Run it after every merge. It checks that the brand assets are still applied, that
+every hook listed above still reaches into `brand/`, that no hidden Settings
+section was renamed out from under us, that every upstream workflow job is still
+guarded, and that the rebrand still leaves the technical identifiers alone.
+
+The hooks table is the map for a conflicted merge. `upstream-hooks.test.ts` fails
+when a hook disappears — including the silent case where a conflict resolution
+rewrites the surrounding block and drops it. The symptom would otherwise be
+subtle: the app boots, just under upstream's name, or with the updater pointed at
+upstream's releases.
+
 ## Known gaps
 
 Both are macOS-only and self-consistent — they use upstream's bundle id where the
@@ -194,6 +238,12 @@ added upstream after we guarded arrives as a clean add with no conflict.
 paths surface as a red test rather than a CI bill.
 
 ## Not yet branded
+
+Code signing. Windows shows a SmartScreen warning on every install and macOS is
+not built at all. Both need certificates, which is a purchasing decision, not a
+code one. `signtoolOptions` is already cleared from the branded packager config —
+upstream's points at their SignPath identity, which would make the updater reject
+our own artifacts.
 
 Forced and locked configuration is not wired. Defaults belong in
 `getDefaultPersistedState()` in `src/main/persistence.ts`; locking a key further
