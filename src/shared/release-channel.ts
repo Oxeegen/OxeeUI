@@ -1,5 +1,4 @@
 import { compareAppVersions, isValidAppVersion } from './app-version'
-import { BRAND } from '@brand/config/brand'
 
 export type ReleaseChannel = 'stable' | 'rc' | 'hourly' | 'daily' | 'adhoc'
 
@@ -25,10 +24,16 @@ export const RELEASE_CHANNEL_LABELS: Readonly<Record<ReleaseChannel, string>> = 
 export const HOURLY_RELEASE_REPO = 'stablyai/orca-hourly'
 export const DAILY_RELEASE_REPO = 'stablyai/orca-daily'
 export const ADHOC_RELEASE_REPO = 'stablyai/orca-adhoc'
-// Why brand-derived: a fork must resolve its own releases here, or the update
-// feed and the "install a specific build" list would offer upstream artifacts
-// that overwrite this app with a different product.
-export const MAIN_RELEASE_REPO = `${BRAND.publish.owner}/${BRAND.publish.repo}`
+// Why a fork literal rather than an import from brand/: this module sits in the
+// CLI tsconfig project, which compiles with plain tsc and no bundler. tsc does
+// not rewrite path aliases, so an `@brand/...` import here type-checks and then
+// emits an unresolvable require into the packaged CLI. brand.config.json stays
+// the source of truth and brand/release-repo.test.ts pins the two equal.
+//
+// It has to be the fork's repo either way: the update feed and the "install a
+// specific build" list would otherwise offer upstream artifacts that replace this
+// app with a different product.
+export const MAIN_RELEASE_REPO = 'Oxeegen/OxeeUI'
 
 export const HOURLY_PRERELEASE_IDENTIFIER = 'hourly'
 export const DAILY_PRERELEASE_IDENTIFIER = 'daily'
