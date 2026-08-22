@@ -26,7 +26,8 @@ const HOOKS: [file: string, markers: string[]][] = [
   ['src/renderer/src/i18n/i18n.ts', ['brandNamePostProcessor', 'BRAND_POST_PROCESS']],
   ['src/main/i18n/main-i18n.ts', ['brandNamePostProcessor', 'BRAND_POST_PROCESS']],
   ['src/renderer/src/assets/main.css', ['brand/assets/brand-theme.css']],
-  ['src/shared/release-channel.ts', ['BRAND.publish.owner']],
+  // Not the @brand alias: shared code compiles without a bundler. See release-repo.test.ts.
+  ['src/shared/release-channel.ts', ['MAIN_RELEASE_REPO']],
   ['src/main/updater-prerelease-feed.ts', ['MAIN_RELEASE_REPO']],
   ['src/renderer/src/hooks/useSettingsNavigationMetadata.ts', ['isBrandSettingsSectionHidden']]
 ]
