@@ -1,11 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { installNetRequestFetchAdapter } from './updater-net-request.fixture'
 import { publishingIncident } from './updater-prerelease-feed-reproduction.fixture'
+import { loadUpdaterModule, warmUpdaterModule } from './updater-test-module-loader'
 import { MAIN_RELEASE_REPO } from '../shared/release-channel'
 
 // Why brand-derived: the feed repo follows the publish target, so a fork does not assert upstream URLs.
 const RELEASES_BASE = `https://github.com/${MAIN_RELEASE_REPO}`
 
-const { netFetchMock } = vi.hoisted(() => ({ netFetchMock: vi.fn() }))
+const { netFetchMock, netRequestMock } = vi.hoisted(() => ({
+  netFetchMock: vi.fn(),
+  netRequestMock: vi.fn()
+}))
 
 const { appMock, browserWindowMock, nativeUpdaterMock, autoUpdaterMock, isMock, killAllPtyMock } =
   vi.hoisted(() => {
@@ -79,7 +84,7 @@ vi.mock('electron', () => ({
   BrowserWindow: browserWindowMock,
   autoUpdater: nativeUpdaterMock,
   powerMonitor: { on: vi.fn() },
-  net: { fetch: netFetchMock }
+  net: { fetch: netFetchMock, request: netRequestMock }
 }))
 
 vi.mock('electron-updater', () => ({
@@ -157,6 +162,8 @@ function makeBenignCheckFailure(message: string): void {
   })
 }
 
+warmUpdaterModule()
+
 describe('updater check failure handling', () => {
   beforeEach(() => {
     vi.resetModules()
@@ -177,6 +184,8 @@ describe('updater check failure handling', () => {
       status: 200,
       text: () => Promise.resolve('<feed></feed>')
     })
+    netRequestMock.mockReset()
+    installNetRequestFetchAdapter(netRequestMock, netFetchMock)
   })
 
   it('surfaces GitHub release-transition failures with calmer copy and no short retry', async () => {
@@ -186,7 +195,7 @@ describe('updater check failure handling', () => {
     const sendMock = vi.fn()
     const mainWindow = { webContents: { send: sendMock } }
 
-    const { setupAutoUpdater, checkForUpdatesFromMenu } = await import('./updater')
+    const { setupAutoUpdater, checkForUpdatesFromMenu } = await loadUpdaterModule()
 
     setupAutoUpdater(mainWindow as never, { getLastUpdateCheckAt: () => Date.now() })
     checkForUpdatesFromMenu()
@@ -220,7 +229,7 @@ describe('updater check failure handling', () => {
     const sendMock = vi.fn()
     const mainWindow = { webContents: { send: sendMock } }
 
-    const { setupAutoUpdater, checkForUpdatesFromMenu } = await import('./updater')
+    const { setupAutoUpdater, checkForUpdatesFromMenu } = await loadUpdaterModule()
 
     setupAutoUpdater(mainWindow as never, { getLastUpdateCheckAt: () => Date.now() })
     checkForUpdatesFromMenu()
@@ -262,7 +271,7 @@ describe('updater check failure handling', () => {
       const warnMock = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
       const sendMock = vi.fn()
       const mainWindow = { webContents: { send: sendMock } }
-      const { setupAutoUpdater, checkForUpdatesFromMenu } = await import('./updater')
+      const { setupAutoUpdater, checkForUpdatesFromMenu } = await loadUpdaterModule()
 
       setupAutoUpdater(mainWindow as never, { getLastUpdateCheckAt: () => Date.now() })
       checkForUpdatesFromMenu()
@@ -288,7 +297,7 @@ describe('updater check failure handling', () => {
     const sendMock = vi.fn()
     const mainWindow = { webContents: { send: sendMock } }
 
-    const { setupAutoUpdater, checkForUpdates } = await import('./updater')
+    const { setupAutoUpdater, checkForUpdates } = await loadUpdaterModule()
 
     setupAutoUpdater(mainWindow as never, { getLastUpdateCheckAt: () => Date.now() })
     checkForUpdates()
@@ -320,7 +329,7 @@ describe('updater check failure handling', () => {
 
     const sendMock = vi.fn()
     const mainWindow = { webContents: { send: sendMock } }
-    const { setupAutoUpdater, checkForUpdates, getUpdateStatus } = await import('./updater')
+    const { setupAutoUpdater, checkForUpdates, getUpdateStatus } = await loadUpdaterModule()
 
     setupAutoUpdater(mainWindow as never, { getLastUpdateCheckAt: () => Date.now() })
     checkForUpdates()
@@ -346,7 +355,7 @@ describe('updater check failure handling', () => {
     const sendMock = vi.fn()
     const mainWindow = { webContents: { send: sendMock } }
 
-    const { setupAutoUpdater, checkForUpdates } = await import('./updater')
+    const { setupAutoUpdater, checkForUpdates } = await loadUpdaterModule()
 
     setupAutoUpdater(mainWindow as never, { getLastUpdateCheckAt: () => Date.now() })
     checkForUpdates()

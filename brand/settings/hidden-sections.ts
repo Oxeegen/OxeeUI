@@ -1,10 +1,11 @@
 /**
  * Settings sections OxeeUI removes.
  *
- * The registry in `src/renderer/src/hooks/useSettingsNavigationMetadata.ts` backs
- * both the Settings sidebar and the Cmd+J palette, and the filter is applied in
- * the hook the UI consumes rather than in the builder — so upstream's own tests
- * keep asserting upstream's full registry and never need touching.
+ * The registry backs both the Settings sidebar and the Cmd+J palette. Upstream
+ * declares its sections across `src/renderer/src/hooks/settings-navigation-*.ts`
+ * and assembles them in `useSettingsNavigationMetadata.ts`; the filter is applied
+ * in the hook the UI consumes rather than in any builder — so upstream's own
+ * tests keep asserting upstream's full registry and never need touching.
  *
  * This removes entry points, not capabilities. A hidden feature is still
  * compiled in and may stay reachable from its own UI. Anything that must be
