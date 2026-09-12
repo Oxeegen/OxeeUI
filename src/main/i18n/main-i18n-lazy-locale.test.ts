@@ -79,12 +79,12 @@ describe('main-i18n lazy locale loading', () => {
         resourceLanguage: pluginLanguageResourceId(id),
         pluginKey: 'orca-samples.portuguese',
         locale: 'pt-BR',
-        catalog: { menu: { file: 'Arquivo Plugin' } }
+        catalog: { menu: { file: 'Arquivo Orca' } }
       }
     ])
 
     await setMainUiLanguage(id)
-    expect(translateMain('menu.file', 'File')).toBe('Arquivo Plugin')
+    expect(translateMain('menu.file', 'File')).toBe('Arquivo Orca')
 
     setMainPluginLanguagePacks([])
     expect(await setMainUiLanguage(id)).toBe('en')

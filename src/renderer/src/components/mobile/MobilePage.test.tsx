@@ -18,6 +18,7 @@ type StoreState = {
     mobilePairingCustomAddresses?: string[]
   }
   updateSettings: () => Promise<void>
+  fetchOrcaProfileAuthStatus: () => Promise<unknown>
 }
 
 const mocks = vi.hoisted(() => ({
@@ -63,6 +64,7 @@ vi.mock('./MobilePageContent', () => ({
     onRetryRelay: () => void
     selectedAddress: string | undefined
     loadNetworkInterfaces: () => void
+    openAndroidInstallGuide: () => void
     refreshingNetworkInterfaces: boolean
     stage: string | null
     stepIdx: number
@@ -101,6 +103,9 @@ vi.mock('./MobilePageContent', () => ({
       </button>
       <button type="button" onClick={props.loadNetworkInterfaces}>
         Refresh addresses
+      </button>
+      <button type="button" onClick={props.openAndroidInstallGuide}>
+        Open Android install guide
       </button>
       <button
         type="button"
@@ -142,7 +147,8 @@ describe('MobilePage pairing connection mode', () => {
       closeMobilePage: vi.fn(),
       orcaProfileAuthStatus: { state: 'connected' },
       settings: { showMobileButton: true },
-      updateSettings: vi.fn().mockResolvedValue(undefined)
+      updateSettings: vi.fn().mockResolvedValue(undefined),
+      fetchOrcaProfileAuthStatus: vi.fn().mockResolvedValue(null)
     }
     Object.defineProperty(window, 'api', {
       configurable: true,
@@ -167,6 +173,15 @@ describe('MobilePage pairing connection mode', () => {
     await user.click(screen.getByRole('button', { name: 'Enter flow' }))
     await user.click(screen.getByRole('button', { name: 'Continue' }))
   }
+
+  it('opens Android troubleshooting in the system browser', async () => {
+    const user = userEvent.setup()
+    render(<MobilePage />)
+
+    await user.click(screen.getByRole('button', { name: 'Open Android install guide' }))
+
+    expect(window.api.shell.openUrl).toHaveBeenCalledWith('https://www.onorca.dev/docs/android-apk')
+  })
 
   it('defaults signed-in pairing to Anywhere and remints when same-network is selected', async () => {
     const user = userEvent.setup()

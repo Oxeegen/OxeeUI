@@ -1,0 +1,54 @@
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+
+// Why this module exists: the dev runner re-signs its copied Electron.app ad-hoc, so the bundle's
+// designated requirement is a bare cdhash derived from its contents. macOS Keychain ACLs key off
+// that requirement. Patching any branch-varying value into Info.plist therefore gave every branch a
+// different code identity, and safeStorage re-prompted for a password on each one.
+//
+// The invariant: every value patched here must be CONSTANT across branches and worktrees, so all dev
+// bundles share one cdhash and one Keychain ACL entry. Patching a key is fine; varying it is not.
+// Per-branch Dock names come from the .app directory name, which is not part of the signature.
+
+// Why read the JSON directly rather than through the `@brand` alias: this module is
+// plain node, loaded by the dev runner outside any bundler, so the alias does not
+// resolve. The values stay constant per checkout, which is what the invariant above
+// actually requires.
+const brand = JSON.parse(
+  readFileSync(
+    path.resolve(import.meta.dirname, '..', '..', 'brand', 'config', 'brand.config.json'),
+    'utf8'
+  )
+)
+
+/**
+ * The product name the dev runner labels windows and the Dock with.
+ *
+ * Exported from here so the one brand-config read in the plain-node dev path
+ * serves every consumer, rather than each script resolving the JSON itself.
+ */
+export const BRAND_PRODUCT_NAME = brand.productName
+
+export const DEV_BUNDLE_ID = `${brand.appId}.dev`
+export const DEV_HELPER_BUNDLE_ID = `${DEV_BUNDLE_ID}.helper`
+// Why a constant display name rather than none: leaving the stock value makes every dev
+// notification and System Settings > Notifications row read "Electron", indistinguishable from any
+// other Electron app. A fixed name keeps that legible without reintroducing per-branch drift.
+//
+// Brand-derived so it stays in step with app.setName(), which dev sets to
+// `<productName> Dev`; the sibling contract test asserts exactly that pairing.
+export const DEV_BUNDLE_DISPLAY_NAME = `${brand.productName} Dev`
+
+/** Info.plist patches for the app bundle. Values must not vary per branch — see above. */
+export function getDevBundlePlistPatches() {
+  return [
+    { key: 'CFBundleIdentifier', value: DEV_BUNDLE_ID },
+    { key: 'CFBundleName', value: DEV_BUNDLE_DISPLAY_NAME },
+    { key: 'CFBundleDisplayName', value: DEV_BUNDLE_DISPLAY_NAME }
+  ]
+}
+
+/** Info.plist patches for the embedded Electron Helper bundle. */
+export function getDevHelperPlistPatches() {
+  return [{ key: 'CFBundleIdentifier', value: DEV_HELPER_BUNDLE_ID }]
+}

@@ -29,7 +29,16 @@ const HOOKS: [file: string, markers: string[]][] = [
   // Not the @brand alias: shared code compiles without a bundler. See release-repo.test.ts.
   ['src/shared/release-channel.ts', ['MAIN_RELEASE_REPO']],
   ['src/main/updater-prerelease-feed.ts', ['MAIN_RELEASE_REPO']],
-  ['src/renderer/src/hooks/useSettingsNavigationMetadata.ts', ['isBrandSettingsSectionHidden']]
+  ['src/renderer/src/hooks/useSettingsNavigationMetadata.ts', ['isBrandSettingsSectionHidden']],
+  // Keeps the packaged and dev profiles out of upstream's %APPDATA%/orca, so an
+  // installed Orca and an installed OxeeUI do not share one settings store and
+  // one daemon endpoint. Losing this hook is silent: the app still boots, just
+  // into the other product's profile.
+  ['src/main/startup/configure-process.ts', ['BRAND.artifactSlug']],
+  // Plain-node dev path: these run outside the bundler, so they read the brand
+  // JSON rather than resolving the @brand alias.
+  ['config/scripts/dev-electron-bundle-identity.mjs', ['brand.config.json', 'brand.productName']],
+  ['config/scripts/run-electron-vite-dev.mjs', ['BRAND_PRODUCT_NAME']]
 ]
 
 describe('upstream hooks', () => {

@@ -1,9 +1,12 @@
 import { app } from 'electron'
+import { BRAND, IS_REBRANDED } from '@brand/config/brand'
 import { existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { getVersionManagerBinPaths } from '../codex-cli/command'
 import { getMainE2EConfig } from '../e2e-config'
+import { DISABLED_CHROMIUM_FEATURES } from './disabled-chromium-features'
+import { readHttp1CompatibilityMarker } from './http1-compatibility-marker'
 
 const DEV_PARENT_SHUTDOWN_GRACE_MS = 3000
 const HTTP1_COMPATIBILITY_ENV_VAR = 'ORCA_DISABLE_HTTP2'
@@ -53,7 +56,13 @@ export function shouldDisableHttp2ForElectronNetworking(
   if (envValue !== null) {
     return envValue
   }
-  return readPersistedHttp1CompatibilityMode(options.userDataPath ?? app.getPath('userData'))
+  const userDataPath = options.userDataPath ?? app.getPath('userData')
+  // Why the marker first: this runs before app.whenReady(), and the settings file is the multi-MB
+  // orca-data.json the Store parses again moments later. The marker is refreshed whenever settings
+  // change, so the full read only happens on a profile that has never written one.
+  return (
+    readHttp1CompatibilityMarker(userDataPath) ?? readPersistedHttp1CompatibilityMode(userDataPath)
+  )
 }
 
 export function configureElectronNetworkCompatibility(
@@ -67,7 +76,13 @@ export function configureElectronNetworkCompatibility(
 }
 
 export function disableUnsupportedChromiumFeatures(): void {
-  appendDisabledChromiumFeatures(['FedCm'])
+  appendDisabledChromiumFeatures([...DISABLED_CHROMIUM_FEATURES])
+}
+
+// Why: Chromium clamps hidden-page timers to 1/min after 5min on every desktop platform,
+// delaying agent-done/bell notifications ~60s. Call site is unconditional (see index.ts).
+export function optOutOfHiddenPageWakeUpThrottling(): void {
+  appendDisabledChromiumFeatures(['IntensiveWakeUpThrottling'])
 }
 
 function appendDisabledChromiumFeatures(features: string[]): void {
@@ -110,20 +125,37 @@ export function patchPackagedProcessPath(): void {
   }
 
   const home = process.env.HOME ?? ''
-  const extraPaths: string[] = []
+  // Why two lists: a seed exists so a GUI-launched Electron can *find* a tool
+  // its minimal PATH omits. Putting one ahead of the inherited PATH does more
+  // than that — it re-ranks binaries the user already has, and `~/bin` and
+  // `~/.local/bin` are arbitrary user-writable directories that can shadow any
+  // system tool. On the #18234 reporter's box `~/.local/bin/gh` is a wrapper
+  // around `mise x gh -- gh`; hoisting it over /usr/bin/gh made us run the
+  // wrapper where their own shell ran the real binary, and the inner bare `gh`
+  // then resolved back to the wrapper. So: append these, and let a real
+  // ordering opinion come from the login shell via mergePathSegments.
+  const isGenericUserBinDir = (path: string): boolean =>
+    process.platform !== 'win32' &&
+    home !== '' &&
+    (path === join(home, 'bin') || path === join(home, '.local/bin'))
+  const appendPaths: string[] = []
+  // Why these still lead: version-manager shims must beat a system install or
+  // an nvm/mise/asdf user gets the wrong runtime, which is the whole reason
+  // this seeding is ordered rather than appended (see hydrate-shell-path.ts).
+  const prependPaths: string[] = []
 
   if (process.platform !== 'win32') {
-    extraPaths.push('/opt/homebrew/bin', '/opt/homebrew/sbin', '/usr/local/bin', '/usr/local/sbin')
+    appendPaths.push('/opt/homebrew/bin', '/opt/homebrew/sbin', '/usr/local/bin', '/usr/local/sbin')
 
     if (process.platform === 'linux') {
       // Why: snap and Linuxbrew ship on Linux only, so seeding them elsewhere adds phantom PATH entries every spawn must stat.
-      extraPaths.push('/snap/bin', '/home/linuxbrew/.linuxbrew/bin')
+      appendPaths.push('/snap/bin', '/home/linuxbrew/.linuxbrew/bin')
     }
 
-    extraPaths.push('/nix/var/nix/profiles/default/bin')
+    appendPaths.push('/nix/var/nix/profiles/default/bin')
 
     if (home) {
-      extraPaths.push(
+      appendPaths.push(
         join(home, 'bin'),
         join(home, '.local/bin'),
         join(home, '.nix-profile/bin'),
@@ -135,18 +167,24 @@ export function patchPackagedProcessPath(): void {
   }
 
   // Why: version-manager CLIs use env-node shebangs, so node must be on PATH or spawns fail (also seeds Windows user-local dirs).
-  extraPaths.push(...getVersionManagerBinPaths())
+  // Why the filter: that list carries `~/bin` and `~/.local/bin` too, because
+  // bun/pnpm/npm --user also install there. Those two are generic user bin
+  // directories, not a version manager's own shim directory, so they hold
+  // whatever the user last dropped in them and must not outrank a system dir.
+  // The specific dirs (.volta/bin, .asdf/shims, mise shims, .bun/bin, …) keep
+  // leading, which is what the ordering was actually for.
+  prependPaths.push(...getVersionManagerBinPaths().filter((path) => !isGenericUserBinDir(path)))
 
   const pathKey = process.platform === 'win32' && process.env.Path !== undefined ? 'Path' : 'PATH'
   const currentPath = process.env[pathKey] ?? ''
   const pathDelimiter = getProcessPathDelimiter()
-  const existing = new Set(currentPath.split(pathDelimiter))
-  const missing = extraPaths.filter((path) => !existing.has(path))
+  const currentSegments = currentPath.split(pathDelimiter).filter(Boolean)
+  const existing = new Set(currentSegments)
+  const prepend = prependPaths.filter((path) => !existing.has(path))
+  const append = appendPaths.filter((path) => !existing.has(path) && !prepend.includes(path))
 
-  if (missing.length > 0) {
-    process.env[pathKey] = [...missing, ...currentPath.split(pathDelimiter).filter(Boolean)].join(
-      pathDelimiter
-    )
+  if (prepend.length > 0 || append.length > 0) {
+    process.env[pathKey] = [...prepend, ...currentSegments, ...append].join(pathDelimiter)
   }
 }
 
@@ -172,6 +210,21 @@ export function configureDevUserDataPath(isDev: boolean): void {
   }
 
   if (!isDev) {
+    // Why this branch exists at all — upstream simply returns here: Electron derives
+    // userData from package.json `name`, and this fork deliberately leaves that as
+    // upstream's `orca`, because the CLI binary, `~/.orca` and the `ORCA_*` contract
+    // are all load-bearing on that exact string (see brand/README.md). Without an
+    // explicit redirect a packaged OxeeUI would therefore share `%APPDATA%/orca`
+    // with an installed Orca: the same settings store, and the same `daemon/`
+    // runtime dir — whose IPC endpoint name is a hash of precisely this path, so
+    // the two would contend for one daemon. Both products are meant to be
+    // installable side by side.
+    //
+    // app.setName() cannot do this job: it runs at `ready`, and the store captures
+    // the path before then (see persistence/loading-store/user-data-path.ts).
+    if (IS_REBRANDED) {
+      app.setPath('userData', join(app.getPath('appData'), BRAND.artifactSlug))
+    }
     return
   }
   const overrideUserDataPath = process.env.ORCA_DEV_USER_DATA_PATH
@@ -181,7 +234,10 @@ export function configureDevUserDataPath(isDev: boolean): void {
     return
   }
   // Why: without a dev-only path, pnpm dev overwrites the packaged app's runtime pointer under userData and breaks the orca CLI.
-  app.setPath('userData', join(app.getPath('appData'), 'orca-dev'))
+  // Brand-slugged for the same reason as the packaged branch above, so a dev run
+  // cannot collide with an installed Orca's own dev profile either.
+  const devProfileDir = IS_REBRANDED ? `${BRAND.artifactSlug}-dev` : 'orca-dev'
+  app.setPath('userData', join(app.getPath('appData'), devProfileDir))
 }
 
 function areSameE2EHomePath(left: string, right: string): boolean {
@@ -313,8 +369,4 @@ export function enableMainProcessGpuFeatures(): void {
   if (features) {
     app.commandLine.appendSwitch('enable-features', features)
   }
-
-  // Why: IntensiveWakeUpThrottling clamps hidden-page timers to 1/min after 5min, delaying agent-done/bell notifications ~60s.
-  // This opt-out is skipped under GPU fallback (win32-only today); if throttling ever reaches Windows it must move out of this path.
-  appendDisabledChromiumFeatures(['IntensiveWakeUpThrottling'])
 }
