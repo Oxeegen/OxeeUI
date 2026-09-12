@@ -27,7 +27,10 @@ electron-builder resolves sibling paths like `config/nsis/` relative to itself.
 
 ## The hooks in upstream files
 
-Fourteen lines total. If a merge conflicts, these are the places to re-apply.
+A couple of dozen lines in all. If a merge conflicts, these are the places to
+re-apply. `upstream-hooks.test.ts` fails when any of them stops reaching into
+`brand/`, which is the check that catches a hook lost to a silent resolution
+rather than a visible conflict.
 
 | File                                                          | Hook                                                          |
 | ------------------------------------------------------------- | ------------------------------------------------------------- |
@@ -41,6 +44,9 @@ Fourteen lines total. If a merge conflicts, these are the places to re-apply.
 | `src/shared/release-channel.ts`                               | `MAIN_RELEASE_REPO` derived from the brand publish target.    |
 | `src/main/updater-prerelease-feed.ts`                         | Prerelease feed URLs derived from `MAIN_RELEASE_REPO`.        |
 | `src/renderer/src/hooks/useSettingsNavigationMetadata.ts`     | Filters hidden sections out of the sidebar and Cmd+J.         |
+| `src/main/startup/configure-process.ts`                       | Brand-slugged userData dir, packaged and dev.                 |
+| `config/scripts/dev-electron-bundle-identity.mjs`             | Dev bundle id and display name from the brand JSON.           |
+| `config/scripts/run-electron-vite-dev.mjs`                    | Dev window/Dock title from the brand JSON.                    |
 
 ## Why the product name is swapped at runtime
 

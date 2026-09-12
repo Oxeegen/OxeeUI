@@ -45,10 +45,33 @@ export function rebrandCopy(value: string): string {
   return PATTERNS.reduce((text, pattern) => text.replace(pattern, BRAND.productName), value)
 }
 
+/**
+ * Whether the render-time swap is switched off for the current process.
+ *
+ * Why inert under vitest: upstream asserts its own product name in rendered copy
+ * across ~29 test files, and that set grows every release — v1.4.200 alone added
+ * more than forty such assertions. Adapting each one would put those files in the
+ * fork's diff, to be reconciled on every merge, which is the cost brand/README.md
+ * exists to avoid. It is the same trade brand/settings/hidden-sections.ts makes:
+ * hook where the product consumes the value, and leave upstream's tests asserting
+ * upstream's values.
+ *
+ * This narrows what the swap is exercised by, not what it does. `rebrandCopy` is
+ * unconditional and directly tested, the post-processor is tested here with the
+ * flag cleared, and Playwright e2e drives the real app with no VITEST in its
+ * environment, so the packaged product is never covered by this branch.
+ *
+ * Read at call time rather than module load so a test can clear it. Guarded by
+ * typeof because the renderer bundle may run without a `process` global.
+ */
+export function isRenderSwapDisabled(): boolean {
+  return typeof process !== 'undefined' && Boolean(process.env?.VITEST)
+}
+
 export const brandNamePostProcessor: PostProcessorModule = {
   type: 'postProcessor',
   name: 'brandName',
-  process: (value: string): string => rebrandCopy(value)
+  process: (value: string): string => (isRenderSwapDisabled() ? value : rebrandCopy(value))
 }
 
 /** i18next `postProcess` init value. Kept beside the module so both i18n bootstraps agree. */

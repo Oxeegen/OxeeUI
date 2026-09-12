@@ -3,7 +3,6 @@ import { basename, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { buildSettingsNavigationMetadata } from './useSettingsNavigationMetadata'
 import type { Repo } from '../../../shared/repo-types'
-import { rebrandCopy } from '@brand/i18n/rebrand'
 
 const repo = {
   id: 'repo-1',
@@ -132,7 +131,7 @@ describe('settings navigation metadata', () => {
     const account = desktopSections.find((section) => section.id === 'orca-account')
 
     expect(account?.group).toBe('setup')
-    expect(account?.searchEntries[0]?.title).toBe(rebrandCopy('Orca account'))
+    expect(account?.searchEntries[0]?.title).toBe('Orca account')
     expect(ids({ isWebClient: true })).not.toContain('orca-account')
   })
 
