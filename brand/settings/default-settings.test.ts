@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { getDefaultSettings } from '../../src/shared/constants'
+import {
+  getDefaultNotificationSettings,
+  getDefaultSettings,
+  getDefaultVoiceSettings
+} from '../../src/shared/constants'
 import { BRAND_DEFAULT_SETTINGS } from '../../src/shared/brand-default-settings'
 import { buildDefaultSettings } from '../../src/shared/default-global-settings'
 
@@ -28,8 +32,8 @@ describe('brand default settings', () => {
       terminalFontFamily: 'Cascadia Mono',
       terminalInactivePaneOpacity: 0.9,
       terminalRightClickToPaste: true,
-      notifications: defaults.notifications,
-      voice: defaults.voice
+      notifications: getDefaultNotificationSettings(),
+      voice: getDefaultVoiceSettings()
     })
 
     const redundant = Object.entries(BRAND_DEFAULT_SETTINGS)
