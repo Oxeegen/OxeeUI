@@ -47,6 +47,7 @@ rather than a visible conflict.
 | `src/main/startup/configure-process.ts`                       | Brand-slugged userData dir, packaged and dev.                 |
 | `config/scripts/dev-electron-bundle-identity.mjs`             | Dev bundle id and display name from the brand JSON.           |
 | `config/scripts/run-electron-vite-dev.mjs`                    | Dev window/Dock title from the brand JSON.                    |
+| `config/scripts/static-appimage-package-contract.cjs`         | Accepts the branded AppImage filename.                        |
 
 ## Why the product name is swapped at runtime
 

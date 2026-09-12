@@ -38,7 +38,10 @@ const HOOKS: [file: string, markers: string[]][] = [
   // Plain-node dev path: these run outside the bundler, so they read the brand
   // JSON rather than resolving the @brand alias.
   ['config/scripts/dev-electron-bundle-identity.mjs', ['brand.config.json', 'brand.productName']],
-  ['config/scripts/run-electron-vite-dev.mjs', ['BRAND_PRODUCT_NAME']]
+  ['config/scripts/run-electron-vite-dev.mjs', ['BRAND_PRODUCT_NAME']],
+  // Accepts the branded AppImage filename. Losing this fails the Linux release
+  // build outright, at the very last step, after everything has compiled.
+  ['config/scripts/static-appimage-package-contract.cjs', ['brand.artifactSlug']]
 ]
 
 describe('upstream hooks', () => {
