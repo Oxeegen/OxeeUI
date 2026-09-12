@@ -52,6 +52,7 @@ rather than a visible conflict.
 | `src/main/window/createMainWindow.ts`                         | Window title before the renderer sets `document.title`.       |
 | `src/main/window/dashboard-popout-window.ts`                  | Pop-out dashboard window title.                               |
 | `src/main/window/main-window-close-lifecycle.ts`              | Tray-minimize notification title.                             |
+| `src/shared/constants.ts`                                     | Layers `BRAND_DEFAULT_SETTINGS` over upstream's defaults.     |
 
 ## Why the product name is swapped at runtime
 

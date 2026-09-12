@@ -48,7 +48,10 @@ const HOOKS: [file: string, markers: string[]][] = [
   ['vite.web.config.ts', ['brandHtmlTitle']],
   ['src/main/window/createMainWindow.ts', ['BRAND.productName']],
   ['src/main/window/dashboard-popout-window.ts', ['BRAND.productName']],
-  ['src/main/window/main-window-close-lifecycle.ts', ['BRAND.productName']]
+  ['src/main/window/main-window-close-lifecycle.ts', ['BRAND.productName']],
+  // The appearance layer a fresh profile starts with. Relative import, not the
+  // @brand alias: shared code is compiled by plain tsc for the packaged CLI.
+  ['src/shared/constants.ts', ['./brand-default-settings']]
 ]
 
 describe('upstream hooks', () => {
