@@ -41,7 +41,14 @@ const HOOKS: [file: string, markers: string[]][] = [
   ['config/scripts/run-electron-vite-dev.mjs', ['BRAND_PRODUCT_NAME']],
   // Accepts the branded AppImage filename. Losing this fails the Linux release
   // build outright, at the very last step, after everything has compiled.
-  ['config/scripts/static-appimage-package-contract.cjs', ['brand.artifactSlug']]
+  ['config/scripts/static-appimage-package-contract.cjs', ['brand.artifactSlug']],
+  // The window title, which is what the OS taskbar and window switcher show.
+  // It never passes through i18next, so the render-time swap cannot reach it.
+  ['electron.vite.config.ts', ['brandHtmlTitle']],
+  ['vite.web.config.ts', ['brandHtmlTitle']],
+  ['src/main/window/createMainWindow.ts', ['BRAND.productName']],
+  ['src/main/window/dashboard-popout-window.ts', ['BRAND.productName']],
+  ['src/main/window/main-window-close-lifecycle.ts', ['BRAND.productName']]
 ]
 
 describe('upstream hooks', () => {

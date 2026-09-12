@@ -48,6 +48,10 @@ rather than a visible conflict.
 | `config/scripts/dev-electron-bundle-identity.mjs`             | Dev bundle id and display name from the brand JSON.           |
 | `config/scripts/run-electron-vite-dev.mjs`                    | Dev window/Dock title from the brand JSON.                    |
 | `config/scripts/static-appimage-package-contract.cjs`         | Accepts the branded AppImage filename.                        |
+| `electron.vite.config.ts`, `vite.web.config.ts`               | `brandHtmlTitle()` rewrites every HTML `<title>`.             |
+| `src/main/window/createMainWindow.ts`                         | Window title before the renderer sets `document.title`.       |
+| `src/main/window/dashboard-popout-window.ts`                  | Pop-out dashboard window title.                               |
+| `src/main/window/main-window-close-lifecycle.ts`              | Tray-minimize notification title.                             |
 
 ## Why the product name is swapped at runtime
 

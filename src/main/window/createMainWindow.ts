@@ -1,5 +1,6 @@
 import { BrowserWindow, nativeTheme, powerMonitor, screen } from 'electron'
 import { is } from '@electron-toolkit/utils'
+import { BRAND } from '@brand/config/brand'
 import { join } from 'node:path'
 import { getAppIconPath } from '../app-icon'
 import { browserManager } from '../browser/browser-manager'
@@ -102,7 +103,9 @@ export function createMainWindow(
     ...(savedBounds ? { x: savedBounds.x, y: savedBounds.y } : {}),
     minWidth: MIN_WIDTH,
     minHeight: MIN_HEIGHT,
-    title: opts?.title ?? 'Orca',
+    // Why brand-derived: this is the window title before the renderer's own
+    // document.title takes over, and the taskbar reads it either way.
+    title: opts?.title ?? BRAND.productName,
     show: false,
     // Why: macOS swallows the app-activating click by default, so clicking back into Orca needed a second click (Windows/Linux already deliver it).
     acceptFirstMouse: true,
