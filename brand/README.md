@@ -19,6 +19,8 @@ that read from this directory, so merges stay mechanical.
 | `upstream-hooks.test.ts`         | Fails when an upstream file stops reaching into `brand/`.                           |
 | `assets/brand-theme.css`         | Token overrides layered on `src/renderer/src/assets/main.css`.                      |
 | `assets/readme/feature-wall/`    | Screenshots the OxeeUI README embeds. Upstream deleted them in v1.4.204 (#20416).   |
+| `file-icons/`                    | Material Icon Theme file and folder icons. `material-icon-map.json` is generated.   |
+| `scripts/generate-file-icon-map.mjs` | Rebuilds the icon map from the pinned `material-icon-theme` devDependency.      |
 | `scripts/generate-marks.mjs`     | Draws both marks from the shared circle geometry.                                   |
 | `scripts/rasterize-marks.mjs`    | Renders `icon.svg` to a 1024px PNG through Chromium.                                |
 | `scripts/apply-brand-assets.mjs` | Copies brand assets over the upstream files that read them by fixed path.           |
@@ -54,6 +56,13 @@ rather than a visible conflict.
 | `src/main/window/dashboard-popout-window.ts`                  | Pop-out dashboard window title.                               |
 | `src/main/window/main-window-close-lifecycle.ts`              | Tray-minimize notification title.                             |
 | `src/shared/constants.ts`                                     | Layers `BRAND_DEFAULT_SETTINGS` over upstream's defaults.     |
+| `src/renderer/src/lib/file-type-icons.ts`                     | Material Icon Theme file icons via `getBrandFileIcon`.        |
+| `src/renderer/src/components/right-sidebar/FileExplorerRow.tsx` | `BrandFolderIcon` in the file explorer.                     |
+| `src/renderer/src/components/right-sidebar/file-explorer-inline-input-row.tsx` | `BrandFolderIcon` for the new-folder row.    |
+| `src/renderer/src/components/right-sidebar/source-control/listing/tree-directory-rows.tsx` | `BrandFolderIcon` in source control. |
+| `src/renderer/src/components/editor/combined-diff/browse-files/combined-diff-file-tree-row.tsx` | `BrandFolderIcon` in the diff browser. |
+| `src/renderer/src/components/editor/ConflictReviewFileTree.tsx` | `BrandFolderIcon` in the conflict tree.                     |
+| `src/renderer/src/components/sidebar/RemoteFileBrowserEntryList.tsx` | `BrandFolderIcon` in the remote file browser.          |
 
 ## Why the product name is swapped at runtime
 

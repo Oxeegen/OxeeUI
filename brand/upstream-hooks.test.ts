@@ -51,7 +51,26 @@ const HOOKS: [file: string, markers: string[]][] = [
   ['src/main/window/main-window-close-lifecycle.ts', ['BRAND.productName']],
   // The appearance layer a fresh profile starts with. Relative import, not the
   // @brand alias: shared code is compiled by plain tsc for the packaged CLI.
-  ['src/shared/constants.ts', ['./brand-default-settings']]
+  ['src/shared/constants.ts', ['./brand-default-settings']],
+  // Material Icon Theme icons. Files resolve in the one shared helper; folders
+  // are drawn per tree, so each tree row carries its own hook. Losing one is
+  // silent — that tree just goes back to grey glyphs.
+  ['src/renderer/src/lib/file-type-icons.ts', ['getBrandFileIcon']],
+  ['src/renderer/src/components/right-sidebar/FileExplorerRow.tsx', ['BrandFolderIcon']],
+  [
+    'src/renderer/src/components/right-sidebar/file-explorer-inline-input-row.tsx',
+    ['BrandFolderIcon']
+  ],
+  [
+    'src/renderer/src/components/right-sidebar/source-control/listing/tree-directory-rows.tsx',
+    ['BrandFolderIcon']
+  ],
+  [
+    'src/renderer/src/components/editor/combined-diff/browse-files/combined-diff-file-tree-row.tsx',
+    ['BrandFolderIcon']
+  ],
+  ['src/renderer/src/components/editor/ConflictReviewFileTree.tsx', ['BrandFolderIcon']],
+  ['src/renderer/src/components/sidebar/RemoteFileBrowserEntryList.tsx', ['BrandFolderIcon']]
 ]
 
 describe('upstream hooks', () => {
