@@ -18,6 +18,7 @@ that read from this directory, so merges stay mechanical.
 | `ci/upstream-workflow-guard.ts`  | Guard expression and the fork-owned workflow allowlist.                             |
 | `upstream-hooks.test.ts`         | Fails when an upstream file stops reaching into `brand/`.                           |
 | `assets/brand-theme.css`         | Token overrides layered on `src/renderer/src/assets/main.css`.                      |
+| `assets/readme/feature-wall/`    | Screenshots the OxeeUI README embeds. Upstream deleted them in v1.4.204 (#20416).   |
 | `scripts/generate-marks.mjs`     | Draws both marks from the shared circle geometry.                                   |
 | `scripts/rasterize-marks.mjs`    | Renders `icon.svg` to a 1024px PNG through Chromium.                                |
 | `scripts/apply-brand-assets.mjs` | Copies brand assets over the upstream files that read them by fixed path.           |
