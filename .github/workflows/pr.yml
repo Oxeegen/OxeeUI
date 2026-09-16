@@ -23,6 +23,7 @@ jobs:
   # Per-job outputs also skip git-compat/xterm/packaging/shell when those
   # inputs are unchanged; empty diffs fail closed and run everything.
   code_paths:
+    if: github.repository == 'stablyai/orca'
     name: detect code-relevant changes
     runs-on: ubuntu-latest
     outputs:
@@ -109,7 +110,7 @@ jobs:
   static_analysis:
     name: static analysis
     needs: [code_paths]
-    if: needs.code_paths.outputs.static_analysis == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.code_paths.outputs.static_analysis == 'true')
     runs-on: ubuntu-latest
 
     steps:
@@ -256,6 +257,7 @@ jobs:
         run: pnpm verify:macos-entitlements
 
   root_directory_guard:
+    if: github.repository == 'stablyai/orca'
     name: root directory guard
     runs-on: ubuntu-latest
 
@@ -284,7 +286,7 @@ jobs:
 
   typecheck:
     needs: [code_paths]
-    if: needs.code_paths.outputs.typecheck == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.code_paths.outputs.typecheck == 'true')
     runs-on: ubuntu-latest
 
     steps:
@@ -312,7 +314,7 @@ jobs:
   git_compatibility:
     name: Git compatibility
     needs: [code_paths]
-    if: needs.code_paths.outputs.git_compatibility == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.code_paths.outputs.git_compatibility == 'true')
     runs-on: ubuntu-latest
 
     steps:
@@ -385,7 +387,7 @@ jobs:
   codex_index_heal_contract:
     name: Codex index-heal contract
     needs: [code_paths]
-    if: needs.code_paths.outputs.codex_index_heal_contract == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.code_paths.outputs.codex_index_heal_contract == 'true')
     runs-on: ubuntu-latest
     env:
       CODEX_CLI_VERSION: '0.150.1'
@@ -420,7 +422,7 @@ jobs:
   xterm_patch_sync:
     name: xterm patch sync
     needs: [code_paths]
-    if: needs.code_paths.outputs.xterm_patch_sync == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.code_paths.outputs.xterm_patch_sync == 'true')
     runs-on: ubuntu-latest
 
     steps:
@@ -453,7 +455,7 @@ jobs:
   shell_contracts:
     name: shell contracts
     needs: [code_paths]
-    if: needs.code_paths.outputs.shell_contracts == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.code_paths.outputs.shell_contracts == 'true')
     runs-on: ubuntu-latest
     # Why: this job's cost is almost entirely package download, and a stalled mirror has
     # no wall-clock bound of its own. A successful run finishes in ~4.5 minutes, so this
@@ -574,7 +576,7 @@ jobs:
   test_native_cache:
     name: prepare test native cache node 24
     needs: [code_paths]
-    if: needs.code_paths.outputs.native_cache_changed == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.code_paths.outputs.native_cache_changed == 'true')
     runs-on: ubuntu-latest
 
     steps:
@@ -591,9 +593,11 @@ jobs:
   test:
     needs: [code_paths, test_native_cache]
     if: >-
+      github.repository == 'stablyai/orca' && (
       always() &&
       needs.code_paths.outputs.test == 'true' &&
       (needs.test_native_cache.result == 'success' || needs.test_native_cache.result == 'skipped')
+      )
     uses: ./.github/workflows/unit-tests.yml
     with:
       node_versions: '["24"]'
@@ -603,7 +607,7 @@ jobs:
   orcad_browser:
     name: orcad browser provider
     needs: [code_paths]
-    if: needs.code_paths.outputs.orcad_browser == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.code_paths.outputs.orcad_browser == 'true')
     runs-on: ubuntu-latest
 
     steps:
@@ -639,7 +643,7 @@ jobs:
   cross-version-wire:
     name: cross-version wire compatibility
     needs: [code_paths]
-    if: needs.code_paths.outputs.cross-version-wire == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.code_paths.outputs.cross-version-wire == 'true')
     runs-on: ubuntu-latest
 
     steps:
@@ -674,7 +678,7 @@ jobs:
   managed_hook_node18:
     name: managed hooks on Node 18
     needs: [code_paths]
-    if: needs.code_paths.outputs.managed_hook_node18 == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.code_paths.outputs.managed_hook_node18 == 'true')
     runs-on: ubuntu-latest
 
     steps:
@@ -699,7 +703,7 @@ jobs:
   package:
     name: package
     needs: [code_paths]
-    if: needs.code_paths.outputs.package == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.code_paths.outputs.package == 'true')
     runs-on: ubuntu-latest
     # Let the serial Docker gates reach their own deadlines and report cleanup failures.
     timeout-minutes: 90
@@ -801,7 +805,7 @@ jobs:
   package_windows:
     name: package (windows)
     needs: [code_paths]
-    if: needs.code_paths.outputs.package_windows == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.code_paths.outputs.package_windows == 'true')
     runs-on: windows-2022
     timeout-minutes: 30
 
@@ -929,7 +933,7 @@ jobs:
   e2e:
     name: e2e
     needs: code_paths
-    if: needs.code_paths.outputs.e2e_should_run == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.code_paths.outputs.e2e_should_run == 'true')
     # Why: reusable e2e.yml only checkouts, builds, and uploads artifacts.
     permissions:
       contents: read
@@ -950,7 +954,7 @@ jobs:
   terminal_ime_native:
     name: real IME
     needs: code_paths
-    if: needs.code_paths.outputs.native_ime_source_changed == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.code_paths.outputs.native_ime_source_changed == 'true')
     # Why: the reusable workflow only checks out, builds, and uploads artifacts.
     permissions:
       contents: read
@@ -959,7 +963,7 @@ jobs:
   windows_wsl:
     name: real WSL terminal
     needs: code_paths
-    if: needs.code_paths.outputs.wsl_source_changed == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.code_paths.outputs.wsl_source_changed == 'true')
     permissions:
       contents: read
     uses: ./.github/workflows/windows-wsl-e2e.yml
@@ -967,7 +971,7 @@ jobs:
       ref: ${{ github.event.pull_request.head.sha }}
 
   verify:
-    if: always()
+    if: github.repository == 'stablyai/orca' && (always())
     needs:
       - code_paths
       - static_analysis

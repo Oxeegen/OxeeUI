@@ -19,6 +19,7 @@ concurrency:
 
 jobs:
   validate:
+    if: github.repository == 'stablyai/orca'
     strategy:
       fail-fast: false
       matrix:

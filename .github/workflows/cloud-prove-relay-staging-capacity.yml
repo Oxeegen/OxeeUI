@@ -60,7 +60,7 @@ defaults:
 
 jobs:
   capacity:
-    if: ${{ vars.ORCA_CLOUD_OPERATIONS_ENABLED == 'true' && inputs.mode != 'refresh-asia-c4-image' }}
+    if: ${{ github.repository == 'stablyai/orca' && (vars.ORCA_CLOUD_OPERATIONS_ENABLED == 'true' && inputs.mode != 'refresh-asia-c4-image') }}
     runs-on: blacksmith-2vcpu-ubuntu-2204
     environment: staging
     env:
@@ -592,7 +592,7 @@ jobs:
             --general-cell-ids "${FALLBACK_CELL_ID}"
 
   refresh-asia-c4-image:
-    if: ${{ vars.ORCA_CLOUD_OPERATIONS_ENABLED == 'true' && github.ref == 'refs/heads/main' && inputs.mode == 'refresh-asia-c4-image' }}
+    if: ${{ github.repository == 'stablyai/orca' && (vars.ORCA_CLOUD_OPERATIONS_ENABLED == 'true' && github.ref == 'refs/heads/main' && inputs.mode == 'refresh-asia-c4-image') }}
     runs-on: blacksmith-2vcpu-ubuntu-2204
     timeout-minutes: 90
     environment: staging

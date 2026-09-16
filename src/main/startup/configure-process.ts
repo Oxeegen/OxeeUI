@@ -1,4 +1,5 @@
 import { app } from 'electron'
+import { BRAND, IS_REBRANDED } from '@brand/config/brand'
 import { existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -209,6 +210,21 @@ export function configureDevUserDataPath(isDev: boolean): void {
   }
 
   if (!isDev) {
+    // Why this branch exists at all — upstream simply returns here: Electron derives
+    // userData from package.json `name`, and this fork deliberately leaves that as
+    // upstream's `orca`, because the CLI binary, `~/.orca` and the `ORCA_*` contract
+    // are all load-bearing on that exact string (see brand/README.md). Without an
+    // explicit redirect a packaged OxeeUI would therefore share `%APPDATA%/orca`
+    // with an installed Orca: the same settings store, and the same `daemon/`
+    // runtime dir — whose IPC endpoint name is a hash of precisely this path, so
+    // the two would contend for one daemon. Both products are meant to be
+    // installable side by side.
+    //
+    // app.setName() cannot do this job: it runs at `ready`, and the store captures
+    // the path before then (see persistence/loading-store/user-data-path.ts).
+    if (IS_REBRANDED) {
+      app.setPath('userData', join(app.getPath('appData'), BRAND.artifactSlug))
+    }
     return
   }
   const overrideUserDataPath = process.env.ORCA_DEV_USER_DATA_PATH
@@ -218,7 +234,10 @@ export function configureDevUserDataPath(isDev: boolean): void {
     return
   }
   // Why: without a dev-only path, pnpm dev overwrites the packaged app's runtime pointer under userData and breaks the orca CLI.
-  app.setPath('userData', join(app.getPath('appData'), 'orca-dev'))
+  // Brand-slugged for the same reason as the packaged branch above, so a dev run
+  // cannot collide with an installed Orca's own dev profile either.
+  const devProfileDir = IS_REBRANDED ? `${BRAND.artifactSlug}-dev` : 'orca-dev'
+  app.setPath('userData', join(app.getPath('appData'), devProfileDir))
 }
 
 function areSameE2EHomePath(left: string, right: string): boolean {

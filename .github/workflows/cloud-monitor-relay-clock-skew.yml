@@ -20,7 +20,7 @@ defaults:
 
 jobs:
   skew:
-    if: ${{ vars.ORCA_CLOUD_OPERATIONS_ENABLED == 'true' }}
+    if: ${{ github.repository == 'stablyai/orca' && (vars.ORCA_CLOUD_OPERATIONS_ENABLED == 'true') }}
     runs-on: ubuntu-latest
     steps:
       - name: Measure Date-header skew for every relay cell

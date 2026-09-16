@@ -36,7 +36,7 @@ jobs:
   # including forks.
   check:
     name: Build and test
-    if: github.event_name == 'pull_request'
+    if: github.repository == 'stablyai/orca' && (github.event_name == 'pull_request')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -202,9 +202,11 @@ jobs:
   production:
     name: Production
     if: >-
+      github.repository == 'stablyai/orca' && (
       (github.event_name == 'release' || github.event_name == 'workflow_dispatch') &&
       needs.release_gate.result == 'success' &&
       needs.release_gate.outputs.deploy == 'true'
+      )
     needs: release_gate
     runs-on: ubuntu-latest
     timeout-minutes: 15

@@ -1,0 +1,171 @@
+name: Release (OxeeUI)
+
+# Builds the branded, unsigned installers and publishes them as a single GitHub
+# Release on this fork. Triggered by an `oxeeui-vX.Y.Z` tag — the tag name is the
+# source of truth and sets the packaged version — or manually with an explicit
+# version.
+#
+# Why no repository guard here, unlike every upstream workflow: this one belongs
+# to the fork and must run here. See brand/ci/upstream-workflow-guard.ts.
+#
+# macOS is absent on purpose. Without an Apple Developer certificate the DMG is
+# refused by Gatekeeper until the user works around it, so shipping one would be
+# worse than shipping none. Add a mac job once signing exists.
+
+on:
+  push:
+    tags:
+      - 'oxeeui-v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, e.g. 0.1.0 (no 'oxeeui-v' prefix)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - name: Resolve tag and version
+        id: resolve
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            TAG="${{ github.ref_name }}"
+          else
+            TAG="oxeeui-v${{ inputs.version }}"
+          fi
+          VERSION="${TAG#oxeeui-v}"
+          # electron-updater compares semver; a malformed tag would ship a build
+          # no client can ever see as an upgrade.
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "Tag '$TAG' does not yield a semver version (got '$VERSION')." >&2
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Releasing $TAG as version $VERSION"
+
+  build:
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Why windows-2022 and not windows-latest: the newer image ships VS 2026,
+          # which node-gyp cannot detect, and native dependency install fails.
+          - os: windows-2022
+            platform: windows
+            script: build:win:brand
+            artifacts: |
+              dist/*.exe
+              dist/*.blockmap
+              dist/latest.yml
+          - os: ubuntu-latest
+            platform: linux
+            script: build:linux:brand
+            artifacts: |
+              dist/*.AppImage
+              dist/latest-linux.yml
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y build-essential python3 xvfb
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: package.json
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+
+      # Why: pnpm's bundled gyp_main.py is not executable on Linux runners, which
+      # breaks native dependency compilation. Same workaround upstream release CI uses.
+      - name: Use external node-gyp
+        if: runner.os == 'Linux'
+        run: |
+          npm install -g node-gyp@11.5.0
+          echo "npm_config_node_gyp=$(npm root -g)/node-gyp/bin/node-gyp.js" >> "$GITHUB_ENV"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify the brand layer survived the last upstream merge
+        run: pnpm run brand:verify
+
+      - name: Build branded package
+        shell: bash
+        env:
+          # Sets extraMetadata.version, so the packaged app reports the tag's
+          # version rather than upstream's package.json version.
+          BRAND_VERSION: ${{ needs.version.outputs.version }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: pnpm run ${{ matrix.script }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.platform }}
+          path: ${{ matrix.artifacts }}
+          if-no-files-found: error
+
+  release:
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    steps:
+      # Why full history: the annotated tag's message becomes the release notes.
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Publish GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.version.outputs.tag }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          assets=(artifacts/*/*)
+          if [ ${#assets[@]} -eq 0 ]; then
+            echo "No build artifacts were downloaded." >&2
+            exit 1
+          fi
+          # electron-updater reads these manifests; without them the release
+          # exists but no installed client can see it.
+          for manifest in latest.yml latest-linux.yml; do
+            if ! printf '%s\n' "${assets[@]}" | grep -q "/$manifest$"; then
+              echo "Missing $manifest — the updater would never see this release." >&2
+              exit 1
+            fi
+          done
+          NOTES="$(git tag -l --format='%(contents)' "$TAG")"
+          [ -z "$NOTES" ] && NOTES="OxeeUI $VERSION"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${assets[@]}" --clobber
+          else
+            gh release create "$TAG" "${assets[@]}" \
+              --target "${{ github.sha }}" \
+              --title "OxeeUI $VERSION" \
+              --notes "$NOTES"
+          fi
+          echo "Released $TAG with ${#assets[@]} asset(s)."

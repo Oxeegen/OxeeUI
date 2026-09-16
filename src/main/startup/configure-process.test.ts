@@ -2,6 +2,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { BRAND } from '@brand/config/brand'
 
 vi.mock('electron', () => {
   const paths = new Map<string, string>([['appData', '/tmp/app-data']])
@@ -340,26 +341,48 @@ describe('configureDevUserDataPath', () => {
     expect(app.setPath).toHaveBeenCalledWith('userData', '/tmp/orca-dev-repro')
   })
 
-  it('moves dev runs onto an orca-dev userData path', async () => {
+  it('moves dev runs onto a brand-slugged dev userData path', async () => {
     const { app } = await import('electron')
     const { configureDevUserDataPath } = await import('./configure-process')
 
     delete process.env.ORCA_DEV_USER_DATA_PATH
     configureDevUserDataPath(true)
 
-    // Why: production code uses path.join(app.getPath('appData'), 'orca-dev')
+    // Why: production code uses path.join(app.getPath('appData'), '<slug>-dev')
     // which produces platform-specific separators.
-    expect(app.setPath).toHaveBeenCalledWith('userData', join('/tmp/app-data', 'orca-dev'))
+    expect(app.setPath).toHaveBeenCalledWith(
+      'userData',
+      join('/tmp/app-data', `${BRAND.artifactSlug}-dev`)
+    )
   })
 
-  it('leaves packaged runs on the default userData path', async () => {
+  // Why this fork diverges from upstream, which asserts no call at all: Electron
+  // derives userData from package.json `name`, still upstream's `orca` here
+  // because the CLI and ~/.orca depend on that string. Leaving packaged runs on
+  // the default would put an installed OxeeUI in %APPDATA%/orca alongside an
+  // installed Orca — one settings store, and one daemon endpoint, since the
+  // endpoint name hashes this very path.
+  it('moves packaged runs onto a brand-slugged userData path', async () => {
     const { app } = await import('electron')
     const { configureDevUserDataPath } = await import('./configure-process')
 
     vi.mocked(app.setPath).mockClear()
     configureDevUserDataPath(false)
 
-    expect(app.setPath).not.toHaveBeenCalled()
+    expect(app.setPath).toHaveBeenCalledWith('userData', join('/tmp/app-data', BRAND.artifactSlug))
+  })
+
+  it('keeps the packaged and dev profiles apart', async () => {
+    const { app } = await import('electron')
+    const { configureDevUserDataPath } = await import('./configure-process')
+
+    delete process.env.ORCA_DEV_USER_DATA_PATH
+    vi.mocked(app.setPath).mockClear()
+    configureDevUserDataPath(false)
+    configureDevUserDataPath(true)
+
+    const paths = vi.mocked(app.setPath).mock.calls.map(([, value]) => value)
+    expect(new Set(paths).size).toBe(2)
   })
 })
 

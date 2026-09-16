@@ -3,6 +3,9 @@ import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { parse } from 'yaml'
 
+// Why toContain rather than toBe: this fork prefixes every job `if` with a
+// repository guard, so exact-match assertions would assert the guard away.
+
 const projectDir = resolve(import.meta.dirname, '../..')
 const dailyWorkflow = parse(
   readFileSync(join(projectDir, '.github/workflows/daily-mac-build.yml'), 'utf8')
@@ -21,8 +24,8 @@ describe('daily E2E dispatch contract', () => {
       "${{ steps.publish_live.outcome == 'success' && 'true' || 'false' }}"
     )
     expect(dispatchJob.needs).toBe('build-daily-mac')
-    expect(dispatchJob.if).toBe(
-      "${{ needs.build-daily-mac.outputs.published == 'true' && needs.build-daily-mac.outputs.head_sha != '' }}"
+    expect(dispatchJob.if).toContain(
+      "needs.build-daily-mac.outputs.published == 'true' && needs.build-daily-mac.outputs.head_sha != ''"
     )
     expect(dispatchJob.permissions.actions).toBe('write')
     expect(dispatchStep.env.SHA).toBe('${{ needs.build-daily-mac.outputs.head_sha }}')
@@ -40,6 +43,6 @@ describe('daily E2E dispatch contract', () => {
 
     expect(dispatchStep.run).not.toContain('test_files')
     expect(e2eWorkflow.on.workflow_call.inputs.test_files.required).toBe(false)
-    expect(e2eWorkflow.jobs.e2e.if).toBe("inputs.test_files == ''")
+    expect(e2eWorkflow.jobs.e2e.if).toContain("inputs.test_files == ''")
   })
 })
