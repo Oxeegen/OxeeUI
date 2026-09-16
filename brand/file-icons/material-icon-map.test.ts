@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { buildFileIconMap, serializeFileIconMap } from '../scripts/generate-file-icon-map.mjs'
+import { buildFileIconMap } from '../scripts/generate-file-icon-map.mjs'
 
 const require = createRequire(import.meta.url)
 const MAP_PATH = resolve('brand/file-icons/material-icon-map.json')
@@ -12,8 +12,11 @@ describe('material-icon-map.json', () => {
   // the package without re-running the generator would leave new file types on
   // the generic icon and renamed icons pointing at SVGs that no longer exist.
   it('matches what the installed material-icon-theme generates', () => {
-    const committed = readFileSync(MAP_PATH, 'utf8')
-    expect(committed).toBe(serializeFileIconMap(buildFileIconMap()))
+    // Why compare parsed data, not bytes: the pre-commit hook runs oxfmt over
+    // staged JSON and pretty-prints the generator's compact output, and a Windows
+    // checkout with core.autocrlf rewrites the newlines. Neither is drift.
+    const committed: unknown = JSON.parse(readFileSync(MAP_PATH, 'utf8'))
+    expect(committed).toEqual(buildFileIconMap())
   })
 
   it('points only at SVGs the package actually ships', () => {

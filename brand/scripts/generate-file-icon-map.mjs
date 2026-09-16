@@ -112,8 +112,10 @@ if (
 ) {
   const next = serializeFileIconMap(buildFileIconMap())
   if (process.argv.includes('--check')) {
-    const current = readFileSync(OUT, 'utf8')
-    if (current !== next) {
+    // Why compare parsed data, not bytes: the pre-commit hook pretty-prints staged
+    // JSON, and a Windows checkout with core.autocrlf rewrites newlines.
+    const current = JSON.stringify(JSON.parse(readFileSync(OUT, 'utf8')))
+    if (current !== next.trimEnd()) {
       console.error(
         'material-icon-map.json is stale. Run: node brand/scripts/generate-file-icon-map.mjs'
       )
