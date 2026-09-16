@@ -1,6 +1,11 @@
-#!/usr/bin/env node
 /**
  * Builds brand/file-icons/material-icon-map.json from material-icon-theme.
+ *
+ * Why no shebang, unlike the other brand scripts: material-icon-map.test.ts
+ * imports this module, and a shebang followed by CRLF — what a Windows checkout
+ * with core.autocrlf produces, locally and on the Windows release runner — makes
+ * Vite's SSR transform emit `#!` mid-module and the suite fails to load. See the
+ * note at the top of .gitattributes. It is always run as `node <path>` anyway.
  *
  * Why a generated, committed map instead of calling generateManifest() in the
  * renderer: the manifest is ~357 KB of JSON and generating it pulls the theme's
