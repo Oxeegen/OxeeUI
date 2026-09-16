@@ -5,7 +5,16 @@ import type { CodexSubagentExecutions } from './codex-subagent-executions'
 
 export type CodexJournalTranslatorDeps = {
   sink: StructuredAgentSessionEventSink
-  bindPromptItemId?: (journalItemId: string, threadId: string, promptKey: string) => void
+  /** Keys restored lifecycle rows to the live identity; without it history restore skips them. */
+  sessionId?: string
+  now?: () => number
+  bindPromptItemId?: (
+    journalItemId: string,
+    threadId: string,
+    promptKey: string,
+    turnId?: string | null
+  ) => void
+  clearPromptTurn?: (threadId: string, turnId: string) => void
   primaryThreadId?: () => string | null
   subagentExecutions?: CodexSubagentExecutions
   coalesceMs?: number

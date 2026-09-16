@@ -2218,6 +2218,10 @@
                 "7c302f8174": "Sin título"
               }
             }
+          },
+          "ProjectViewStates": {
+            "3b9c1d5e47": "Esta vista aún no tiene elementos.",
+            "7e4a2f80c6": "Los elementos añadidos recientemente pueden tardar un poco en aparecer."
           }
         },
         "GitHubMarkdownComposer": {
@@ -14615,7 +14619,8 @@
         "chooseInAgentPicker": "Elegir en el selector del agente…",
         "toggleOption": "Alternar {{value0}}",
         "pillAccessibleName": "{{value0}} {{value1}}",
-        "valueUnknown": "Valor actual desconocido — elige Activado o Desactivado",
+        "valueIsDefault": "Predeterminado",
+        "valueNotReported": "No informado",
         "sentNotConfirmed": "Enviado al agente — sin confirmar",
         "setWhenSessionStarts": "Configúralo al iniciar la sesión.",
         "availableAfterSessionStarts": "Disponible después de iniciar la sesión.",
@@ -14628,9 +14633,7 @@
           "high": "Alto",
           "xhigh": "Muy alto",
           "max": "Máximo",
-          "ultra": "Supremo",
-          "on": "Activado",
-          "off": "Desactivado"
+          "ultra": "Supremo"
         },
         "noCommandsOrSkills": "No hay comandos o habilidades coincidentes",
         "commands": "Comandos",
@@ -14921,6 +14924,14 @@
       "hide": "Ocultar Agentes",
       "action": "Probar Agentes",
       "hiddenToast": "La pestaña Agentes está oculta. Vuelve a activarla en Configuración → Experimental."
+    }
+  },
+  "notifications": {
+    "agentStatus": {
+      "needsInput": "necesita información",
+      "working": "trabajando",
+      "stopped": "detenido",
+      "finished": "finalizado"
     }
   }
 }

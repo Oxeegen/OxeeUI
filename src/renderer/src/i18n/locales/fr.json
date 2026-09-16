@@ -2201,8 +2201,6 @@
         "recentChatsTerminalsHeader": "Chats et terminaux récents",
         "27f10cca63": "Rechercher chats, terminaux, worktrees, paramètres et actions...",
         "2770f02910": "Rechercher chats, terminaux, worktrees, paramètres et actions",
-        "paletteOpenTabBranch": "Nom de branche",
-        "paletteOpenTabWorkspace": "Nom de l'espace de travail",
         "lastActiveTime": "Dernière activité il y a {{value0}}"
       },
       "github": {
@@ -2384,6 +2382,10 @@
                 "7c302f8174": "Sans titre"
               }
             }
+          },
+          "ProjectViewStates": {
+            "3b9c1d5e47": "Cette vue ne contient encore aucun élément.",
+            "7e4a2f80c6": "Les éléments ajoutés récemment peuvent mettre un moment à apparaître."
           }
         },
         "GitHubMarkdownComposer": {
@@ -16031,7 +16033,8 @@
         "chooseInAgentPicker": "Choisir dans le sélecteur d'agents…",
         "toggleOption": "Basculer {{value0}}",
         "pillAccessibleName": "{{value0}} {{value1}}",
-        "valueUnknown": "Valeur actuelle inconnue — choisissez Activé ou Désactivé",
+        "valueIsDefault": "Par défaut",
+        "valueNotReported": "Non signalé",
         "sentNotConfirmed": "Envoyé à l'agent — non confirmé",
         "setWhenSessionStarts": "Défini au démarrage de la session.",
         "availableAfterSessionStarts": "Disponible après le démarrage de la session.",
@@ -16044,9 +16047,7 @@
           "high": "Haute",
           "xhigh": "Extra élevé",
           "max": "Max",
-          "ultra": "Ultra",
-          "on": "Activé",
-          "off": "Désactivé"
+          "ultra": "Ultra"
         }
       },
       "tool": {
@@ -16591,5 +16592,13 @@
   },
   "quickOpen": {
     "moreMatchesAvailable": "D'autres correspondances sont peut-être disponibles. Affinez votre recherche pour réduire les résultats."
+  },
+  "notifications": {
+    "agentStatus": {
+      "needsInput": "attend une réponse",
+      "working": "en cours",
+      "stopped": "arrêté",
+      "finished": "terminé"
+    }
   }
 }

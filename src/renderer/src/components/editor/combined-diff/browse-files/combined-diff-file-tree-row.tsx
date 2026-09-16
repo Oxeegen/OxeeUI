@@ -1,11 +1,13 @@
 import { createElement, memo } from 'react'
-import { ChevronDown, Folder, FolderOpen } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
+import { BrandFolderIcon } from '@brand/file-icons/material-file-icons'
 import { STATUS_COLORS, STATUS_LABELS } from '@/components/right-sidebar/status-display'
 import type { SourceControlTreeNode } from '@/components/right-sidebar/source-control-tree'
 import { getFileTypeIcon } from '@/lib/file-type-icons'
 import { basename, dirname, joinPath } from '@/lib/path'
 import { cn } from '@/lib/utils'
 import { WORKSPACE_FILE_PATH_MIME } from '@/lib/workspace-file-drag'
+import { writeWorkspaceFileDragSourceForWorkspace } from '@/lib/workspace-file-drag-source'
 import type { GitBranchChangeEntry } from '../../../../../../shared/git-diff-compare-types'
 import type {
   GitFileStatus,
@@ -35,6 +37,7 @@ export const CombinedDiffFileTreeRow = memo(function CombinedDiffFileTreeRow({
   node,
   mode,
   worktreePath,
+  sourceWorkspaceId,
   activeSectionKey,
   sectionIndexByKey,
   isCollapsed,
@@ -45,6 +48,7 @@ export const CombinedDiffFileTreeRow = memo(function CombinedDiffFileTreeRow({
   node: CombinedDiffTreeNode
   mode: CombinedDiffFileTreeMode
   worktreePath: string
+  sourceWorkspaceId?: string
   activeSectionKey: string | null
   sectionIndexByKey: ReadonlyMap<string, number>
   isCollapsed: boolean
@@ -62,6 +66,9 @@ export const CombinedDiffFileTreeRow = memo(function CombinedDiffFileTreeRow({
         draggable
         onDragStart={(event) => {
           event.dataTransfer.setData(WORKSPACE_FILE_PATH_MIME, joinPath(worktreePath, node.path))
+          if (sourceWorkspaceId) {
+            writeWorkspaceFileDragSourceForWorkspace(event.dataTransfer, sourceWorkspaceId)
+          }
           event.dataTransfer.effectAllowed = 'copy'
         }}
       >
@@ -74,11 +81,7 @@ export const CombinedDiffFileTreeRow = memo(function CombinedDiffFileTreeRow({
           <ChevronDown
             className={cn('size-3 shrink-0 transition-transform', isCollapsed && '-rotate-90')}
           />
-          {isCollapsed ? (
-            <Folder className="size-3 shrink-0" />
-          ) : (
-            <FolderOpen className="size-3 shrink-0" />
-          )}
+          <BrandFolderIcon name={node.name} expanded={!isCollapsed} className="size-3 shrink-0" />
           <span className="min-w-0 flex-1 truncate">{node.name}</span>
         </button>
         <span className="w-4 shrink-0 text-center text-[10px] font-bold tabular-nums text-muted-foreground/80">
@@ -117,6 +120,9 @@ export const CombinedDiffFileTreeRow = memo(function CombinedDiffFileTreeRow({
           WORKSPACE_FILE_PATH_MIME,
           joinPath(worktreePath, node.entry.path)
         )
+        if (sourceWorkspaceId) {
+          writeWorkspaceFileDragSourceForWorkspace(event.dataTransfer, sourceWorkspaceId)
+        }
         event.dataTransfer.effectAllowed = 'copy'
       }}
       onClick={() => onNavigate(node.entry)}

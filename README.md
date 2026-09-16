@@ -19,7 +19,7 @@
 <h3 align="center"><a href="https://github.com/Oxeegen/OxeeUI/releases/latest"><ins>Download the latest release</ins></a></h3>
 
 <p align="center">
-  <img src="docs/assets/feature-wall/split-screen.jpg" alt="OxeeUI running an agent beside the editor and file tree" width="960" />
+  <img src="brand/assets/readme/feature-wall/split-screen.jpg" alt="OxeeUI running an agent beside the editor and file tree" width="960" />
 </p>
 
 <p align="center"><sub><em>Interface screenshots are taken from upstream Orca and still show upstream branding.</em></sub></p>
@@ -30,7 +30,7 @@
 
 Agents run under **your own subscriptions**. There is no Oxeegen account, no per-seat service in the middle, and no telemetry: upstream's build identity and analytics keys are compile-time substitutions that only upstream's release CI fills in, so they resolve to null in this build and the transport short-circuits.
 
-> OxeeUI is a rebranded, Oxeegen-configured fork of **[Orca](https://github.com/stablyai/orca)** (MIT) by Lovecast Inc. The fork keeps a deliberately small diff against upstream — everything Oxeegen-specific lives under [`brand/`](brand/), and upstream files carry only thin hooks that read from it, so merges stay mechanical.
+> OxeeUI is a rebranded, Oxeegen-configured fork of **[Orca](https://github.com/stablyai/orca)** (MIT) by Lovecast Inc. The fork keeps a deliberately small diff against upstream — everything Oxeegen-specific lives under [`brand/`](brand/README.md), and upstream files carry only thin hooks that read from it, so merges stay mechanical.
 
 ## Download
 
@@ -59,7 +59,7 @@ Fan one prompt across several agents, each in its own isolated git worktree — 
 
 </td>
 <td width="50%">
-  <picture><source srcset="docs/assets/feature-wall/parallel-worktrees.gif" type="image/gif"><img src="docs/assets/feature-wall/parallel-worktrees.jpg" alt="Parallel worktree orchestration" width="100%" /></picture>
+  <picture><source srcset="brand/assets/readme/feature-wall/parallel-worktrees.gif" type="image/gif"><img src="brand/assets/readme/feature-wall/parallel-worktrees.jpg" alt="Parallel worktree orchestration" width="100%" /></picture>
 </td>
 </tr>
 <tr>
@@ -71,7 +71,7 @@ Claude Code, Codex, Grok, Cursor, Copilot, OpenCode, Qwen, Kimi, Goose, Cline an
 
 </td>
 <td width="50%">
-  <picture><source srcset="docs/assets/feature-wall/cli-agents.gif" type="image/gif"><img src="docs/assets/feature-wall/cli-agents.jpg" alt="Running several CLI agents side by side" width="100%" /></picture>
+  <picture><source srcset="brand/assets/readme/feature-wall/cli-agents.gif" type="image/gif"><img src="brand/assets/readme/feature-wall/cli-agents.jpg" alt="Running several CLI agents side by side" width="100%" /></picture>
 </td>
 </tr>
 <tr>
@@ -83,7 +83,7 @@ Ghostty-class terminals with WebGL rendering, infinite splits, and scrollback th
 
 </td>
 <td width="50%">
-  <picture><source srcset="docs/assets/feature-wall/terminal-splits.gif" type="image/gif"><img src="docs/assets/feature-wall/terminal-splits.jpg" alt="Terminal splits" width="100%" /></picture>
+  <picture><source srcset="brand/assets/readme/feature-wall/terminal-splits.gif" type="image/gif"><img src="brand/assets/readme/feature-wall/terminal-splits.jpg" alt="Terminal splits" width="100%" /></picture>
 </td>
 </tr>
 <tr>
@@ -95,7 +95,7 @@ Drop comments on any diff line and send them straight back to the agent — revi
 
 </td>
 <td width="50%">
-  <picture><source srcset="docs/assets/feature-wall/annotate-diff.gif" type="image/gif"><img src="docs/assets/feature-wall/annotate-diff.jpg" alt="Annotating an AI-generated diff" width="100%" /></picture>
+  <picture><source srcset="brand/assets/readme/feature-wall/annotate-diff.gif" type="image/gif"><img src="brand/assets/readme/feature-wall/annotate-diff.jpg" alt="Annotating an AI-generated diff" width="100%" /></picture>
 </td>
 </tr>
 <tr>
@@ -107,7 +107,7 @@ A VS Code-class editor with autosave everywhere — drag files or images straigh
 
 </td>
 <td width="50%">
-  <picture><source srcset="docs/assets/feature-wall/file-drag.gif" type="image/gif"><img src="docs/assets/feature-wall/file-drag.jpg" alt="Dragging files into an agent prompt" width="100%" /></picture>
+  <picture><source srcset="brand/assets/readme/feature-wall/file-drag.gif" type="image/gif"><img src="brand/assets/readme/feature-wall/file-drag.jpg" alt="Dragging files into an agent prompt" width="100%" /></picture>
 </td>
 </tr>
 <tr>
@@ -119,7 +119,7 @@ See usage and rate-limit resets per provider, and hot-swap accounts without logg
 
 </td>
 <td width="50%">
-  <picture><source srcset="docs/assets/feature-wall/codex-accounts.gif" type="image/gif"><img src="docs/assets/feature-wall/codex-accounts.jpg" alt="Account switching and usage tracking" width="100%" /></picture>
+  <picture><source srcset="brand/assets/readme/feature-wall/codex-accounts.gif" type="image/gif"><img src="brand/assets/readme/feature-wall/codex-accounts.jpg" alt="Account switching and usage tracking" width="100%" /></picture>
 </td>
 </tr>
 </table>
