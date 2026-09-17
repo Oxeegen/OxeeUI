@@ -22,6 +22,7 @@ Run any CLI coding agent in its own git worktree — terminal, editor and diff r
   <a href="#download"><b>Download</b></a> ·
   <a href="#features"><b>Features</b></a> ·
   <a href="#supported-agents"><b>Agents</b></a> ·
+  <a href="#ai-backends"><b>AI backends</b></a> ·
   <a href="#the-oxeegen-stack"><b>Oxeegen stack</b></a> ·
   <a href="#faq"><b>FAQ</b></a>
 </p>
@@ -142,6 +143,26 @@ into an agent's prompt.
 - **Ready to work** — a new profile opens with Oxeegen's appearance: dark theme,
   Cascadia Code and Monokai.
 
+## Why OxeeUI
+
+- **Made for more than one agent.** OxeeUI tracks which agent works where, what it
+  changed and when it needs you — something a row of terminal tabs stops doing at the
+  second agent.
+- **Real git, not copies.** Every agent works on a real branch, in its own worktree of
+  your repository, so bringing its work in is ordinary git.
+- **Review where the work happens.** Diffs, line comments sent back to the agent, and
+  commits live in the same window as the agents that produced them.
+- **The agents you already pay for.** No new subscription, no per-seat fee, no Oxeegen
+  account: Claude Code, Codex and 27 other agents run on their own sign-ins.
+- **Runs where your code runs.** On this machine, in WSL on Windows, or on an SSH host,
+  with agents detected and launched in each environment.
+- **Automation built in.** Schedule agent work — a project, an agent, a prompt and a
+  schedule — and every run starts in a fresh workspace; or let a coordinator agent
+  dispatch work to other agents.
+- **Private by default.** No usage analytics, and account sign-ins are stored on this
+  device.
+- **Open source**, MIT-licensed, and free.
+
 ## Supported agents
 
 Works with **any CLI agent**. These are recognised out of the box:
@@ -191,6 +212,32 @@ Works with **any CLI agent**. These are recognised out of the box:
 </tr>
 </table>
 
+## AI backends
+
+**Your agents, your providers.** OxeeUI never calls a model itself. Every AI request is
+made by the coding agent you launch, with whatever that agent is set up to use: a
+subscription sign-in such as a Claude or ChatGPT plan, an API key, or a self-hosted
+endpoint. Pick a different agent for a workspace and the backend changes with it.
+
+**Oxeegen models.** Oxeegen serves Max, Pro, Flash and Instant through an
+OpenAI-compatible endpoint, in a US and an EU region, each with its own keys. To run an
+agent on them, pick one that accepts a custom OpenAI-compatible provider — OpenCode,
+Qwen Code, Cline or Kilo Code, for example — and give it your region's endpoint and key.
+Set them in the agent's own configuration or, for agents that read environment
+variables, in **Settings → Agents**, where every agent can carry its own command, launch
+arguments and environment.
+
+**Accounts and limits.** **Settings → Accounts** keeps several Claude and Codex sign-ins
+side by side and switches between them without logging in again; each keeps its own
+sign-in context, stored on this device. Live usage and rate-limit resets are shown for
+Claude and Codex, and for Gemini and OpenCode Go once they are set up.
+
+**Where agents run.** Agents are detected and launched on this machine, in WSL on
+Windows, or on a connected SSH host, and each environment keeps its own installs and
+sign-ins. **Settings → Agents** shows what is installed and what can be installed, sets
+the default agent for new workspaces, and picks the permission default: **Yolo** for
+fewer prompts, or **Manual** checks.
+
 ## The Oxeegen stack
 
 Oxeegen is building a **sovereign AI stack**: its own models, served from its own
@@ -204,10 +251,9 @@ inference servers, and the desktop apps that put them to work.
 | **OxeeUI** | The agentic development environment — this repository. |
 
 OxeeUI is the developer's seat in that stack. It runs the coding agents your team
-already uses, on the subscriptions you already have. Agents that accept a custom
-OpenAI-compatible endpoint — OpenCode, Qwen Code, Cline or Kilo Code, for example — can
-be pointed at Oxeegen's models instead, so the model side of the loop runs on Oxeegen's
-servers too.
+already uses, and any of them that accepts a custom OpenAI-compatible endpoint can run
+on Oxeegen's models instead, so the model side of the loop stays on Oxeegen's servers
+too — see [AI backends](#ai-backends).
 
 ## Download
 
@@ -267,8 +313,8 @@ talk to their own model providers, exactly as they do in any terminal.
 <summary><b>Can I use Oxeegen's models?</b></summary>
 
 Yes, through any agent that accepts a custom OpenAI-compatible endpoint, such as
-OpenCode, Qwen Code, Cline or Kilo Code: enter the endpoint of your Oxeegen region (US or
-EU) and your Oxeegen API key in the agent's settings. Keys are issued per region.
+OpenCode, Qwen Code, Cline or Kilo Code. Keys are issued per region (US or EU);
+[AI backends](#ai-backends) explains where the endpoint and key go.
 
 </details>
 

@@ -22,6 +22,7 @@ Lancez n'importe quel agent de code dans son propre worktree git — terminal, �
   <a href="#téléchargement"><b>Téléchargement</b></a> ·
   <a href="#fonctionnalités"><b>Fonctionnalités</b></a> ·
   <a href="#agents-compatibles"><b>Agents</b></a> ·
+  <a href="#moteurs-dia"><b>Moteurs d'IA</b></a> ·
   <a href="#la-pile-oxeegen"><b>Pile Oxeegen</b></a> ·
   <a href="#faq"><b>FAQ</b></a>
 </p>
@@ -143,6 +144,27 @@ image depuis l'arborescence directement dans le prompt d'un agent.
 - **Prêt à l'emploi** — un nouveau profil s'ouvre avec l'apparence Oxeegen : thème
   sombre, Cascadia Code et Monokai.
 
+## Pourquoi OxeeUI
+
+- **Pensé pour plus d'un agent.** OxeeUI suit quel agent travaille où, ce qu'il a modifié
+  et quand il a besoin de vous — ce qu'une rangée d'onglets de terminal ne sait plus faire
+  dès le deuxième agent.
+- **Du vrai git, pas des copies.** Chaque agent travaille sur une vraie branche, dans son
+  propre worktree de votre dépôt : récupérer son travail, c'est du git ordinaire.
+- **La relecture là où se fait le travail.** Diffs, commentaires de ligne renvoyés à
+  l'agent et commits vivent dans la même fenêtre que les agents qui les ont produits.
+- **Les agents que vous payez déjà.** Pas de nouvel abonnement, pas de licence par poste,
+  pas de compte Oxeegen : Claude Code, Codex et 27 autres agents tournent avec leurs
+  propres connexions.
+- **Là où tourne votre code.** Sur cette machine, dans WSL sous Windows ou sur un hôte
+  SSH, avec des agents détectés et lancés dans chaque environnement.
+- **L'automatisation intégrée.** Planifiez du travail d'agent — un projet, un agent, un
+  prompt et une fréquence — et chaque exécution démarre dans un espace de travail neuf ;
+  ou laissez un agent coordinateur répartir le travail entre d'autres agents.
+- **Confidentiel par défaut.** Aucune mesure d'audience, et les connexions aux comptes
+  sont stockées sur cet appareil.
+- **Open source**, sous licence MIT, et gratuit.
+
 ## Agents compatibles
 
 Compatible avec **tous les agents en ligne de commande**. Ceux-ci sont reconnus
@@ -193,6 +215,35 @@ d'emblée :
 </tr>
 </table>
 
+## Moteurs d'IA
+
+**Vos agents, vos fournisseurs.** OxeeUI n'appelle jamais de modèle lui-même. Chaque
+requête d'IA est faite par l'agent de code que vous lancez, avec ce qu'il est configuré
+pour utiliser : une connexion par abonnement, comme un forfait Claude ou ChatGPT, une
+clé d'API, ou un endpoint auto-hébergé. Choisissez un autre agent pour un espace de
+travail, et le moteur change avec lui.
+
+**Modèles Oxeegen.** Oxeegen sert Max, Pro, Flash et Instant par un endpoint compatible
+OpenAI, dans une région US et une région UE, chacune avec ses propres clés. Pour faire
+tourner un agent dessus, choisissez-en un qui accepte un fournisseur compatible OpenAI
+personnalisé — OpenCode, Qwen Code, Cline ou Kilo Code, par exemple — et donnez-lui
+l'endpoint et la clé de votre région. Renseignez-les dans la configuration propre à
+l'agent ou, pour les agents qui lisent des variables d'environnement, dans
+**Paramètres → Agents**, où chaque agent peut avoir sa propre commande, ses arguments de
+lancement et son environnement.
+
+**Comptes et limites.** **Paramètres → Comptes** garde plusieurs connexions Claude et
+Codex côte à côte et passe de l'une à l'autre sans vous reconnecter ; chacune conserve
+son propre contexte de connexion, stocké sur cet appareil. L'utilisation en direct et
+les réinitialisations de quotas s'affichent pour Claude et Codex, ainsi que pour Gemini
+et OpenCode Go une fois configurés.
+
+**Où tournent les agents.** Les agents sont détectés et lancés sur cette machine, dans
+WSL sous Windows ou sur un hôte SSH connecté, et chaque environnement garde ses propres
+installations et connexions. **Paramètres → Agents** montre ce qui est installé et ce
+qui peut l'être, définit l'agent par défaut des nouveaux espaces de travail, et choisit
+le mode d'autorisation par défaut : **Yolo** pour moins de confirmations, ou **Manuel**.
+
 ## La pile Oxeegen
 
 Oxeegen construit une **pile d'IA souveraine** : ses propres modèles, servis depuis ses
@@ -206,10 +257,9 @@ propres serveurs d'inférence, et les applications de bureau qui les mettent au 
 | **OxeeUI** | L'environnement de développement agentique — ce dépôt. |
 
 OxeeUI est le poste du développeur dans cette pile. Il fait tourner les agents de code
-que votre équipe utilise déjà, avec les abonnements que vous avez déjà. Les agents qui
-acceptent un endpoint compatible OpenAI personnalisé — OpenCode, Qwen Code, Cline ou
-Kilo Code, par exemple — peuvent être branchés sur les modèles d'Oxeegen : la partie
-modèle de la boucle tourne alors elle aussi sur les serveurs d'Oxeegen.
+que votre équipe utilise déjà, et tous ceux qui acceptent un endpoint compatible OpenAI
+personnalisé peuvent tourner sur les modèles d'Oxeegen : la partie modèle de la boucle
+reste alors elle aussi sur les serveurs d'Oxeegen — voir [Moteurs d'IA](#moteurs-dia).
 
 ## Téléchargement
 
@@ -271,9 +321,8 @@ fournisseurs de modèles, exactement comme dans n'importe quel terminal.
 <summary><b>Puis-je utiliser les modèles d'Oxeegen ?</b></summary>
 
 Oui, avec tout agent qui accepte un endpoint compatible OpenAI personnalisé, comme
-OpenCode, Qwen Code, Cline ou Kilo Code : saisissez l'endpoint de votre région Oxeegen
-(US ou UE) et votre clé d'API Oxeegen dans les réglages de l'agent. Les clés sont
-délivrées par région.
+OpenCode, Qwen Code, Cline ou Kilo Code. Les clés sont délivrées par région (US ou UE) ;
+[Moteurs d'IA](#moteurs-dia) explique où renseigner l'endpoint et la clé.
 
 </details>
 
