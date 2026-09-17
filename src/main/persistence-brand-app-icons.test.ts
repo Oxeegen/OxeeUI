@@ -2,18 +2,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { PersistedState } from '../../src/shared/persisted-state-types'
-import { getDefaultPersistedState } from '../../src/shared/constants'
-import {
-  createStore,
-  readDataFile,
-  testState,
-  writeDataFile
-} from '../../src/main/persistence-test-harness'
+import type { PersistedState } from '../shared/persisted-state-types'
+import { getDefaultPersistedState } from '../shared/constants'
+import { createStore, readDataFile, testState, writeDataFile } from './persistence-test-harness'
 
-// Same seams as upstream's own Store tests (src/main/persistence-settings-ui-defaults.test.ts),
+// Why this lives in src/main rather than brand/: it drives the real Store, and brand/ is
+// also type-checked by the web project, which must not pull in the main process. The
+// file name keeps `brand` so `pnpm run brand:verify` (vitest filtered on 'brand') runs it.
+//
+// Same seams as upstream's own Store tests (persistence-settings-ui-defaults.test.ts),
 // so this drives the real load path rather than the normalizer in isolation.
-vi.mock('../../src/main/ssh/ssh-config-parser', () => ({
+vi.mock('./ssh/ssh-config-parser', () => ({
   loadUserSshConfig: vi.fn(),
   sshConfigHostsToTargets: vi.fn()
 }))
@@ -27,8 +26,8 @@ vi.mock('electron', () => ({
   }
 }))
 
-vi.mock('../../src/main/telemetry/client', () => ({ track: vi.fn() }))
-vi.mock('../../src/main/telemetry/cohort-classifier', () => ({
+vi.mock('./telemetry/client', () => ({ track: vi.fn() }))
+vi.mock('./telemetry/cohort-classifier', () => ({
   getCohortAtEmit: vi.fn(() => ({ nth_repo_added: 2 }))
 }))
 
