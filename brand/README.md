@@ -63,6 +63,7 @@ rather than a visible conflict.
 | `src/renderer/src/components/editor/combined-diff/browse-files/combined-diff-file-tree-row.tsx` | `BrandFolderIcon` in the diff browser. |
 | `src/renderer/src/components/editor/ConflictReviewFileTree.tsx` | `BrandFolderIcon` in the conflict tree.                     |
 | `src/renderer/src/components/sidebar/RemoteFileBrowserEntryList.tsx` | `BrandFolderIcon` in the remote file browser.          |
+| `src/main/updater/updater-release-feed.ts`, `src/main/updater/updater-setup.ts` | Fallback update feed from `LATEST_RELEASE_DOWNLOAD_URL`. |
 
 ## Why the product name is swapped at runtime
 
