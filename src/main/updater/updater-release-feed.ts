@@ -3,6 +3,7 @@ import {
   fetchNewerReleaseTagsWithReadiness,
   getReleaseDownloadUrl
 } from '../updater-prerelease-feed'
+import { LATEST_RELEASE_DOWNLOAD_URL } from '../../shared/release-channel'
 import { isMissingUpdateManifestFailure, isPrereleaseVersion } from '../updater-fallback'
 import type { CheckFailureSource } from './updater-state'
 import type { UpdateCheckVariant } from './updater-types'
@@ -203,7 +204,7 @@ export abstract class UpdaterReleaseFeed extends UpdaterInstallExecution {
     }
     this.clearPrereleaseFallbackContext()
     this.clearPublishingWindowLastGoodCheck()
-    const url = 'https://github.com/stablyai/orca/releases/latest/download'
+    const url = LATEST_RELEASE_DOWNLOAD_URL
     console.info(
       `[updater] release feed fallback: current=${currentVersion} includePrerelease=${includePrerelease} → ${url}`
     )

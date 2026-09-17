@@ -114,6 +114,17 @@ export const TERMINAL_QUICK_COMMANDS_RUNTIME_CAPABILITY = 'terminal.quick-comman
 // status.worktreeCreateIdempotency carries the optional host retention policy.
 export const WORKTREE_CREATE_IDEMPOTENCY_RUNTIME_CAPABILITY =
   'worktree.create-idempotency.v1' as const
+// Scope of the claim: a hook that RUNS and fails cannot delete the checkout. It does not promise
+// the hook was found — an SSH host whose orca.yaml cannot be read answers "no hook" and the removal
+// proceeds, because a failed read is indistinguishable from an absent file across the relay
+// (#20196 tracks the provider contract that would separate them).
+// Why (#19334): "accepts --run-hooks" and "refuses to delete when the archive hook fails" were
+// indistinguishable from the outside — both take the flag and behave identically on success, so
+// the only way to tell an unfixed host apart was to fail a hook and see whether the checkout
+// survived. Lifecycle integrations keep teardown evidence inside the checkout and cannot risk
+// that. Advertised unconditionally: every build carrying this constant has the gate.
+export const WORKTREE_ARCHIVE_FAILURE_BLOCKING_RUNTIME_CAPABILITY =
+  'worktree.archive-failure-blocking.v1' as const
 export const CODEX_RESET_CREDIT_RUNTIME_CAPABILITY = 'accounts.codex-reset-credit.v1' as const
 export const ACCOUNT_IMPORT_RUNTIME_CAPABILITY = 'accounts.import-host-credentials.v1' as const
 // Why: older hosts cannot reconcile terminal.create's mutation after losing the reply, so clients may only retry unknown outcomes when advertised.
@@ -175,6 +186,10 @@ export const AGENT_SESSION_REWIND_RUNTIME_CAPABILITY = 'agent-session.rewind.v1'
 export const AGENT_SESSION_TURN_ITEM_CAPABILITY = 'agent-session.turn-item.v1' as const
 export const AGENT_SESSION_BACKGROUND_TASK_STOP_CAPABILITY =
   'agent-session.background-task-stop.v1' as const
+// Why: agentSession.cancel has a strict schema, so clients must not send prompt identity to an
+// older host that would reject the whole cancellation instead of falling back to turn stop.
+export const AGENT_SESSION_PROMPT_CANCEL_RUNTIME_CAPABILITY =
+  'agent-session.prompt-cancel.v1' as const
 // Why: the host now publishes rows for work that is live inside a turn, and such
 // a row carries `stoppable: false` because no targeted stop can reach it. A
 // reader that predates the field draws a per-row Stop on every row it is given,
@@ -279,6 +294,7 @@ export const RUNTIME_CAPABILITIES = [
   TERMINAL_PAIRED_PARKING_RUNTIME_CAPABILITY,
   TERMINAL_QUICK_COMMANDS_RUNTIME_CAPABILITY,
   WORKTREE_CREATE_IDEMPOTENCY_RUNTIME_CAPABILITY,
+  WORKTREE_ARCHIVE_FAILURE_BLOCKING_RUNTIME_CAPABILITY,
   TERMINAL_CREATE_IDEMPOTENCY_RUNTIME_CAPABILITY,
   SESSION_TAB_CLOSE_INTENT_RUNTIME_CAPABILITY,
   SESSION_TABS_AUTHORITATIVE_INVENTORY_RUNTIME_CAPABILITY,
@@ -294,6 +310,7 @@ export const RUNTIME_CAPABILITIES = [
   AGENT_SESSION_STATUS_FEED_RUNTIME_CAPABILITY,
   AGENT_SESSION_REWIND_RUNTIME_CAPABILITY,
   AGENT_SESSION_BACKGROUND_TASK_STOP_CAPABILITY,
+  AGENT_SESSION_PROMPT_CANCEL_RUNTIME_CAPABILITY,
   AGENT_SESSION_TURN_ITEM_CAPABILITY,
   AGENT_SESSION_BACKGROUND_TASK_ROW_STOP_CAPABILITY,
   AGENT_SESSION_KIMI_RESUME_RUNTIME_CAPABILITY,

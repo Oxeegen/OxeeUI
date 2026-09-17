@@ -27,7 +27,7 @@ const HOOKS: [file: string, markers: string[]][] = [
   ['src/main/i18n/main-i18n.ts', ['brandNamePostProcessor', 'BRAND_POST_PROCESS']],
   ['src/renderer/src/assets/main.css', ['brand/assets/brand-theme.css']],
   // Not the @brand alias: shared code compiles without a bundler. See release-repo.test.ts.
-  ['src/shared/release-channel.ts', ['MAIN_RELEASE_REPO']],
+  ['src/shared/release-channel.ts', ['MAIN_RELEASE_REPO', 'LATEST_RELEASE_DOWNLOAD_URL']],
   ['src/main/updater-prerelease-feed.ts', ['MAIN_RELEASE_REPO']],
   ['src/renderer/src/hooks/useSettingsNavigationMetadata.ts', ['isBrandSettingsSectionHidden']],
   // Keeps the packaged and dev profiles out of upstream's %APPDATA%/orca, so an
@@ -70,7 +70,19 @@ const HOOKS: [file: string, markers: string[]][] = [
     ['BrandFolderIcon']
   ],
   ['src/renderer/src/components/editor/ConflictReviewFileTree.tsx', ['BrandFolderIcon']],
-  ['src/renderer/src/components/sidebar/RemoteFileBrowserEntryList.tsx', ['BrandFolderIcon']]
+  ['src/renderer/src/components/sidebar/RemoteFileBrowserEntryList.tsx', ['BrandFolderIcon']],
+  // The updater's fallback feed. brand/updater-feed.test.ts also fails on any
+  // upstream release URL anywhere in shipped code, which catches new call sites.
+  ['src/main/updater/updater-release-feed.ts', ['LATEST_RELEASE_DOWNLOAD_URL']],
+  ['src/main/updater/updater-setup.ts', ['LATEST_RELEASE_DOWNLOAD_URL']],
+  // App icon: OxeeUI offers only its own mark. Losing the load hook lets a
+  // profile carried over from upstream keep upstream's artwork as the app icon.
+  [
+    'src/main/persistence/loading-store/normalize-loaded-global-settings.ts',
+    ['resolveBrandAppIconId']
+  ],
+  ['src/renderer/src/components/settings/AppearancePane.tsx', ['IS_APP_ICON_CHOICE_OFFERED']],
+  ['src/renderer/src/components/settings/appearance-search.ts', ['IS_APP_ICON_CHOICE_OFFERED']]
 ]
 
 describe('upstream hooks', () => {

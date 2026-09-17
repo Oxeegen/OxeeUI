@@ -35,6 +35,19 @@ export const ADHOC_RELEASE_REPO = 'stablyai/orca-adhoc'
 // app with a different product.
 export const MAIN_RELEASE_REPO = 'Oxeegen/OxeeUI'
 
+/**
+ * The stable feed electron-updater falls back to: the initial feed at setup, and
+ * the default check when no newer tag was found.
+ *
+ * Why derived, and why here: both call sites hardcoded upstream's repo, so an
+ * up-to-date build checked upstream's feed, read its higher version as an update,
+ * and offered to install a different product over this one. It lives beside
+ * MAIN_RELEASE_REPO rather than in the updater modules because upstream's updater
+ * tests mock those modules wholesale, and a new export there is undefined under
+ * every such mock. brand/updater-feed.test.ts fails on any other literal.
+ */
+export const LATEST_RELEASE_DOWNLOAD_URL = `https://github.com/${MAIN_RELEASE_REPO}/releases/latest/download`
+
 export const HOURLY_PRERELEASE_IDENTIFIER = 'hourly'
 export const DAILY_PRERELEASE_IDENTIFIER = 'daily'
 export const ADHOC_PRERELEASE_IDENTIFIER = 'adhoc'

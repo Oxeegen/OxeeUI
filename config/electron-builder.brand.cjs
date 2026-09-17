@@ -38,6 +38,16 @@ module.exports = {
   // Overriding at package time keeps that diff at zero.
   extraMetadata: {
     ...base.extraMetadata,
+    // Why the packaged name, not only productName: electron-builder names the
+    // per-user Windows install folder (%LOCALAPPDATA%\Programs\<name>) and the
+    // update download cache (%LOCALAPPDATA%\<name>-updater) after the manifest
+    // `name`, which package.json leaves as upstream's `orca`. So installing OxeeUI
+    // overwrote an installed upstream app in place. The source package.json keeps
+    // `orca`: the workspace, scripts and CLI depend on it.
+    //
+    // Existing installs do not move: the installer reuses the InstallLocation
+    // stored under the app's GUID, which derives from appId, not from this name.
+    name: brand.artifactSlug,
     description: brand.description,
     author: brand.author,
     homepage: brand.homepage,

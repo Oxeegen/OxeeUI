@@ -246,6 +246,16 @@ async function install(deps: StructuredAgentSessionRuntimeDeps): Promise<Install
   try {
     let host: StructuredAgentSessionHost | null = null
     let recoveryChain = Promise.resolve()
+    const onDispatchSettledLate = (
+      settlement: Parameters<StructuredAgentSessionHost['settleLateDispatch']>[0]
+    ): void => {
+      void host?.settleLateDispatch(settlement).catch((error) =>
+        deps.onError?.({
+          scope: `structured-agent-session-late-settlement:${settlement.sessionId}`,
+          error
+        })
+      )
+    }
     const codex = new CodexStructuredSessionAdapter({
       resolveLaunch: createCodexStructuredLaunchResolver({
         store,
@@ -257,6 +267,7 @@ async function install(deps: StructuredAgentSessionRuntimeDeps): Promise<Install
       ...(deps.readProcessStartTime ? { readProcessStartTime: deps.readProcessStartTime } : {}),
       onBackgroundTasksChanged: (sessionId, state) =>
         host?.publishBackgroundTaskState(sessionId, state),
+      onDispatchSettledLate,
       onEvent: (event) => {
         if (event.type !== 'ended' || !('cause' in event) || event.cause !== 'unexpected-exit') {
           return
@@ -298,14 +309,7 @@ async function install(deps: StructuredAgentSessionRuntimeDeps): Promise<Install
       },
       onBackgroundTasksChanged: (sessionId, state) =>
         host?.publishBackgroundTaskState(sessionId, state),
-      onDispatchSettledLate: (settlement) => {
-        void host?.settleLateDispatch(settlement).catch((error) =>
-          deps.onError?.({
-            scope: `structured-agent-session-late-settlement:${settlement.sessionId}`,
-            error
-          })
-        )
-      },
+      onDispatchSettledLate,
       ...(deps.openClaudeConnection ? { openClaudeConnection: deps.openClaudeConnection } : {}),
       ...(deps.readProcessStartTime ? { readProcessStartTime: deps.readProcessStartTime } : {})
     })
