@@ -3,6 +3,7 @@ import { resolve } from 'node:path'
 import { defineConfig, type UserConfig } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import { brandHtmlTitle } from './brand/vite/html-title'
 import { createBootstrapFatalExitBanner } from './config/build-plugins/bootstrap-fatal-exit-banner'
 import { createPlainNodeEntryGuardPlugin } from './config/build-plugins/plain-node-entry-guard'
 import packageJson from './package.json' with { type: 'json' }
@@ -282,6 +283,7 @@ export const electronViteConfig: UserConfig = {
     // directly at the published main file so the bundler can inline it.
     resolve: {
       alias: {
+        '@brand': resolve('brand'),
         '@xterm/headless': resolve('node_modules/@xterm/headless/lib-headless/xterm-headless.js'),
         '@xterm/addon-serialize': resolve(
           'node_modules/@xterm/addon-serialize/lib/addon-serialize.js'
@@ -299,11 +301,12 @@ export const electronViteConfig: UserConfig = {
   renderer: {
     resolve: {
       alias: {
+        '@brand': resolve('brand'),
         '@renderer': resolve('src/renderer/src'),
         '@': resolve('src/renderer/src')
       }
     },
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), brandHtmlTitle()],
     worker: {
       format: 'es'
     },

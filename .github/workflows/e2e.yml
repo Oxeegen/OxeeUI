@@ -38,6 +38,7 @@ on:
 
 jobs:
   build:
+    if: github.repository == 'stablyai/orca'
     name: build e2e app
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -82,6 +83,7 @@ jobs:
   # Build Electron-native dependencies once per workflow. Consumer shards restore
   # this immutable cache instead of compiling the same ABI concurrently.
   prepare-native-cache:
+    if: github.repository == 'stablyai/orca'
     name: prepare Electron native cache
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -102,7 +104,7 @@ jobs:
   e2e:
     name: e2e ${{ matrix.shard_name }}
     needs: [build, prepare-native-cache]
-    if: inputs.test_files == ''
+    if: github.repository == 'stablyai/orca' && (inputs.test_files == '')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -219,7 +221,7 @@ jobs:
   changed-e2e:
     name: changed e2e specs
     needs: [build, prepare-native-cache]
-    if: inputs.test_files != ''
+    if: github.repository == 'stablyai/orca' && (inputs.test_files != '')
     runs-on: ubuntu-latest
     # Why 45: pr.yml now maps SSH source edits onto Docker-backed specs, so this lane can
     # pay a container image build plus ~22 serial SSH tests on top of the changed specs.
@@ -302,6 +304,7 @@ jobs:
     # The explicit spec clauses stay for their honest purpose: changed-e2e hands these specs to this
     # lane, so editing one must still run it here.
     if: >-
+      github.repository == 'stablyai/orca' && (
       inputs.test_files == '' ||
       inputs.ssh_source_changed == 'true' ||
       contains(inputs.test_files, 'tests/e2e/ssh-docker-five-pane-input-under-flood.spec.ts') ||
@@ -310,6 +313,7 @@ jobs:
       contains(inputs.test_files, 'tests/e2e/ssh-startup-exec-readiness.spec.ts') ||
       contains(inputs.test_files, 'tests/e2e/ssh-docker-bulk-open-freeze-repro.spec.ts') ||
       contains(inputs.test_files, 'tests/e2e/paired-startup-exec-readiness.spec.ts')
+      )
     runs-on: ubuntu-latest
     # Why 60: this lane now also runs the remaining Docker-SSH specs serially. They average
     # ~18s but several budget 4-10 minutes per test, so a slow run lands far above the old 35
@@ -392,7 +396,7 @@ jobs:
 
   ssh-browser-network-route:
     name: ssh browser network route
-    if: inputs.test_files == '' || contains(inputs.test_files, 'tests/e2e/ssh-browser-network-execution-route.docker.unit.test.ts')
+    if: github.repository == 'stablyai/orca' && (inputs.test_files == '' || contains(inputs.test_files, 'tests/e2e/ssh-browser-network-execution-route.docker.unit.test.ts'))
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -413,7 +417,7 @@ jobs:
   ssh-localhost:
     name: localhost SSH terminal and hooks
     needs: [build, prepare-native-cache]
-    if: inputs.test_files == '' || contains(inputs.test_files, 'tests/e2e/ssh-localhost.spec.ts')
+    if: github.repository == 'stablyai/orca' && (inputs.test_files == '' || contains(inputs.test_files, 'tests/e2e/ssh-localhost.spec.ts'))
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

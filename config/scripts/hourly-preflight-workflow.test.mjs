@@ -63,7 +63,9 @@ describe('hourly build preflight', () => {
       preflight.steps.find((step) => step.id === 'app_token').with['permission-contents']
     ).toBe('read')
     expect(build.needs).toBe('preflight')
-    expect(build.if).toBe("needs.preflight.outputs.should_build == 'true'")
+    // Why toContain rather than toBe: this fork prefixes every job `if` with a
+    // repository guard, so an exact match would assert the guard away.
+    expect(build.if).toContain("needs.preflight.outputs.should_build == 'true'")
     expect(build.steps.find((step) => step.name === 'Checkout').with.ref).toBe(
       build.outputs.head_sha
     )

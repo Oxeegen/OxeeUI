@@ -196,9 +196,11 @@ test('creates staging evidence only after the bounded launch-path load and rollb
   assert.match(stagingProof, /--mode recover-promotion[\s\S]*?--attempt-id "\$\{PROMOTE_ATTEMPT_ID\}"/)
   assert.match(stagingProof, /--mode rollback[\s\S]*?--expected-generation "\$\{promoted_generation\}"/)
   assert.match(stagingProof, /if: \$\{\{ success\(\) \}\}/)
+  // Why the tolerant prefix: this fork wraps every job `if` in a repository
+  // guard, so an exact match would assert the guard away.
   assert.match(
     stagingProof,
-    /recover:\n    if: \$\{\{ always\(\) && github\.ref == 'refs\/heads\/main' \}\}/
+    /recover:\n    if: \$\{\{ [^}]*always\(\) && github\.ref == 'refs\/heads\/main'/
   )
   assert.match(stagingProof, /needs: prove/)
   assert.match(stagingProof, /Recover staging C4 with a fresh identity/)
