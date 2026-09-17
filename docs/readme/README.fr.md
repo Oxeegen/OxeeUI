@@ -48,8 +48,8 @@ tâche à un agent, continuez votre travail, et revenez à une branche prête à
 - **Sans compte, sans mesure d'audience.** Vos dépôts restent où ils sont, et les builds
   d'OxeeUI ne contiennent aucune clé d'analytics : aucune donnée d'utilisation n'est
   envoyée.
-- **Au cœur de la pile Oxeegen.** Le poste du développeur dans une pile d'IA souveraine,
-  bâtie sur les modèles et les serveurs d'Oxeegen — voir [La pile Oxeegen](#la-pile-oxeegen).
+- **Au cœur de la pile Oxeegen.** Fait tourner Oxeegen Hermes sur les modèles d'Oxeegen,
+  sur votre machine ou en ordinateur cloud géré — voir [La pile Oxeegen](#la-pile-oxeegen).
 
 **L'obtenir :** [Windows](https://github.com/Oxeegen/OxeeUI/releases/latest/download/oxeeui-windows-setup.exe) (x64) ·
 [Linux](https://github.com/Oxeegen/OxeeUI/releases/latest/download/oxeeui-linux-x86_64.AppImage) (AppImage) —
@@ -146,24 +146,26 @@ image depuis l'arborescence directement dans le prompt d'un agent.
 
 ## Pourquoi OxeeUI
 
-- **Pensé pour plus d'un agent.** OxeeUI suit quel agent travaille où, ce qu'il a modifié
-  et quand il a besoin de vous — ce qu'une rangée d'onglets de terminal ne sait plus faire
-  dès le deuxième agent.
-- **Du vrai git, pas des copies.** Chaque agent travaille sur une vraie branche, dans son
-  propre worktree de votre dépôt : récupérer son travail, c'est du git ordinaire.
-- **La relecture là où se fait le travail.** Diffs, commentaires de ligne renvoyés à
-  l'agent et commits vivent dans la même fenêtre que les agents qui les ont produits.
-- **Les agents que vous payez déjà.** Pas de nouvel abonnement, pas de licence par poste,
-  pas de compte Oxeegen : Claude Code, Codex et 27 autres agents tournent avec leurs
-  propres connexions.
-- **Là où tourne votre code.** Sur cette machine, dans WSL sous Windows ou sur un hôte
-  SSH, avec des agents détectés et lancés dans chaque environnement.
-- **L'automatisation intégrée.** Planifiez du travail d'agent — un projet, un agent, un
-  prompt et une fréquence — et chaque exécution démarre dans un espace de travail neuf ;
-  ou laissez un agent coordinateur répartir le travail entre d'autres agents.
-- **Confidentiel par défaut.** Aucune mesure d'audience, et les connexions aux comptes
-  sont stockées sur cet appareil.
-- **Open source**, sous licence MIT, et gratuit.
+- **Pensé pour de nombreux agents.** OxeeUI suit quel agent travaille où, ce qu'il a
+  modifié et quand il a besoin de vous.
+- **Du vrai git, relu sur place.** Chaque agent travaille sur une vraie branche, dans son
+  propre worktree de votre dépôt, et ses diffs, commentaires de ligne et commits sont dans
+  la même fenêtre.
+- **Une pile de bout en bout.** Oxeegen Hermes tourne sur les modèles d'Oxeegen — ceux-là
+  mêmes qui font tourner OxeeOffice — tandis que Claude Code, Codex et 27 autres agents
+  continuent de tourner à côté, avec leurs propres connexions.
+- **Prêt sans la mise en place.** Une pile d'agents est difficile à mettre en place.
+  Oxeegen fournit toute la plateforme en service géré mensuel, sur un ordinateur cloud
+  dédié.
+- **Ultra-Support 24/7.** Avec un contrat Oxeegen, l'équipe support d'Oxeegen prend en
+  charge l'assistance, les mises à jour, la maintenance et la supervision de la
+  plateforme.
+- **Là où tourne votre code.** Sur cette machine, dans WSL sous Windows, sur un hôte SSH,
+  ou dans un bureau virtuel dédié dans le centre de données d'Oxeegen.
+- **L'automatisation intégrée.** Des exécutions d'agents planifiées, chacune dans un
+  espace de travail neuf, et un agent coordinateur qui répartit le travail entre d'autres.
+- **Open source et confidentiel.** Sous licence MIT, gratuit, et sans aucune mesure
+  d'audience.
 
 ## Agents compatibles
 
@@ -217,32 +219,32 @@ d'emblée :
 
 ## Moteurs d'IA
 
-**Vos agents, vos fournisseurs.** OxeeUI n'appelle jamais de modèle lui-même. Chaque
-requête d'IA est faite par l'agent de code que vous lancez, avec ce qu'il est configuré
-pour utiliser : une connexion par abonnement, comme un forfait Claude ou ChatGPT, une
-clé d'API, ou un endpoint auto-hébergé. Choisissez un autre agent pour un espace de
-travail, et le moteur change avec lui.
+**Oxeegen Hermes.** Le moteur principal d'OxeeUI est Oxeegen Hermes, la version
+d'Oxeegen de l'agent Hermes. Il appelle les modèles d'Oxeegen — Max, Pro, Flash et
+Instant — par l'API Oxeegen : les mêmes modèles et la même API qu'OxeeOffice, servis
+depuis les serveurs d'Oxeegen dans une région US et une région UE, chacune avec ses
+propres clés.
 
-**Modèles Oxeegen.** Oxeegen sert Max, Pro, Flash et Instant par un endpoint compatible
-OpenAI, dans une région US et une région UE, chacune avec ses propres clés. Pour faire
-tourner un agent dessus, choisissez-en un qui accepte un fournisseur compatible OpenAI
-personnalisé — OpenCode, Qwen Code, Cline ou Kilo Code, par exemple — et donnez-lui
-l'endpoint et la clé de votre région. Renseignez-les dans la configuration propre à
-l'agent ou, pour les agents qui lisent des variables d'environnement, dans
-**Paramètres → Agents**, où chaque agent peut avoir sa propre commande, ses arguments de
-lancement et son environnement.
+**Géré par Oxeegen.** Assembler un agent, l'accès aux modèles, les clés, les
+environnements d'exécution et les hôtes distants, c'est là que la plupart des équipes
+calent. Avec un contrat Oxeegen, toute la plateforme tourne dans un bureau virtuel (VDI)
+dédié dans le centre de données cloud d'Oxeegen, installée et configurée, en forfait
+mensuel géré par Oxeegen et couvert par l'**Ultra-Support 24/7** : assistance, mises à
+jour, maintenance et supervision. Voir les
+[ordinateurs cloud d'Oxeegen](https://www.oxeegen.com/computer).
 
-**Comptes et limites.** **Paramètres → Comptes** garde plusieurs connexions Claude et
-Codex côte à côte et passe de l'une à l'autre sans vous reconnecter ; chacune conserve
-son propre contexte de connexion, stocké sur cet appareil. L'utilisation en direct et
-les réinitialisations de quotas s'affichent pour Claude et Codex, ainsi que pour Gemini
-et OpenCode Go une fois configurés.
+**Tout autre agent.** OxeeUI n'appelle jamais de modèle lui-même — c'est chaque agent qui
+le fait, avec ce qu'il est configuré pour utiliser : un forfait Claude ou ChatGPT, une
+clé d'API, ou un endpoint auto-hébergé. Les agents qui acceptent un fournisseur
+compatible OpenAI personnalisé, comme OpenCode, Qwen Code, Cline ou Kilo Code, peuvent
+aussi utiliser l'API Oxeegen : renseignez l'endpoint et la clé dans la configuration
+propre à l'agent, ou en variables d'environnement dans **Paramètres → Agents**.
 
-**Où tournent les agents.** Les agents sont détectés et lancés sur cette machine, dans
-WSL sous Windows ou sur un hôte SSH connecté, et chaque environnement garde ses propres
-installations et connexions. **Paramètres → Agents** montre ce qui est installé et ce
-qui peut l'être, définit l'agent par défaut des nouveaux espaces de travail, et choisit
-le mode d'autorisation par défaut : **Yolo** pour moins de confirmations, ou **Manuel**.
+**Comptes et environnements.** **Paramètres → Comptes** passe d'une connexion Claude ou
+Codex à l'autre sans vous reconnecter, et affiche l'utilisation en direct et les
+réinitialisations de quotas. Les agents tournent sur cette machine, dans WSL ou sur un
+hôte SSH ; **Paramètres → Agents** définit l'agent par défaut et le mode d'autorisation
+par défaut, **Yolo** ou **Manuel**.
 
 ## La pile Oxeegen
 
@@ -252,14 +254,15 @@ propres serveurs d'inférence, et les applications de bureau qui les mettent au 
 | | |
 |---|---|
 | **Modèles Oxeegen** | Max, Pro, Flash et Instant, qui tournent sur les serveurs d'Oxeegen et sont servis par une API compatible OpenAI, avec des régions US et UE. |
+| **Oxeegen Hermes** | La version d'Oxeegen de l'agent Hermes, qui tourne sur les modèles d'Oxeegen — le moteur principal d'OxeeUI. |
 | **[OxeeOffice](https://github.com/Oxeegen/OxeeOffice)** | La suite bureautique IA : fichiers Word, Excel, PowerPoint et PDF, édités avec une IA qui tourne sur les modèles d'Oxeegen. |
 | **[VOxee](https://github.com/Oxeegen/VOxee)** | La voix en texte : dictée, transcription de réunions et notes, sur les modèles auto-hébergés d'Oxeegen. |
 | **OxeeUI** | L'environnement de développement agentique — ce dépôt. |
+| **[Ordinateurs cloud](https://www.oxeegen.com/computer)** | Des bureaux virtuels gérés dans le centre de données d'Oxeegen, avec l'Ultra-Support 24/7, dont une plateforme OxeeUI dédiée. |
 
-OxeeUI est le poste du développeur dans cette pile. Il fait tourner les agents de code
-que votre équipe utilise déjà, et tous ceux qui acceptent un endpoint compatible OpenAI
-personnalisé peuvent tourner sur les modèles d'Oxeegen : la partie modèle de la boucle
-reste alors elle aussi sur les serveurs d'Oxeegen — voir [Moteurs d'IA](#moteurs-dia).
+OxeeUI est le poste du développeur dans cette pile. Il fait tourner Oxeegen Hermes et les
+agents de code que votre équipe utilise déjà, sur votre propre machine ou dans un
+ordinateur cloud Oxeegen — voir [Moteurs d'IA](#moteurs-dia).
 
 ## Téléchargement
 
@@ -293,8 +296,10 @@ chmod +x oxeeui-linux-x86_64.AppImage
 <details>
 <summary><b>OxeeUI est-il gratuit ?</b></summary>
 
-Oui. OxeeUI est un logiciel open source distribué sous licence MIT. Les agents que vous
-lancez utilisent vos propres abonnements ou clés d'API.
+Oui. OxeeUI est un logiciel open source distribué sous licence MIT. Oxeegen Hermes
+utilise une clé d'API Oxeegen, les autres agents vos propres abonnements ou clés d'API,
+et la plateforme cloud gérée avec l'Ultra-Support 24/7 est un forfait mensuel proposé
+par Oxeegen.
 
 </details>
 
@@ -320,9 +325,20 @@ fournisseurs de modèles, exactement comme dans n'importe quel terminal.
 <details>
 <summary><b>Puis-je utiliser les modèles d'Oxeegen ?</b></summary>
 
-Oui, avec tout agent qui accepte un endpoint compatible OpenAI personnalisé, comme
-OpenCode, Qwen Code, Cline ou Kilo Code. Les clés sont délivrées par région (US ou UE) ;
-[Moteurs d'IA](#moteurs-dia) explique où renseigner l'endpoint et la clé.
+Oui. Oxeegen Hermes tourne dessus, tout comme n'importe quel agent qui accepte un
+endpoint compatible OpenAI personnalisé, comme OpenCode, Qwen Code, Cline ou Kilo Code.
+Les clés sont délivrées par région (US ou UE) ; [Moteurs d'IA](#moteurs-dia) explique où
+renseigner l'endpoint et la clé.
+
+</details>
+
+<details>
+<summary><b>Oxeegen peut-il l'héberger et le gérer pour nous ?</b></summary>
+
+Oui. Avec un contrat Oxeegen, toute la plateforme tourne dans un bureau virtuel dédié
+dans le centre de données cloud d'Oxeegen, installée et configurée, en forfait mensuel
+géré avec l'Ultra-Support 24/7. Voir les
+[ordinateurs cloud d'Oxeegen](https://www.oxeegen.com/computer).
 
 </details>
 

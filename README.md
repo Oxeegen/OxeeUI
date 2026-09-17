@@ -47,8 +47,8 @@ ready to review.
   and terminals.
 - **No account, no analytics.** Your repositories stay where they are, and OxeeUI builds
   ship without an analytics key, so no usage telemetry is sent.
-- **Part of Oxeegen's stack.** The coding seat of a sovereign AI stack built on
-  Oxeegen's own models and servers — see [The Oxeegen stack](#the-oxeegen-stack).
+- **Part of Oxeegen's stack.** Runs Oxeegen Hermes on Oxeegen's own models, on your
+  machine or as a managed cloud computer — see [The Oxeegen stack](#the-oxeegen-stack).
 
 **Get it:** [Windows](https://github.com/Oxeegen/OxeeUI/releases/latest/download/oxeeui-windows-setup.exe) (x64) ·
 [Linux](https://github.com/Oxeegen/OxeeUI/releases/latest/download/oxeeui-linux-x86_64.AppImage) (AppImage) —
@@ -145,23 +145,22 @@ into an agent's prompt.
 
 ## Why OxeeUI
 
-- **Made for more than one agent.** OxeeUI tracks which agent works where, what it
-  changed and when it needs you — something a row of terminal tabs stops doing at the
-  second agent.
-- **Real git, not copies.** Every agent works on a real branch, in its own worktree of
-  your repository, so bringing its work in is ordinary git.
-- **Review where the work happens.** Diffs, line comments sent back to the agent, and
-  commits live in the same window as the agents that produced them.
-- **The agents you already pay for.** No new subscription, no per-seat fee, no Oxeegen
-  account: Claude Code, Codex and 27 other agents run on their own sign-ins.
-- **Runs where your code runs.** On this machine, in WSL on Windows, or on an SSH host,
-  with agents detected and launched in each environment.
-- **Automation built in.** Schedule agent work — a project, an agent, a prompt and a
-  schedule — and every run starts in a fresh workspace; or let a coordinator agent
-  dispatch work to other agents.
-- **Private by default.** No usage analytics, and account sign-ins are stored on this
-  device.
-- **Open source**, MIT-licensed, and free.
+- **Made for many agents.** OxeeUI tracks which agent works where, what it changed and
+  when it needs you.
+- **Real git, reviewed in place.** Every agent works on a real branch in its own worktree
+  of your repository, and its diffs, line comments and commits sit in the same window.
+- **One stack, end to end.** Oxeegen Hermes runs on Oxeegen's own models — the same ones
+  behind OxeeOffice — while Claude Code, Codex and 27 other agents still run alongside it
+  on their own sign-ins.
+- **Ready without the setup.** An agent stack is hard to set up. Oxeegen delivers the
+  whole platform as a monthly managed service, on a dedicated cloud computer.
+- **24/7 Ultra-Support.** With an Oxeegen contract, Oxeegen's support team takes care of
+  assistance, updates, maintenance and monitoring for the platform.
+- **Runs where your code runs.** On this machine, in WSL on Windows, on an SSH host, or in
+  a dedicated virtual desktop in Oxeegen's datacenter.
+- **Automation built in.** Scheduled agent runs, each in a fresh workspace, and a
+  coordinator agent that dispatches work to others.
+- **Open source and private.** MIT-licensed and free, with no usage analytics.
 
 ## Supported agents
 
@@ -214,29 +213,28 @@ Works with **any CLI agent**. These are recognised out of the box:
 
 ## AI backends
 
-**Your agents, your providers.** OxeeUI never calls a model itself. Every AI request is
-made by the coding agent you launch, with whatever that agent is set up to use: a
-subscription sign-in such as a Claude or ChatGPT plan, an API key, or a self-hosted
-endpoint. Pick a different agent for a workspace and the backend changes with it.
+**Oxeegen Hermes.** OxeeUI's main backend is Oxeegen Hermes, Oxeegen's own version of
+the Hermes agent. It calls Oxeegen's models — Max, Pro, Flash and Instant — through the
+Oxeegen API: the same models and API that OxeeOffice uses, served from Oxeegen's servers
+in a US and an EU region, each with its own keys.
 
-**Oxeegen models.** Oxeegen serves Max, Pro, Flash and Instant through an
-OpenAI-compatible endpoint, in a US and an EU region, each with its own keys. To run an
-agent on them, pick one that accepts a custom OpenAI-compatible provider — OpenCode,
-Qwen Code, Cline or Kilo Code, for example — and give it your region's endpoint and key.
-Set them in the agent's own configuration or, for agents that read environment
-variables, in **Settings → Agents**, where every agent can carry its own command, launch
-arguments and environment.
+**Managed by Oxeegen.** Wiring an agent, model access, keys, runtimes and remote hosts
+together is where most teams stall. With an Oxeegen contract, the full platform runs in a
+dedicated virtual desktop (VDI) in Oxeegen's cloud datacenter, installed and configured,
+as a monthly package managed by Oxeegen and covered by **24/7 Ultra-Support**:
+assistance, updates, maintenance and monitoring. See
+[Oxeegen cloud computers](https://www.oxeegen.com/computer).
 
-**Accounts and limits.** **Settings → Accounts** keeps several Claude and Codex sign-ins
-side by side and switches between them without logging in again; each keeps its own
-sign-in context, stored on this device. Live usage and rate-limit resets are shown for
-Claude and Codex, and for Gemini and OpenCode Go once they are set up.
+**Any other agent.** OxeeUI never calls a model itself — each agent does, with whatever it
+is set up to use: a Claude or ChatGPT plan, an API key, or a self-hosted endpoint. Agents
+that accept a custom OpenAI-compatible provider, such as OpenCode, Qwen Code, Cline or
+Kilo Code, can use the Oxeegen API too: set the endpoint and key in the agent's own
+configuration, or as environment variables in **Settings → Agents**.
 
-**Where agents run.** Agents are detected and launched on this machine, in WSL on
-Windows, or on a connected SSH host, and each environment keeps its own installs and
-sign-ins. **Settings → Agents** shows what is installed and what can be installed, sets
-the default agent for new workspaces, and picks the permission default: **Yolo** for
-fewer prompts, or **Manual** checks.
+**Accounts and runtimes.** **Settings → Accounts** switches between several Claude and
+Codex sign-ins without logging in again, and shows live usage and rate-limit resets.
+Agents run on this machine, in WSL or on an SSH host; **Settings → Agents** sets the
+default agent and the permission default, **Yolo** or **Manual**.
 
 ## The Oxeegen stack
 
@@ -246,14 +244,15 @@ inference servers, and the desktop apps that put them to work.
 | | |
 |---|---|
 | **Oxeegen models** | Max, Pro, Flash and Instant, running on Oxeegen's servers and served through an OpenAI-compatible API, with US and EU regions. |
+| **Oxeegen Hermes** | Oxeegen's own version of the Hermes agent, running on Oxeegen's models — OxeeUI's main backend. |
 | **[OxeeOffice](https://github.com/Oxeegen/OxeeOffice)** | The AI office suite: Word, Excel, PowerPoint and PDF files, edited with an AI that runs on Oxeegen's models. |
 | **[VOxee](https://github.com/Oxeegen/VOxee)** | Voice to text: dictation, meeting transcription and notes on Oxeegen's self-hosted models. |
 | **OxeeUI** | The agentic development environment — this repository. |
+| **[Cloud computers](https://www.oxeegen.com/computer)** | Managed virtual desktops in Oxeegen's datacenter with 24/7 Ultra-Support, including a dedicated OxeeUI platform. |
 
-OxeeUI is the developer's seat in that stack. It runs the coding agents your team
-already uses, and any of them that accepts a custom OpenAI-compatible endpoint can run
-on Oxeegen's models instead, so the model side of the loop stays on Oxeegen's servers
-too — see [AI backends](#ai-backends).
+OxeeUI is the developer's seat in that stack. It runs Oxeegen Hermes and the coding
+agents your team already uses, on your own machine or in an Oxeegen cloud computer — see
+[AI backends](#ai-backends).
 
 ## Download
 
@@ -286,8 +285,9 @@ chmod +x oxeeui-linux-x86_64.AppImage
 <details>
 <summary><b>Is OxeeUI free?</b></summary>
 
-Yes. OxeeUI is open-source software under the MIT License. The agents you run use your
-own subscriptions or API keys.
+Yes. OxeeUI is open-source software under the MIT License. Oxeegen Hermes uses an
+Oxeegen API key, other agents use your own subscriptions or API keys, and the managed
+cloud platform with 24/7 Ultra-Support is a monthly package from Oxeegen.
 
 </details>
 
@@ -312,9 +312,19 @@ talk to their own model providers, exactly as they do in any terminal.
 <details>
 <summary><b>Can I use Oxeegen's models?</b></summary>
 
-Yes, through any agent that accepts a custom OpenAI-compatible endpoint, such as
-OpenCode, Qwen Code, Cline or Kilo Code. Keys are issued per region (US or EU);
-[AI backends](#ai-backends) explains where the endpoint and key go.
+Yes. Oxeegen Hermes runs on them, and so can any agent that accepts a custom
+OpenAI-compatible endpoint, such as OpenCode, Qwen Code, Cline or Kilo Code. Keys are
+issued per region (US or EU); [AI backends](#ai-backends) explains where the endpoint and
+key go.
+
+</details>
+
+<details>
+<summary><b>Can Oxeegen host and manage it for us?</b></summary>
+
+Yes. With an Oxeegen contract, the full platform runs in a dedicated virtual desktop in
+Oxeegen's cloud datacenter, installed and configured, as a monthly managed package with
+24/7 Ultra-Support. See [Oxeegen cloud computers](https://www.oxeegen.com/computer).
 
 </details>
 
