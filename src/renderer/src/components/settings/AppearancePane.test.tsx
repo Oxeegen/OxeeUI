@@ -426,7 +426,10 @@ describe('AppearancePane', () => {
     expect(requestFontSuggestions).toHaveBeenCalledOnce()
   })
 
-  it('keeps the app icon control at the bottom of the pane, after the section rows', async () => {
+  // Why this diverges from upstream, which asserts the picker sits at the bottom:
+  // OxeeUI offers a single app icon, so the picker has nothing to choose and is
+  // not rendered. See brand/settings/app-icons.ts.
+  it('hides the app icon control when only one icon is offered', async () => {
     mocks.state.settingsSearchQuery = ''
     const container = await renderAppearancePane(getDefaultSettings('/tmp'))
 
@@ -435,13 +438,7 @@ describe('AppearancePane', () => {
     const appIconImage = container.querySelector<HTMLImageElement>('img[alt="Selected app icon"]')
 
     expect(interfaceRow).toBeDefined()
-    expect(appIconImage).not.toBeNull()
-    // The App Icon block sits after the Interface section row in document order.
-    expect(
-      interfaceRow &&
-        appIconImage &&
-        interfaceRow.compareDocumentPosition(appIconImage) & Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy()
+    expect(appIconImage).toBeNull()
   })
 
   it('reveals an advanced sidebar control when its search matches, even though it is hidden by default', async () => {

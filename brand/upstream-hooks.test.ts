@@ -74,7 +74,15 @@ const HOOKS: [file: string, markers: string[]][] = [
   // The updater's fallback feed. brand/updater-feed.test.ts also fails on any
   // upstream release URL anywhere in shipped code, which catches new call sites.
   ['src/main/updater/updater-release-feed.ts', ['LATEST_RELEASE_DOWNLOAD_URL']],
-  ['src/main/updater/updater-setup.ts', ['LATEST_RELEASE_DOWNLOAD_URL']]
+  ['src/main/updater/updater-setup.ts', ['LATEST_RELEASE_DOWNLOAD_URL']],
+  // App icon: OxeeUI offers only its own mark. Losing the load hook lets a
+  // profile carried over from upstream keep upstream's artwork as the app icon.
+  [
+    'src/main/persistence/loading-store/normalize-loaded-global-settings.ts',
+    ['resolveBrandAppIconId']
+  ],
+  ['src/renderer/src/components/settings/AppearancePane.tsx', ['IS_APP_ICON_CHOICE_OFFERED']],
+  ['src/renderer/src/components/settings/appearance-search.ts', ['IS_APP_ICON_CHOICE_OFFERED']]
 ]
 
 describe('upstream hooks', () => {
