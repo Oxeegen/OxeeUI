@@ -8,43 +8,50 @@
   <sub><strong>English</strong> · <a href="docs/readme/README.fr.md">Français</a></sub>
 </p>
 
+<p align="center"><b>Oxeegen's agentic development environment.</b><br/>
+Run any CLI coding agent in its own git worktree — terminal, editor and diff review in one window.</p>
+
 <p align="center">
-  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey?style=flat" alt="Platform: Windows and Linux" />
-  <img src="https://img.shields.io/badge/agents-any%20CLI-5E4AF5?style=flat" alt="Works with any CLI agent" />
-  <img src="https://img.shields.io/badge/license-MIT-08C?style=flat" alt="License: MIT" />
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/Oxeegen/OxeeUI?color=5E4AF5" alt="License: MIT" /></a>
+  <a href="https://github.com/Oxeegen/OxeeUI/releases/latest"><img src="https://img.shields.io/github/v/release/Oxeegen/OxeeUI?color=5E4AF5" alt="Latest release" /></a>
+  <a href="https://github.com/Oxeegen/OxeeUI/releases"><img src="https://img.shields.io/github/downloads/Oxeegen/OxeeUI/total?color=5E4AF5" alt="Downloads" /></a>
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux-5E4AF5" alt="Platform: Windows and Linux" />
 </p>
 
 <p align="center">
-  Oxeegen's agentic development environment — run any CLI coding agent in its own<br/>
-  git worktree, with the terminal, editor and diff review in one window.
+  <a href="#download"><b>Download</b></a> ·
+  <a href="#features"><b>Features</b></a> ·
+  <a href="#supported-agents"><b>Agents</b></a> ·
+  <a href="#the-oxeegen-stack"><b>Oxeegen stack</b></a> ·
+  <a href="#faq"><b>FAQ</b></a>
 </p>
-
-<h3 align="center"><a href="https://github.com/Oxeegen/OxeeUI/releases/latest"><ins>Download the latest release</ins></a></h3>
 
 <p align="center">
-  <img src="brand/assets/readme/feature-wall/split-screen.jpg" alt="OxeeUI running an agent beside the editor and file tree" width="960" />
+  <img src="brand/assets/readme/feature-wall/split-screen.jpg" alt="OxeeUI running a coding agent beside the editor and the file tree" width="960" />
 </p>
 
----
+**OxeeUI** runs coding agents the way a team actually works: several at once, each
+isolated in its own git worktree, with the terminal, file tree, editor and diff review
+side by side. Hand a task to an agent, keep working, and come back to a branch that is
+ready to review.
 
-**OxeeUI** runs coding agents the way a team actually works: several at once, each isolated in its own git worktree, with the terminal, file tree, editor and diff review side by side. Claude Code, Codex, Grok, Cursor, Copilot, OpenCode, Qwen, Kimi — if it runs in a terminal, it runs here.
+- **Many agents, one window.** Claude Code, Codex, Grok, Cursor, GitHub Copilot,
+  OpenCode, Qwen Code, Kimi and twenty more run side by side. If it runs in a terminal,
+  it runs here.
+- **Isolated work.** Each task gets its own git worktree, so agents never trample
+  each other's changes — or yours.
+- **Review before you merge.** Read the diff, annotate any line and send the notes back
+  to the agent, then commit, all without leaving the app.
+- **Local or remote.** Work on this machine, or on an SSH host with file editing, git
+  and terminals.
+- **No account, no analytics.** Your repositories stay where they are, and OxeeUI builds
+  ship without an analytics key, so no usage telemetry is sent.
+- **Part of Oxeegen's stack.** The coding seat of a sovereign AI stack built on
+  Oxeegen's own models and servers — see [The Oxeegen stack](#the-oxeegen-stack).
 
-Agents run under **your own subscriptions**. There is no Oxeegen account, no per-seat service in the middle, and no usage analytics: OxeeUI builds ship without an analytics key, so no usage telemetry is sent.
-
-## Download
-
-Builds live on the [**Releases**](https://github.com/Oxeegen/OxeeUI/releases) page.
-
-| Version | Platform | File |
-|---|---|---|
-| **0.4.204** | Windows x64 | `oxeeui-windows-setup.exe` |
-| **0.4.204** | Linux x86_64 | `oxeeui-linux-x86_64.AppImage` |
-
-Builds are **unsigned**, so Windows SmartScreen warns on first run — choose **More info → Run anyway**.
-
-**No macOS build yet.** Without an Apple Developer certificate the DMG is refused by Gatekeeper; a macOS build follows once signing is in place.
-
-New versions are published on the Releases page.
+**Get it:** [Windows](https://github.com/Oxeegen/OxeeUI/releases/latest/download/oxeeui-windows-setup.exe) (x64) ·
+[Linux](https://github.com/Oxeegen/OxeeUI/releases/latest/download/oxeeui-linux-x86_64.AppImage) (AppImage) —
+requirements in [Download](#download).
 
 ## Features
 
@@ -52,9 +59,10 @@ New versions are published on the Releases page.
 <tr>
 <td width="50%" valign="middle">
 
-### Parallel Worktrees
+### Parallel worktrees
 
-Fan one prompt across several agents, each in its own isolated git worktree — compare the results and merge the winner.
+Fan one prompt across several agents, each in its own isolated git worktree — compare
+the results and merge the winner.
 
 </td>
 <td width="50%">
@@ -64,48 +72,229 @@ Fan one prompt across several agents, each in its own isolated git worktree — 
 <tr>
 <td width="50%" valign="middle">
 
-### Any CLI Agent
+### Any CLI agent
 
-Claude Code, Codex, Grok, Cursor, Copilot, OpenCode, Qwen, Kimi, Goose, Cline and the rest — all driven from one window, on your own subscriptions.
+Claude Code, Codex, Grok, Cursor, OpenCode, Qwen Code, Kimi, Goose, Cline and the rest —
+all driven from one window, on your own subscriptions.
 
 </td>
 <td width="50%">
-  <picture><source srcset="brand/assets/readme/feature-wall/cli-agents.gif" type="image/gif"><img src="brand/assets/readme/feature-wall/cli-agents.jpg" alt="Running a CLI agent" width="100%" /></picture>
+  <picture><source srcset="brand/assets/readme/feature-wall/cli-agents.gif" type="image/gif"><img src="brand/assets/readme/feature-wall/cli-agents.jpg" alt="A CLI coding agent running in OxeeUI" width="100%" /></picture>
 </td>
 </tr>
 <tr>
 <td width="50%" valign="middle">
 
-### Terminal Splits
+### Terminal splits
 
-Fast GPU-rendered terminals with unlimited splits, and scrollback that survives restarts.
+Fast GPU-rendered terminals with unlimited splits, and scrollback that survives
+restarts.
 
 </td>
 <td width="50%">
-  <picture><source srcset="brand/assets/readme/feature-wall/terminal-splits.gif" type="image/gif"><img src="brand/assets/readme/feature-wall/terminal-splits.jpg" alt="Terminal splits" width="100%" /></picture>
+  <picture><source srcset="brand/assets/readme/feature-wall/terminal-splits.gif" type="image/gif"><img src="brand/assets/readme/feature-wall/terminal-splits.jpg" alt="Splitting terminals" width="100%" /></picture>
 </td>
 </tr>
 <tr>
 <td width="50%" valign="middle">
 
-### Annotate AI Diffs
+### Annotate AI diffs
 
-Drop comments on any diff line and send them straight back to the agent — review, edit and commit without leaving the app.
+Drop comments on any diff line and send them straight back to the agent — review, edit
+and commit without leaving the app.
 
 </td>
 <td width="50%">
   <picture><source srcset="brand/assets/readme/feature-wall/annotate-diff.gif" type="image/gif"><img src="brand/assets/readme/feature-wall/annotate-diff.jpg" alt="Annotating an AI-generated diff" width="100%" /></picture>
 </td>
 </tr>
+<tr>
+<td width="50%" valign="middle">
+
+### Drag files to agents
+
+A full editor with autosave everywhere — drag a file or an image from the tree straight
+into an agent's prompt.
+
+</td>
+<td width="50%">
+  <picture><source srcset="brand/assets/readme/feature-wall/drag-files.gif" type="image/gif"><img src="brand/assets/readme/feature-wall/drag-files.jpg" alt="Dragging a file from the file tree into an agent's prompt" width="100%" /></picture>
+</td>
+</tr>
 </table>
 
-**Also in the box:** quick open across worktrees, files, agents and commands · drag files and images straight into an agent's prompt · usage and rate-limit resets per provider, with account switching that needs no fresh login · Markdown, image and PDF previews in the workspace · notifications and unread state when an agent finishes or needs attention · automation from the command line.
+**Also in the box:**
 
-## Designed for focus
+- **SSH worktrees** — run agents on a remote machine with file editing, git and
+  terminals, and reconnect automatically when the link drops.
+- **GitHub in the app** — browse pull requests and issues, and open a worktree straight
+  from a task.
+- **Quick open** — jump across worktrees, files, agents and commands without leaving
+  the keyboard.
+- **Accounts and usage** — usage and rate-limit resets per provider, with account
+  switching that needs no fresh login.
+- **Markdown and previews** — edit Markdown in a rich editor, and preview images and
+  PDFs in the workspace.
+- **Notifications and unread state** — know when an agent finishes or needs attention,
+  and mark threads unread to come back to them later.
+- **File icons you already know** — Material Icon Theme, the same set as VS Code, across
+  the explorer, tabs, search, source control and diffs.
+- **Ready to work** — a new profile opens with Oxeegen's appearance: dark theme,
+  Cascadia Code and Monokai.
 
-- **A focused Settings panel.** OxeeUI is for agents, git and the terminal. There is no cloud sign-in, sharing service or plugin marketplace to configure.
-- **Ready to work.** A new profile opens with Oxeegen's appearance: dark theme, Cascadia Code and Monokai.
-- **Familiar file icons.** File and folder icons come from Material Icon Theme, the same set as VS Code, across the explorer, tabs, search, source control and diffs.
+## Supported agents
+
+Works with **any CLI agent**. These are recognised out of the box:
+
+<table>
+<tr>
+<td><a href="https://ampcode.com/manual#install"><img src="https://www.google.com/s2/favicons?domain=ampcode.com&sz=64" width="16" height="16" alt="" /> Amp</a></td>
+<td><a href="https://antigravity.google/docs/cli-overview"><img src="https://www.google.com/s2/favicons?domain=antigravity.google&sz=64" width="16" height="16" alt="" /> Antigravity</a></td>
+<td><a href="https://docs.augmentcode.com/cli/overview"><img src="https://www.google.com/s2/favicons?domain=augmentcode.com&sz=64" width="16" height="16" alt="" /> Auggie</a></td>
+<td><a href="https://github.com/autohandai/code-cli"><img src="https://www.google.com/s2/favicons?domain=autohand.ai&sz=64" width="16" height="16" alt="" /> Autohand Code</a></td>
+<td><a href="https://docs.anthropic.com/claude/docs/claude-code"><img src="brand/assets/readme/agents/claude.svg" width="16" height="16" alt="" /> Claude Code</a></td>
+</tr>
+<tr>
+<td><a href="https://docs.cline.bot/cline-cli/overview"><img src="https://www.google.com/s2/favicons?domain=cline.bot&sz=64" width="16" height="16" alt="" /> Cline</a></td>
+<td><a href="https://www.codebuff.com/docs/help/quick-start"><img src="https://www.google.com/s2/favicons?domain=codebuff.com&sz=64" width="16" height="16" alt="" /> Codebuff</a></td>
+<td><a href="https://github.com/openai/codex"><img src="https://www.google.com/s2/favicons?domain=openai.com&sz=64" width="16" height="16" alt="" /> Codex</a></td>
+<td><a href="https://commandcode.ai/docs/quickstart"><img src="https://www.google.com/s2/favicons?domain=commandcode.ai&sz=64" width="16" height="16" alt="" /> Command Code</a></td>
+<td><a href="https://docs.continue.dev/guides/cli"><img src="https://www.google.com/s2/favicons?domain=continue.dev&sz=64" width="16" height="16" alt="" /> Continue</a></td>
+</tr>
+<tr>
+<td><a href="https://github.com/charmbracelet/crush"><img src="https://www.google.com/s2/favicons?domain=charm.sh&sz=64" width="16" height="16" alt="" /> Crush</a></td>
+<td><a href="https://cursor.com/cli"><img src="https://www.google.com/s2/favicons?domain=cursor.com&sz=64" width="16" height="16" alt="" /> Cursor</a></td>
+<td><a href="https://devin.ai/cli"><img src="https://www.google.com/s2/favicons?domain=devin.ai&sz=64" width="16" height="16" alt="" /> Devin</a></td>
+<td><a href="https://docs.factory.ai/cli/getting-started/quickstart"><img src="brand/assets/readme/agents/droid.svg" width="16" height="16" alt="" /> Droid</a></td>
+<td><a href="https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-cli"><img src="https://www.google.com/s2/favicons?domain=github.com&sz=64" width="16" height="16" alt="" /> GitHub Copilot</a></td>
+</tr>
+<tr>
+<td><a href="https://block.github.io/goose/docs/quickstart/"><img src="https://www.google.com/s2/favicons?domain=goose-docs.ai&sz=64" width="16" height="16" alt="" /> Goose</a></td>
+<td><a href="https://x.ai/cli"><img src="https://www.google.com/s2/favicons?domain=x.ai&sz=64" width="16" height="16" alt="" /> Grok</a></td>
+<td><a href="https://hermes-agent.nousresearch.com/docs/"><img src="https://www.google.com/s2/favicons?domain=nousresearch.com&sz=64" width="16" height="16" alt="" /> Hermes Agent</a></td>
+<td><a href="https://kilo.ai/docs/cli"><img src="https://www.google.com/s2/favicons?domain=kilo.ai&sz=64" width="16" height="16" alt="" /> Kilo Code</a></td>
+<td><a href="https://www.kimi.com/code/docs/en/kimi-code-cli/getting-started.html"><img src="https://www.google.com/s2/favicons?domain=moonshot.cn&sz=64" width="16" height="16" alt="" /> Kimi</a></td>
+</tr>
+<tr>
+<td><a href="https://kiro.dev/docs/cli/"><img src="https://www.google.com/s2/favicons?domain=kiro.dev&sz=64" width="16" height="16" alt="" /> Kiro</a></td>
+<td><a href="https://mimo.xiaomi.com/coder"><img src="https://www.google.com/s2/favicons?domain=mimo.xiaomi.com&sz=64" width="16" height="16" alt="" /> MiMo Code</a></td>
+<td><a href="https://github.com/mistralai/mistral-vibe"><img src="https://www.google.com/s2/favicons?domain=mistral.ai&sz=64" width="16" height="16" alt="" /> Mistral Vibe</a></td>
+<td><a href="https://omp.sh"><img src="https://omp.sh/favicon.svg" width="16" height="16" alt="" /> oh-my-pi</a></td>
+<td><a href="https://openclaude.gitlawb.com/"><img src="brand/assets/readme/agents/openclaude.png" width="16" height="16" alt="" /> OpenClaude</a></td>
+</tr>
+<tr>
+<td><a href="https://opencode.ai/docs/cli/"><img src="https://www.google.com/s2/favicons?domain=opencode.ai&sz=64" width="16" height="16" alt="" /> OpenCode</a></td>
+<td><a href="https://pi.dev"><img src="https://pi.dev/favicon.svg" width="16" height="16" alt="" /> Pi</a></td>
+<td><a href="https://github.com/QwenLM/qwen-code"><img src="https://www.google.com/s2/favicons?domain=qwenlm.github.io&sz=64" width="16" height="16" alt="" /> Qwen Code</a></td>
+<td><a href="https://support.atlassian.com/rovo/docs/install-and-run-rovo-dev-cli-on-your-device/"><img src="https://www.google.com/s2/favicons?domain=atlassian.com&sz=64" width="16" height="16" alt="" /> Rovo Dev</a></td>
+<td><b>+ any CLI agent</b></td>
+</tr>
+</table>
+
+## The Oxeegen stack
+
+Oxeegen is building a **sovereign AI stack**: its own models, served from its own
+inference servers, and the desktop apps that put them to work.
+
+| | |
+|---|---|
+| **Oxeegen models** | Max, Pro, Flash and Instant, running on Oxeegen's servers and served through an OpenAI-compatible API, with US and EU regions. |
+| **[OxeeOffice](https://github.com/Oxeegen/OxeeOffice)** | The AI office suite: Word, Excel, PowerPoint and PDF files, edited with an AI that runs on Oxeegen's models. |
+| **[VOxee](https://github.com/Oxeegen/VOxee)** | Voice to text: dictation, meeting transcription and notes on Oxeegen's self-hosted models. |
+| **OxeeUI** | The agentic development environment — this repository. |
+
+OxeeUI is the developer's seat in that stack. It runs the coding agents your team
+already uses, on the subscriptions you already have. Agents that accept a custom
+OpenAI-compatible endpoint — OpenCode, Qwen Code, Cline or Kilo Code, for example — can
+be pointed at Oxeegen's models instead, so the model side of the loop runs on Oxeegen's
+servers too.
+
+## Download
+
+| Platform | Requirements | Download |
+|---|---|---|
+| **Windows** (x64) | Windows 10 or later | [`oxeeui-windows-setup.exe`](https://github.com/Oxeegen/OxeeUI/releases/latest/download/oxeeui-windows-setup.exe) |
+| **Linux** (x86_64) | FUSE 2 runtime | [`oxeeui-linux-x86_64.AppImage`](https://github.com/Oxeegen/OxeeUI/releases/latest/download/oxeeui-linux-x86_64.AppImage) |
+
+Every version and its notes are on the [Releases](https://github.com/Oxeegen/OxeeUI/releases)
+page. The installers are **unsigned**: on first run, Windows SmartScreen warns — choose
+**More info → Run anyway**. There is no macOS build yet, because without an Apple
+Developer certificate Gatekeeper refuses the app.
+
+<details>
+<summary><b>Running the AppImage on Linux</b></summary>
+
+The AppImage runs in place. Install the FUSE 2 runtime if it is missing
+(`sudo apt install libfuse2`; on Ubuntu 24.04 the package is `libfuse2t64`), make the
+file executable, then start it:
+
+```bash
+chmod +x oxeeui-linux-x86_64.AppImage
+./oxeeui-linux-x86_64.AppImage
+```
+
+</details>
+
+## FAQ
+
+<details>
+<summary><b>Is OxeeUI free?</b></summary>
+
+Yes. OxeeUI is open-source software under the MIT License. The agents you run use your
+own subscriptions or API keys.
+
+</details>
+
+<details>
+<summary><b>Which coding agents does it work with?</b></summary>
+
+Any agent that runs in a terminal. The ones listed under
+[Supported agents](#supported-agents) are recognised out of the box; any other CLI agent
+runs in a regular terminal tab.
+
+</details>
+
+<details>
+<summary><b>Does OxeeUI send my code anywhere?</b></summary>
+
+No. Repositories and worktrees stay on your machine, or on the SSH hosts you connect.
+OxeeUI builds carry no analytics key, so no usage telemetry is sent. The agents you run
+talk to their own model providers, exactly as they do in any terminal.
+
+</details>
+
+<details>
+<summary><b>Can I use Oxeegen's models?</b></summary>
+
+Yes, through any agent that accepts a custom OpenAI-compatible endpoint, such as
+OpenCode, Qwen Code, Cline or Kilo Code: enter the endpoint of your Oxeegen region (US or
+EU) and your Oxeegen API key in the agent's settings. Keys are issued per region.
+
+</details>
+
+<details>
+<summary><b>Can agents run on a remote machine?</b></summary>
+
+Yes. SSH worktrees give an agent a remote host with file editing, git and terminals,
+and reconnect automatically when the connection drops.
+
+</details>
+
+<details>
+<summary><b>Is there a macOS version?</b></summary>
+
+Not yet. A macOS build needs an Apple Developer certificate; without one, Gatekeeper
+refuses the app.
+
+</details>
+
+<details>
+<summary><b>Why does Windows warn me when I install it?</b></summary>
+
+The installer is not code-signed yet, so SmartScreen does not recognise it. Choose
+**More info → Run anyway**.
+
+</details>
 
 ## Developing
 
@@ -114,7 +303,7 @@ pnpm install
 pnpm dev
 ```
 
-See [CONTRIBUTING.md](.github/CONTRIBUTING.md) for checks, installer builds and releases.
+Checks, installer builds and releases are covered in [CONTRIBUTING.md](.github/CONTRIBUTING.md).
 
 ## License
 
