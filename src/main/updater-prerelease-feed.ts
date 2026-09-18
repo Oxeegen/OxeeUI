@@ -1,7 +1,7 @@
 import { net } from 'electron'
 import { parse } from 'yaml'
 import { compareVersions, isPrereleaseVersion, isValidVersion } from './updater-fallback'
-import { MAIN_RELEASE_REPO } from '../shared/release-channel'
+import { MAIN_RELEASE_REPO, MAIN_RELEASE_TAG_PREFIX } from '../shared/release-channel'
 
 // Why derived rather than literal: this probe path activates whenever the running
 // version is a prerelease, so a fork shipping an RC would silently pull upstream
@@ -42,7 +42,10 @@ function getReleaseAssetUrl(tag: string, assetName: string): string {
 }
 
 export function normalizeTagToVersion(tag: string): string {
-  return tag.replace(/^v/i, '')
+  const withoutBrandPrefix = tag.startsWith(MAIN_RELEASE_TAG_PREFIX)
+    ? tag.slice(MAIN_RELEASE_TAG_PREFIX.length)
+    : tag
+  return withoutBrandPrefix.replace(/^v/i, '')
 }
 
 type ReleaseFeedTag = {
@@ -79,8 +82,16 @@ async function fetchReleaseFeedTags(): Promise<ReleaseFeedTag[] | null> {
       }
     }
 
-    tags.sort((left, right) => compareVersions(right.version, left.version))
-    return tags
+    // Why: this repo also carries the tags it was forked from, and GitHub lists
+    // a tag with no release in the atom feed just like a real one. Those entries
+    // have no manifest and no assets, and they outrank this product's own
+    // versions, so a check that considered them stalled on "not ready" forever.
+    // Falling back to every tag keeps behaviour unchanged for a feed that has
+    // none of our own — which is what upstream's own suites exercise.
+    const ownTags = tags.filter(({ tag }) => tag.startsWith(MAIN_RELEASE_TAG_PREFIX))
+    const feedTags = ownTags.length > 0 ? ownTags : tags
+    feedTags.sort((left, right) => compareVersions(right.version, left.version))
+    return feedTags
   } catch {
     return null
   }

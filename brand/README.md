@@ -45,8 +45,8 @@ rather than a visible conflict.
 | `src/main/startup/dev-instance-identity.ts`                   | `BASE_APP_NAME` / `BASE_APP_USER_MODEL_ID` read from `BRAND`. |
 | `src/renderer/src/i18n/i18n.ts`, `src/main/i18n/main-i18n.ts` | Register the brand-name post-processor.                       |
 | `src/renderer/src/assets/main.css`                            | `@import` of `brand-theme.css`.                               |
-| `src/shared/release-channel.ts`                               | `MAIN_RELEASE_REPO` derived from the brand publish target.    |
-| `src/main/updater-prerelease-feed.ts`                         | Prerelease feed URLs derived from `MAIN_RELEASE_REPO`.        |
+| `src/shared/release-channel.ts`                               | `MAIN_RELEASE_REPO` derived from the brand publish target, plus `MAIN_RELEASE_TAG_PREFIX` (this product tags releases `oxeeui-v<version>`). |
+| `src/main/updater-prerelease-feed.ts`                         | Prerelease feed URLs derived from `MAIN_RELEASE_REPO`; tag discovery reads `MAIN_RELEASE_TAG_PREFIX` and ignores the upstream tags this repo inherited. |
 | `src/renderer/src/hooks/useSettingsNavigationMetadata.ts`     | Filters hidden sections out of the sidebar and Cmd+J.         |
 | `src/main/startup/configure-process.ts`                       | Brand-slugged userData dir, packaged and dev.                 |
 | `config/scripts/dev-electron-bundle-identity.mjs`             | Dev bundle id and display name from the brand JSON.           |

@@ -27,8 +27,15 @@ const HOOKS: [file: string, markers: string[]][] = [
   ['src/main/i18n/main-i18n.ts', ['brandNamePostProcessor', 'BRAND_POST_PROCESS']],
   ['src/renderer/src/assets/main.css', ['brand/assets/brand-theme.css']],
   // Not the @brand alias: shared code compiles without a bundler. See release-repo.test.ts.
-  ['src/shared/release-channel.ts', ['MAIN_RELEASE_REPO', 'LATEST_RELEASE_DOWNLOAD_URL']],
-  ['src/main/updater-prerelease-feed.ts', ['MAIN_RELEASE_REPO']],
+  [
+    'src/shared/release-channel.ts',
+    ['MAIN_RELEASE_REPO', 'LATEST_RELEASE_DOWNLOAD_URL', 'MAIN_RELEASE_TAG_PREFIX']
+  ],
+  // Tag discovery. Losing the prefix is silent and total: every release this
+  // product publishes stops looking like a version, the inherited upstream tags
+  // in this repo win instead, and every update check ends in "not ready".
+  // src/main/updater-prerelease-feed-brand-tags.test.ts is the regression test.
+  ['src/main/updater-prerelease-feed.ts', ['MAIN_RELEASE_REPO', 'MAIN_RELEASE_TAG_PREFIX']],
   ['src/renderer/src/hooks/useSettingsNavigationMetadata.ts', ['isBrandSettingsSectionHidden']],
   // Keeps the packaged and dev profiles out of upstream's %APPDATA%/orca, so an
   // installed Orca and an installed OxeeUI do not share one settings store and

@@ -22,7 +22,8 @@ import {
   sortReleaseBuildsNewestFirst,
   type ReleaseBuild,
   type ReleaseChannel,
-  MAIN_RELEASE_REPO
+  MAIN_RELEASE_REPO,
+  MAIN_RELEASE_TAG_PREFIX
 } from './release-channel'
 import { compareAppVersions } from './app-version'
 
@@ -67,11 +68,14 @@ describe('release channel', () => {
     expect(getReleaseNotesUrlForVersion('1.4.160-daily.202607281300')).toBe(
       'https://github.com/stablyai/orca-daily/releases/tag/v1.4.160-daily.202607281300'
     )
+    // Why not `v1.4.160` here: releases in the main repo are published under
+    // MAIN_RELEASE_TAG_PREFIX, so a `v`-only link 404s. The dev repos above keep
+    // plain tags.
     expect(getReleaseNotesUrlForVersion('1.4.160')).toBe(
-      `https://github.com/${MAIN_RELEASE_REPO}/releases/tag/v1.4.160`
+      `https://github.com/${MAIN_RELEASE_REPO}/releases/tag/${MAIN_RELEASE_TAG_PREFIX}1.4.160`
     )
     expect(getReleaseNotesUrlForVersion('v1.4.160-rc.3')).toBe(
-      `https://github.com/${MAIN_RELEASE_REPO}/releases/tag/v1.4.160-rc.3`
+      `https://github.com/${MAIN_RELEASE_REPO}/releases/tag/${MAIN_RELEASE_TAG_PREFIX}1.4.160-rc.3`
     )
     expect(getReleaseNotesUrlForVersion('1.4.160-adhoc.20260728140533')).toBe(
       'https://github.com/stablyai/orca-adhoc/releases/tag/v1.4.160-adhoc.20260728140533'

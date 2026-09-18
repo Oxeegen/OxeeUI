@@ -48,6 +48,20 @@ export const MAIN_RELEASE_REPO = 'Oxeegen/OxeeUI'
  */
 export const LATEST_RELEASE_DOWNLOAD_URL = `https://github.com/${MAIN_RELEASE_REPO}/releases/latest/download`
 
+/**
+ * This product's release tags are `oxeeui-v<version>`, not bare `v<version>`.
+ *
+ * Why it has to be understood rather than ignored: the repo also carries the
+ * tags it was forked from, and GitHub's releases atom feed lists those as
+ * entries even though no release was ever cut for them. Reading only `v<semver>`
+ * therefore skipped every real release and picked an inherited `v1.4.x` tag,
+ * whose manifest 404s — so every update check died on "a newer release isn't
+ * available for this device yet" and never reached LATEST_RELEASE_DOWNLOAD_URL.
+ * Kept beside MAIN_RELEASE_REPO for the same reason: this module compiles with
+ * plain tsc, and upstream's updater tests mock the updater modules wholesale.
+ */
+export const MAIN_RELEASE_TAG_PREFIX = 'oxeeui-v'
+
 export const HOURLY_PRERELEASE_IDENTIFIER = 'hourly'
 export const DAILY_PRERELEASE_IDENTIFIER = 'daily'
 export const ADHOC_PRERELEASE_IDENTIFIER = 'adhoc'
@@ -141,7 +155,15 @@ export function getReleaseRepoForChannel(channel: ReleaseChannel): string {
 }
 
 export function normalizeTagToVersion(tag: string): string {
-  return tag.replace(/^v/i, '')
+  const withoutBrandPrefix = tag.startsWith(MAIN_RELEASE_TAG_PREFIX)
+    ? tag.slice(MAIN_RELEASE_TAG_PREFIX.length)
+    : tag
+  return withoutBrandPrefix.replace(/^v/i, '')
+}
+
+/** The tag a version was published under in the main repo. */
+export function formatMainReleaseTag(version: string): string {
+  return `${MAIN_RELEASE_TAG_PREFIX}${normalizeTagToVersion(version)}`
 }
 
 /** `1.4.160-hourly.202607281400` — a timestamp identifier keeps every build
@@ -267,9 +289,17 @@ export function getVersionChannel(version: string): ReleaseChannel | null {
 export function getReleaseNotesUrlForVersion(version: string | null): string {
   const channel = version ? getVersionChannel(version) : null
   const repo = channel ? getReleaseRepoForChannel(channel) : MAIN_RELEASE_REPO
-  return version
-    ? `https://github.com/${repo}/releases/tag/v${normalizeTagToVersion(version)}`
-    : `https://github.com/${repo}/releases`
+  if (!version) {
+    return `https://github.com/${repo}/releases`
+  }
+  // Why the split: only the main repo publishes under this product's tag prefix;
+  // the dev-channel repos keep plain `v<version>` tags, and a link built with the
+  // wrong one 404s.
+  const tag =
+    repo === MAIN_RELEASE_REPO
+      ? formatMainReleaseTag(version)
+      : `v${normalizeTagToVersion(version)}`
+  return `https://github.com/${repo}/releases/tag/${tag}`
 }
 
 /**
