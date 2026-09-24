@@ -56,6 +56,10 @@ const HOOKS: [file: string, markers: string[]][] = [
   ['src/main/window/createMainWindow.ts', ['BRAND.productName']],
   ['src/main/window/dashboard-popout-window.ts', ['BRAND.productName']],
   ['src/main/window/main-window-close-lifecycle.ts', ['BRAND.productName']],
+  // OS notifications built from literals: the i18n rebrand never sees them, so
+  // the Settings test button announced upstream's name.
+  ['src/main/ipc/notification-options.ts', ['BRAND.productName']],
+  ['src/main/ipc/notification-permission-probe.ts', ['BRAND.productName']],
   // The appearance layer a fresh profile starts with. Relative import, not the
   // @brand alias: shared code is compiled by plain tsc for the packaged CLI.
   ['src/shared/constants.ts', ['./brand-default-settings']],

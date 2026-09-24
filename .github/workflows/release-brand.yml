@@ -105,6 +105,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Why: build:desktop bundles the mobile web app into the package, and that
+      # build resolves React Native and Expo from mobile/node_modules. mobile/ is
+      # its own pnpm project, so the root install above leaves it empty and the
+      # bundle step fails with hundreds of unresolved imports.
+      - uses: ./.github/actions/install-mobile-dependencies
+
       - name: Verify the brand layer survived the last upstream merge
         run: pnpm run brand:verify
 

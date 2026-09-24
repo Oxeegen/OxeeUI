@@ -56,6 +56,7 @@ rather than a visible conflict.
 | `src/main/window/createMainWindow.ts`                         | Window title before the renderer sets `document.title`.       |
 | `src/main/window/dashboard-popout-window.ts`                  | Pop-out dashboard window title.                               |
 | `src/main/window/main-window-close-lifecycle.ts`              | Tray-minimize notification title.                             |
+| `src/main/ipc/notification-options.ts`, `src/main/ipc/notification-permission-probe.ts` | Test and permission-probe notifications titled with `BRAND.productName`. |
 | `src/shared/constants.ts`                                     | Layers `BRAND_DEFAULT_SETTINGS` over upstream's defaults.     |
 | `src/renderer/src/lib/file-type-icons.ts`                     | Material Icon Theme file icons via `getBrandFileIcon`.        |
 | `src/renderer/src/components/right-sidebar/FileExplorerRow.tsx` | `BrandFolderIcon` in the file explorer.                     |

@@ -2,6 +2,7 @@ import { resolve } from 'node:path'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import { createPdfjsViewerAssetsPlugin } from './config/build-plugins/pdfjs-viewer-assets'
 import { brandHtmlTitle } from './brand/vite/html-title'
 
 export default defineConfig({
@@ -9,7 +10,7 @@ export default defineConfig({
   // Why: pairing URLs may live under a reverse-proxy path prefix like
   // /orca/web-index.html, so built assets must resolve relative to the page.
   base: './',
-  plugins: [react(), tailwindcss(), brandHtmlTitle()],
+  plugins: [react(), tailwindcss(), createPdfjsViewerAssetsPlugin(), brandHtmlTitle()],
   define: {
     ORCA_FEATURE_WALL_ENABLED: 'true'
   },

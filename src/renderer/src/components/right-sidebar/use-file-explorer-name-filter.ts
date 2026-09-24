@@ -45,7 +45,8 @@ export function useFileExplorerNameFilter({
   }, [hasNameFilter])
   const nameFilterFiles = useRuntimeFileListForWorktree({
     enabled: hasNameFilter && !nameFilterQueryTooLarge,
-    worktreeId: activeWorktreeId
+    worktreeId: activeWorktreeId,
+    query: nameFilterQuery
   })
   const nameFilterSource = useMemo(
     () =>
@@ -55,7 +56,7 @@ export function useFileExplorerNameFilter({
             operationOwner: nameFilterFiles.operationOwner,
             relativePaths: nameFilterQueryTooLarge
               ? []
-              : nameFilterFiles.loading && nameFilterFiles.files.length === 0
+              : nameFilterFiles.loading
                 ? null
                 : nameFilterFiles.files
           }

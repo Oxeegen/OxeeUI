@@ -18,7 +18,10 @@ import brand from './config/brand.config.json'
  */
 const ROOTS = ['src/main', 'src/shared', 'src/preload']
 const UPSTREAM_REPO = `${'stablyai'}/${'orca'}`
-const UPSTREAM_RELEASES = new RegExp(`${UPSTREAM_REPO.replace('/', '\\/')}\\/releases\\b`)
+// Why `\\?` before each slash: upstream also writes this URL inside regex
+// literals, with escaped slashes, and an exact-text pattern let one of those
+// through for several releases.
+const UPSTREAM_RELEASES = /stablyai\\?\/orca\\?\/releases\b/
 
 function isShippedSource(path: string): boolean {
   return (
@@ -50,6 +53,10 @@ describe('update feed', () => {
     // Positive control for the pattern itself.
     expect(
       UPSTREAM_RELEASES.test(`https://github.com/${UPSTREAM_REPO}/releases/latest/download`)
+    ).toBe(true)
+    // The escaped form, as it appears inside a regex literal in source.
+    expect(
+      UPSTREAM_RELEASES.test(String.raw`github\.com\/stablyai\/orca\/releases\/download`)
     ).toBe(true)
     expect(UPSTREAM_RELEASES.test(`https://github.com/${UPSTREAM_REPO}-hourly/releases`)).toBe(
       false

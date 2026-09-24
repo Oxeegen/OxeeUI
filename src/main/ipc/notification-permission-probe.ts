@@ -1,4 +1,5 @@
 import { Notification } from 'electron'
+import { BRAND } from '@brand/config/brand'
 import type { NotificationDeliveryProbeResult } from '../../shared/notification-settings-types'
 import { activeNotifications } from './native-notification-lifecycle'
 
@@ -44,8 +45,9 @@ export function probeNotificationDelivery(): Promise<NotificationDeliveryProbeRe
   permissionDialogTriggeredThisSession = true
 
   const probe = new Notification({
-    title: 'Orca notifications are on',
-    body: 'Orca will alert you when agents finish or terminals need attention.',
+    // Why BRAND: a literal never passes through the i18n rebrand.
+    title: `${BRAND.productName} notifications are on`,
+    body: `${BRAND.productName} will alert you when agents finish or terminals need attention.`,
     silent: true
   })
   activeNotifications.add(probe)

@@ -6,6 +6,7 @@ import {
   type ReleaseBuild,
   type ReleaseChannel
 } from '../../shared/release-channel'
+import type { ReleaseBuildListOptions } from '../updater-release-build-cache'
 import type {
   LinuxPackageInstallInstructions,
   UpdateCheckOptions,
@@ -98,8 +99,11 @@ export class UpdaterSetup extends UpdaterDownloadInstall {
     return super.showLinuxPackage()
   }
 
-  async listAvailableReleaseBuilds(channel: ReleaseChannel): Promise<ReleaseBuild[]> {
-    return super.listAvailableReleaseBuilds(channel)
+  async listAvailableReleaseBuilds(
+    channel: ReleaseChannel,
+    options?: ReleaseBuildListOptions
+  ): Promise<ReleaseBuild[]> {
+    return super.listAvailableReleaseBuilds(channel, options)
   }
 
   dismissNudge(): void {
