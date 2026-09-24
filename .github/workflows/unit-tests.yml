@@ -13,6 +13,7 @@ permissions:
 
 jobs:
   test:
+    if: github.repository == 'stablyai/orca'
     name: tests node ${{ matrix.node }} ${{ matrix.shard }}/${{ matrix.shard_total }}
     runs-on: ubuntu-latest
     strategy:
@@ -81,6 +82,7 @@ jobs:
           if-no-files-found: warn
 
   relay_integration:
+    if: github.repository == 'stablyai/orca'
     name: relay integration node ${{ fromJSON(inputs.node_versions)[0] }}
     runs-on: ubuntu-latest
 

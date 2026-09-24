@@ -1,34 +1,59 @@
-<h1 align="center">
-  <a href="https://onOrca.dev"><img src="../../resources/build/icon.png" alt="Orca" width="64" valign="middle" /></a> Orca
-</h1>
+<p align="center">
+  <img src="../../brand/assets/generated/icon.png" alt="OxeeUI" width="120" />
+</p>
+
+<h1 align="center">OxeeUI</h1>
 
 <p align="center">
-  <a href="https://github.com/stablyai/orca"><img src="https://badgen.net/github/stars/stablyai/orca?label=%E2%98%85" alt="Étoiles GitHub" /></a>
-  <a href="https://github.com/stablyai/orca/releases"><img src="../assets/readme-downloads.svg" alt="Téléchargements totaux sur toutes les versions" /></a>
-  <img src="https://badgen.net/github/license/stablyai/orca" alt="Licence" />
-  <a href="https://discord.gg/fzjDKHxv8Q"><img src="https://img.shields.io/badge/Discord-5865F2?logo=discord&logoColor=white" alt="Rejoindre le Discord Orca" /></a>
-  <a href="https://x.com/orca_build"><img src="https://img.shields.io/badge/X-000000?logo=x&logoColor=white" alt="Suivre Orca sur X" /></a>
-  <img src="https://img.shields.io/badge/macOS%20%7C%20Windows%20%7C%20Linux-4493F8?style=flat-square" alt="Plateformes prises en charge : macOS, Windows et Linux" />
+  <sub><a href="../../README.md">English</a> · <strong>Français</strong></sub>
+</p>
+
+<p align="center"><b>L'environnement de développement agentique d'Oxeegen.</b><br/>
+Lancez n'importe quel agent de code dans son propre worktree git — terminal, éditeur et revue de diff dans une seule fenêtre.</p>
+
+<p align="center">
+  <a href="../../LICENSE"><img src="https://img.shields.io/github/license/Oxeegen/OxeeUI?color=5E4AF5&label=licence" alt="Licence : MIT" /></a>
+  <a href="https://github.com/Oxeegen/OxeeUI/releases/latest"><img src="https://img.shields.io/github/v/release/Oxeegen/OxeeUI?color=5E4AF5&label=version" alt="Dernière version" /></a>
+  <a href="https://github.com/Oxeegen/OxeeUI/releases"><img src="https://img.shields.io/github/downloads/Oxeegen/OxeeUI/total?color=5E4AF5&label=t%C3%A9l%C3%A9chargements" alt="Téléchargements" /></a>
+  <img src="https://img.shields.io/badge/plateforme-Windows%20%7C%20Linux-5E4AF5" alt="Plateformes : Windows et Linux" />
 </p>
 
 <p align="center">
-  <sub><a href="../../README.md">English</a> · <a href="README.zh-CN.md">中文</a> · <a href="README.ja.md">日本語</a> · <a href="README.ko.md">한국어</a> · <a href="README.es.md">Español</a> · <a href="README.pt.md">Português</a></sub>
+  <a href="#téléchargement"><b>Téléchargement</b></a> ·
+  <a href="#fonctionnalités"><b>Fonctionnalités</b></a> ·
+  <a href="#agents-compatibles"><b>Agents</b></a> ·
+  <a href="#moteurs-dia"><b>Moteurs d'IA</b></a> ·
+  <a href="#la-pile-oxeegen"><b>Pile Oxeegen</b></a> ·
+  <a href="#faq"><b>FAQ</b></a>
 </p>
 
 <p align="center">
-  <strong>L'orchestrateur d'IA pour les builders 100x.</strong><br/>
-  Lancez Codex, Claude Code, OpenCode ou Pi côte à côte — chacun dans son propre worktree, le tout suivi au même endroit.
+  <img src="../../brand/assets/readme/feature-wall/split-screen.jpg" alt="OxeeUI exécutant un agent de code à côté de l'éditeur et de l'arborescence des fichiers" width="960" />
 </p>
 
-<h3 align="center"><a href="https://onorca.dev/download"><ins>Télécharger Orca</ins></a></h3>
+**OxeeUI** fait travailler les agents de code comme une équipe travaille vraiment :
+plusieurs en même temps, chacun isolé dans son propre worktree git, avec le terminal,
+l'arborescence des fichiers, l'éditeur et la revue de diff côte à côte. Confiez une
+tâche à un agent, continuez votre travail, et revenez à une branche prête à être relue.
 
-<p align="center">
-  <sub>Sous Windows ? Prenez la <a href="https://github.com/stablyai/orca/releases#release-v1.4.147-rc.3">dernière RC</a> — elle inclut des correctifs Windows.</sub>
-</p>
+- **Plusieurs agents, une seule fenêtre.** Claude Code, Codex, Grok, Cursor, GitHub
+  Copilot, OpenCode, Qwen Code, Kimi et une vingtaine d'autres tournent côte à côte.
+  S'il tourne dans un terminal, il tourne ici.
+- **Un travail isolé.** Chaque tâche a son propre worktree git : les agents ne se
+  marchent jamais dessus — ni sur vos modifications.
+- **Relire avant de fusionner.** Lisez le diff, annotez n'importe quelle ligne, renvoyez
+  vos remarques à l'agent, puis committez, sans quitter l'application.
+- **En local ou à distance.** Travaillez sur cette machine, ou sur un hôte SSH avec
+  édition de fichiers, git et terminaux.
+- **Sans compte, sans mesure d'audience.** Vos dépôts restent où ils sont, et les builds
+  d'OxeeUI ne contiennent aucune clé d'analytics : aucune donnée d'utilisation n'est
+  envoyée.
+- **Au cœur de la pile Oxeegen.** Fait tourner Oxeegen Hermes sur les modèles d'Oxeegen,
+  sur votre machine ou en ordinateur cloud géré — voir [La pile Oxeegen](#la-pile-oxeegen).
 
-<p align="center">
-  <img src="../assets/readme-hero.jpg" alt="Application de bureau Orca exécutant des agents dans des worktrees parallèles, avec l'app companion mobile Orca dans le coin" width="960" />
-</p>
+**L'obtenir :** [Windows](https://github.com/Oxeegen/OxeeUI/releases/latest/download/oxeeui-windows-setup.exe) (x64) ·
+[Linux](https://github.com/Oxeegen/OxeeUI/releases/latest/download/oxeeui-linux-x86_64.AppImage) (AppImage) —
+configuration requise dans [Téléchargement](#téléchargement).
 
 ## Fonctionnalités
 
@@ -36,239 +61,323 @@
 <tr>
 <td width="50%" valign="middle">
 
-### Companion mobile
+### Worktrees en parallèle
 
-Surveillez et pilotez vos agents depuis votre téléphone — soyez notifié quand un agent termine, et envoyez des instructions de suivi où que vous soyez.
-
-[App Store iOS](https://apps.apple.com/us/app/orca-ide/id6766130217) · [TestFlight](https://testflight.apple.com/join/YjeGMQBA) · [APK Android 0.0.48](https://github.com/stablyai/orca/releases/download/mobile-android-v0.0.48/app-release.apk) · [Docs →](https://www.onorca.dev/docs/mobile)
+Envoyez un même prompt à plusieurs agents, chacun dans son propre worktree git isolé —
+comparez les résultats et fusionnez le meilleur.
 
 </td>
 <td width="50%">
-  <a href="https://www.onorca.dev/docs/mobile"><picture><source srcset="../assets/feature-wall/mobile-companion-app-showcase.gif" type="image/gif"><img src="../assets/feature-wall/mobile-companion-app-showcase.jpg" alt="Orca desktop avec l'app companion mobile" width="100%" /></picture></a>
+  <picture><source srcset="../../brand/assets/readme/feature-wall/parallel-worktrees.gif" type="image/gif"><img src="../../brand/assets/readme/feature-wall/parallel-worktrees.jpg" alt="Worktrees en parallèle" width="100%" /></picture>
 </td>
 </tr>
 <tr>
 <td width="50%" valign="middle">
 
-### Worktrees parallèles
+### Tous les agents CLI
 
-Lancez un même prompt sur cinq agents, chacun dans son propre worktree git isolé — comparez les résultats et mergez le gagnant.
-
-[Docs →](https://www.onorca.dev/docs/model/worktrees)
+Claude Code, Codex, Grok, Cursor, OpenCode, Qwen Code, Kimi, Goose, Cline et les autres —
+tous pilotés depuis une seule fenêtre, avec vos propres abonnements.
 
 </td>
 <td width="50%">
-  <a href="https://www.onorca.dev/docs/model/worktrees"><picture><source srcset="../site/public/docs/tab-split.gif" type="image/gif"><img src="../site/public/docs/posters/tab-split.jpg" alt="Orchestration de worktrees parallèles" width="100%" /></picture></a>
+  <picture><source srcset="../../brand/assets/readme/feature-wall/cli-agents.gif" type="image/gif"><img src="../../brand/assets/readme/feature-wall/cli-agents.jpg" alt="Un agent de code en ligne de commande dans OxeeUI" width="100%" /></picture>
 </td>
 </tr>
 <tr>
 <td width="50%" valign="middle">
 
-### Splits de terminal
+### Terminaux divisés
 
-Terminaux de niveau Ghostty avec rendu WebGL, splits infinis et un scrollback qui survit aux redémarrages.
-
-[Docs →](https://www.onorca.dev/docs/terminal)
+Des terminaux rapides au rendu GPU, divisibles à volonté, dont l'historique survit aux
+redémarrages.
 
 </td>
 <td width="50%">
-  <a href="https://www.onorca.dev/docs/terminal"><picture><source srcset="../../resources/onboarding/feature-wall/tile-02.gif" type="image/gif"><img src="../../resources/onboarding/feature-wall/tile-02.poster.jpg" alt="Splits de terminal" width="100%" /></picture></a>
+  <picture><source srcset="../../brand/assets/readme/feature-wall/terminal-splits.gif" type="image/gif"><img src="../../brand/assets/readme/feature-wall/terminal-splits.jpg" alt="Division des terminaux" width="100%" /></picture>
 </td>
 </tr>
 <tr>
 <td width="50%" valign="middle">
 
-### Mode Design
+### Annoter les diffs de l'IA
 
-Cliquez sur n'importe quel élément d'UI dans une vraie fenêtre Chromium pour envoyer son HTML, son CSS et une capture recadrée directement dans le prompt de votre agent.
-
-[Docs →](https://www.onorca.dev/docs/browser/design-mode)
+Commentez n'importe quelle ligne d'un diff et renvoyez vos remarques directement à
+l'agent — relisez, modifiez et committez sans quitter l'application.
 
 </td>
 <td width="50%">
-  <a href="https://www.onorca.dev/docs/browser/design-mode"><picture><source srcset="../site/public/docs/orca-design-mode.gif" type="image/gif"><img src="../../resources/onboarding/feature-wall/tile-05.poster.jpg" alt="Navigateur intégré et Mode Design" width="100%" /></picture></a>
+  <picture><source srcset="../../brand/assets/readme/feature-wall/annotate-diff.gif" type="image/gif"><img src="../../brand/assets/readme/feature-wall/annotate-diff.jpg" alt="Annotation d'un diff généré par l'IA" width="100%" /></picture>
 </td>
 </tr>
 <tr>
 <td width="50%" valign="middle">
 
-### GitHub &amp; Linear, natifs
+### Glisser des fichiers vers les agents
 
-Parcourez PRs, issues et boards de projet dans l'app — ouvrez un worktree depuis n'importe quelle tâche et reviewz sans changer de contexte.
-
-[Docs →](https://www.onorca.dev/docs/review/linear)
-
-</td>
-<td width="50%">
-  <a href="https://www.onorca.dev/docs/review/linear"><picture><source srcset="../../resources/onboarding/feature-wall/tile-03.gif" type="image/gif"><img src="../../resources/onboarding/feature-wall/tile-03.poster.jpg" alt="Workflows GitHub et Linear dans Orca" width="100%" /></picture></a>
-</td>
-</tr>
-<tr>
-<td width="50%" valign="middle">
-
-### Worktrees SSH
-
-Faites tourner des agents sur une machine distante costaude, avec édition de fichiers, git et terminaux complets — reconnexion auto et port forwarding inclus.
-
-[Docs →](https://www.onorca.dev/docs/ssh)
+Un éditeur complet avec sauvegarde automatique partout — glissez un fichier ou une
+image depuis l'arborescence directement dans le prompt d'un agent.
 
 </td>
 <td width="50%">
-  <a href="https://www.onorca.dev/docs/ssh"><picture><source srcset="../../resources/onboarding/feature-wall/tile-06.gif" type="image/gif"><img src="../../resources/onboarding/feature-wall/tile-06.poster.jpg" alt="Worktrees distants via SSH" width="100%" /></picture></a>
-</td>
-</tr>
-<tr>
-<td width="50%" valign="middle">
-
-### Annoter les diffs IA
-
-Posez des commentaires sur n'importe quelle ligne de diff et renvoyez-les à l'agent — review, édition et commit sans quitter Orca.
-
-[Docs →](https://www.onorca.dev/docs/review/annotate-ai-diff)
-
-</td>
-<td width="50%">
-  <a href="https://www.onorca.dev/docs/review/annotate-ai-diff"><picture><source srcset="../site/public/docs/annotate-ai-diff.gif" type="image/gif"><img src="../../resources/onboarding/feature-wall/tile-08.poster.jpg" alt="Annoter les diffs générés par l'IA" width="100%" /></picture></a>
-</td>
-</tr>
-<tr>
-<td width="50%" valign="middle">
-
-### Glisser-déposer vers les agents
-
-L'éditeur VS Code avec autosave partout — glissez fichiers ou images directement dans le prompt d'un agent.
-
-[Docs →](https://www.onorca.dev/docs/editing/file-explorer)
-
-</td>
-<td width="50%">
-  <a href="https://www.onorca.dev/docs/editing/file-explorer"><picture><source srcset="../../resources/onboarding/feature-wall/tile-07.gif" type="image/gif"><img src="../../resources/onboarding/feature-wall/tile-07.poster.jpg" alt="Glisser des fichiers et images dans le prompt d'un agent" width="100%" /></picture></a>
-</td>
-</tr>
-<tr>
-<td width="50%" valign="middle">
-
-### Orca CLI
-
-Les agents pilotent aussi Orca — scriptez n'importe quel workflow avec `orca worktree create`, `snapshot`, `click` et `fill`.
-
-[Docs →](https://www.onorca.dev/docs/cli/overview)
-
-</td>
-<td width="50%">
-  <a href="https://www.onorca.dev/docs/cli/overview"><picture><source srcset="../../resources/onboarding/feature-wall/tile-09.gif" type="image/gif"><img src="../../resources/onboarding/feature-wall/tile-09.poster.jpg" alt="Scripter Orca depuis la CLI" width="100%" /></picture></a>
+  <picture><source srcset="../../brand/assets/readme/feature-wall/drag-files.gif" type="image/gif"><img src="../../brand/assets/readme/feature-wall/drag-files.jpg" alt="Glisser un fichier de l'arborescence vers le prompt d'un agent" width="100%" /></picture>
 </td>
 </tr>
 </table>
 
-**Aussi dans la boîte :**
+**Également inclus :**
 
-- **[Quick open](https://www.onorca.dev/docs/model/quick-open)** — Cherchez parmi worktrees, fichiers, agents, commandes et contexte du repo sans quitter votre flow.
-- **[Sélecteur de comptes &amp; suivi d'usage](https://www.onorca.dev/docs/agents/usage-tracking)** — Suivez l'usage Claude et Codex et les resets de rate limit, et basculez de compte à chaud sans vous reconnecter.
-- **[Aperçus riches du repo](https://www.onorca.dev/docs/editing/markdown)** — Prévisualisez Markdown, images, PDF et docs du repo dans le workspace.
-- **[Computer Use](https://www.onorca.dev/docs/cli/computer-use)** — Laissez les agents piloter des apps desktop et l'UI visible quand un workflow demande une vraie interaction.
-- **[Notifications et non-lus](https://www.onorca.dev/docs/notifications)** — Sachez quand un agent termine ou a besoin d'attention, puis marquez des fils comme non lus pour y revenir plus tard.
-- **Et bien plus encore** — on ship tous les jours, donc cette liste est toujours en retard. Le [changelog](https://github.com/stablyai/orca/releases) est la vraie liste des features.
+- **Worktrees SSH** — faites tourner des agents sur une machine distante avec édition de
+  fichiers, git et terminaux, avec reconnexion automatique en cas de coupure.
+- **GitHub dans l'application** — parcourez les pull requests et les issues, et ouvrez un
+  worktree directement depuis une tâche.
+- **Ouverture rapide** — passez d'un worktree, d'un fichier, d'un agent ou d'une commande
+  à l'autre sans lâcher le clavier.
+- **Comptes et consommation** — utilisation et réinitialisation des quotas par
+  fournisseur, avec changement de compte sans nouvelle connexion.
+- **Markdown et aperçus** — éditez le Markdown dans un éditeur riche, et prévisualisez
+  images et PDF dans l'espace de travail.
+- **Notifications et état « non lu »** — sachez quand un agent a terminé ou attend une
+  action, et marquez les fils comme non lus pour y revenir plus tard.
+- **Des icônes familières** — Material Icon Theme, le même jeu que VS Code, dans
+  l'explorateur, les onglets, la recherche, le contrôle de source et les diffs.
+- **Prêt à l'emploi** — un nouveau profil s'ouvre avec l'apparence Oxeegen : thème
+  sombre, Cascadia Code et Monokai.
 
----
+## Pourquoi OxeeUI
 
-## Agents pris en charge
+- **Pensé pour de nombreux agents.** OxeeUI suit quel agent travaille où, ce qu'il a
+  modifié et quand il a besoin de vous.
+- **Du vrai git, relu sur place.** Chaque agent travaille sur une vraie branche, dans son
+  propre worktree de votre dépôt, et ses diffs, commentaires de ligne et commits sont dans
+  la même fenêtre.
+- **Une pile de bout en bout.** Oxeegen Hermes tourne sur les modèles d'Oxeegen — ceux-là
+  mêmes qui font tourner OxeeOffice — tandis que Claude Code, Codex et 27 autres agents
+  continuent de tourner à côté, avec leurs propres connexions.
+- **Prêt sans la mise en place.** Une pile d'agents est difficile à mettre en place.
+  Oxeegen fournit toute la plateforme en service géré mensuel, sur un ordinateur cloud
+  dédié.
+- **Ultra-Support 24/7.** Avec un contrat Oxeegen, l'équipe support d'Oxeegen prend en
+  charge l'assistance, les mises à jour, la maintenance et la supervision de la
+  plateforme.
+- **Là où tourne votre code.** Sur cette machine, dans WSL sous Windows, sur un hôte SSH,
+  ou dans un bureau virtuel dédié dans le centre de données d'Oxeegen.
+- **L'automatisation intégrée.** Des exécutions d'agents planifiées, chacune dans un
+  espace de travail neuf, et un agent coordinateur qui répartit le travail entre d'autres.
+- **Open source et confidentiel.** Sous licence MIT, gratuit, et sans aucune mesure
+  d'audience.
 
-Fonctionne avec **n'importe quel agent CLI** — s'il tourne dans un terminal, il tourne dans Orca.
+## Agents compatibles
 
-<p>
-  <a href="https://docs.anthropic.com/claude/docs/claude-code"><kbd><img src="../assets/claude-logo.svg" alt="Logo Claude Code" width="16" valign="middle" /> Claude Code</kbd></a> &nbsp;
-  <a href="https://github.com/openai/codex"><kbd><img src="https://www.google.com/s2/favicons?domain=openai.com&sz=64" alt="Logo Codex" width="16" valign="middle" /> Codex</kbd></a> &nbsp;
-  <a href="https://x.ai/cli"><kbd><img src="https://www.google.com/s2/favicons?domain=x.ai&sz=64" alt="Logo Grok" width="16" valign="middle" /> Grok</kbd></a> &nbsp;
-  <a href="https://cursor.com/cli"><kbd><img src="https://www.google.com/s2/favicons?domain=cursor.com&sz=64" alt="Logo Cursor" width="16" valign="middle" /> Cursor</kbd></a> &nbsp;
-  <a href="https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-cli"><kbd><img src="https://www.google.com/s2/favicons?domain=github.com&sz=64" alt="Logo GitHub Copilot" width="16" valign="middle" /> GitHub Copilot</kbd></a> &nbsp;
-  <a href="https://opencode.ai/docs/cli/"><kbd><img src="https://www.google.com/s2/favicons?domain=opencode.ai&sz=64" alt="Logo OpenCode" width="16" valign="middle" /> OpenCode</kbd></a> &nbsp;
-  <a href="https://mimo.xiaomi.com/coder"><kbd><img src="https://www.google.com/s2/favicons?domain=mimo.xiaomi.com&sz=64" alt="Logo MiMo Code" width="16" valign="middle" /> MiMo Code</kbd></a> &nbsp;
-  <a href="https://ampcode.com/manual#install"><kbd><img src="https://www.google.com/s2/favicons?domain=ampcode.com&sz=64" alt="Logo Amp" width="16" valign="middle" /> Amp</kbd></a> &nbsp;
-  <a href="https://openclaude.gitlawb.com/"><kbd><img src="../../resources/openclaude-logo.png" alt="Logo OpenClaude" width="16" valign="middle" /> OpenClaude</kbd></a> &nbsp;
-  <a href="https://antigravity.google/docs/cli-overview"><kbd><img src="https://www.google.com/s2/favicons?domain=antigravity.google&sz=64" alt="Logo Antigravity" width="16" valign="middle" /> Antigravity</kbd></a> &nbsp;
-  <a href="https://pi.dev"><kbd><img src="https://pi.dev/favicon.svg" alt="Logo Pi" width="16" valign="middle" /> Pi</kbd></a> &nbsp;
-  <a href="https://omp.sh"><kbd><img src="https://omp.sh/favicon.svg" alt="Logo oh-my-pi" width="16" valign="middle" /> oh-my-pi</kbd></a> &nbsp;
-  <a href="https://hermes-agent.nousresearch.com/docs/"><kbd><img src="https://www.google.com/s2/favicons?domain=nousresearch.com&sz=64" alt="Logo Hermes Agent" width="16" valign="middle" /> Hermes Agent</kbd></a> &nbsp;
-  <a href="https://devin.ai/cli"><kbd><img src="https://www.google.com/s2/favicons?domain=devin.ai&sz=64" alt="Logo Devin" width="16" valign="middle" /> Devin</kbd></a> &nbsp;
-  <a href="https://block.github.io/goose/docs/quickstart/"><kbd><img src="https://www.google.com/s2/favicons?domain=goose-docs.ai&sz=64" alt="Logo Goose" width="16" valign="middle" /> Goose</kbd></a> &nbsp;
-  <a href="https://docs.augmentcode.com/cli/overview"><kbd><img src="https://www.google.com/s2/favicons?domain=augmentcode.com&sz=64" alt="Logo Auggie" width="16" valign="middle" /> Auggie</kbd></a> &nbsp;
-  <a href="https://github.com/autohandai/code-cli"><kbd><img src="https://www.google.com/s2/favicons?domain=autohand.ai&sz=64" alt="Logo Autohand Code" width="16" valign="middle" /> Autohand Code</kbd></a> &nbsp;
-  <a href="https://github.com/charmbracelet/crush"><kbd><img src="https://www.google.com/s2/favicons?domain=charm.sh&sz=64" alt="Logo Charm" width="16" valign="middle" /> Charm</kbd></a> &nbsp;
-  <a href="https://docs.cline.bot/cline-cli/overview"><kbd><img src="https://www.google.com/s2/favicons?domain=cline.bot&sz=64" alt="Logo Cline" width="16" valign="middle" /> Cline</kbd></a> &nbsp;
-  <a href="https://www.codebuff.com/docs/help/quick-start"><kbd><img src="https://www.google.com/s2/favicons?domain=codebuff.com&sz=64" alt="Logo Codebuff" width="16" valign="middle" /> Codebuff</kbd></a> &nbsp;
-  <a href="https://commandcode.ai/docs/quickstart"><kbd><img src="https://www.google.com/s2/favicons?domain=commandcode.ai&sz=64" alt="Logo Command Code" width="16" valign="middle" /> Command Code</kbd></a> &nbsp;
-  <a href="https://docs.continue.dev/guides/cli"><kbd><img src="https://www.google.com/s2/favicons?domain=continue.dev&sz=64" alt="Logo Continue" width="16" valign="middle" /> Continue</kbd></a> &nbsp;
-  <a href="https://docs.factory.ai/cli/getting-started/quickstart"><kbd><img src="../assets/droid-logo.svg" alt="Logo Droid" width="16" valign="middle" /> Droid</kbd></a> &nbsp;
-  <a href="https://kilo.ai/docs/cli"><kbd><img src="https://raw.githubusercontent.com/Kilo-Org/kilocode/main/packages/kilo-vscode/assets/icons/kilo-light.svg" alt="Logo Kilocode" width="16" valign="middle" /> Kilocode</kbd></a> &nbsp;
-  <a href="https://www.kimi.com/code/docs/en/kimi-code-cli/getting-started.html"><kbd><img src="https://www.google.com/s2/favicons?domain=moonshot.cn&sz=64" alt="Logo Kimi" width="16" valign="middle" /> Kimi</kbd></a> &nbsp;
-  <a href="https://kiro.dev/docs/cli/"><kbd><img src="https://www.google.com/s2/favicons?domain=kiro.dev&sz=64" alt="Logo Kiro" width="16" valign="middle" /> Kiro</kbd></a> &nbsp;
-  <a href="https://github.com/mistralai/mistral-vibe"><kbd><img src="https://www.google.com/s2/favicons?domain=mistral.ai&sz=64" alt="Logo Mistral Vibe" width="16" valign="middle" /> Mistral Vibe</kbd></a> &nbsp;
-  <a href="https://github.com/QwenLM/qwen-code"><kbd><img src="https://www.google.com/s2/favicons?domain=qwenlm.github.io&sz=64" alt="Logo Qwen Code" width="16" valign="middle" /> Qwen Code</kbd></a> &nbsp;
-  <a href="https://support.atlassian.com/rovo/docs/install-and-run-rovo-dev-cli-on-your-device/"><kbd><img src="https://www.google.com/s2/favicons?domain=atlassian.com&sz=64" alt="Logo Rovo Dev" width="16" valign="middle" /> Rovo Dev</kbd></a> &nbsp;
-  <kbd>+ n'importe quel agent CLI</kbd>
-</p>
+Compatible avec **tous les agents en ligne de commande**. Ceux-ci sont reconnus
+d'emblée :
 
----
+<table>
+<tr>
+<td><a href="https://ampcode.com/manual#install"><img src="https://www.google.com/s2/favicons?domain=ampcode.com&sz=64" width="16" height="16" alt="" /> Amp</a></td>
+<td><a href="https://antigravity.google/docs/cli-overview"><img src="https://www.google.com/s2/favicons?domain=antigravity.google&sz=64" width="16" height="16" alt="" /> Antigravity</a></td>
+<td><a href="https://docs.augmentcode.com/cli/overview"><img src="https://www.google.com/s2/favicons?domain=augmentcode.com&sz=64" width="16" height="16" alt="" /> Auggie</a></td>
+<td><a href="https://github.com/autohandai/code-cli"><img src="https://www.google.com/s2/favicons?domain=autohand.ai&sz=64" width="16" height="16" alt="" /> Autohand Code</a></td>
+<td><a href="https://docs.anthropic.com/claude/docs/claude-code"><img src="../../brand/assets/readme/agents/claude.svg" width="16" height="16" alt="" /> Claude Code</a></td>
+</tr>
+<tr>
+<td><a href="https://docs.cline.bot/cline-cli/overview"><img src="https://www.google.com/s2/favicons?domain=cline.bot&sz=64" width="16" height="16" alt="" /> Cline</a></td>
+<td><a href="https://www.codebuff.com/docs/help/quick-start"><img src="https://www.google.com/s2/favicons?domain=codebuff.com&sz=64" width="16" height="16" alt="" /> Codebuff</a></td>
+<td><a href="https://github.com/openai/codex"><img src="https://www.google.com/s2/favicons?domain=openai.com&sz=64" width="16" height="16" alt="" /> Codex</a></td>
+<td><a href="https://commandcode.ai/docs/quickstart"><img src="https://www.google.com/s2/favicons?domain=commandcode.ai&sz=64" width="16" height="16" alt="" /> Command Code</a></td>
+<td><a href="https://docs.continue.dev/guides/cli"><img src="https://www.google.com/s2/favicons?domain=continue.dev&sz=64" width="16" height="16" alt="" /> Continue</a></td>
+</tr>
+<tr>
+<td><a href="https://github.com/charmbracelet/crush"><img src="https://www.google.com/s2/favicons?domain=charm.sh&sz=64" width="16" height="16" alt="" /> Crush</a></td>
+<td><a href="https://cursor.com/cli"><img src="https://www.google.com/s2/favicons?domain=cursor.com&sz=64" width="16" height="16" alt="" /> Cursor</a></td>
+<td><a href="https://devin.ai/cli"><img src="https://www.google.com/s2/favicons?domain=devin.ai&sz=64" width="16" height="16" alt="" /> Devin</a></td>
+<td><a href="https://docs.factory.ai/cli/getting-started/quickstart"><img src="../../brand/assets/readme/agents/droid.svg" width="16" height="16" alt="" /> Droid</a></td>
+<td><a href="https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-cli"><img src="https://www.google.com/s2/favicons?domain=github.com&sz=64" width="16" height="16" alt="" /> GitHub Copilot</a></td>
+</tr>
+<tr>
+<td><a href="https://block.github.io/goose/docs/quickstart/"><img src="https://www.google.com/s2/favicons?domain=goose-docs.ai&sz=64" width="16" height="16" alt="" /> Goose</a></td>
+<td><a href="https://x.ai/cli"><img src="https://www.google.com/s2/favicons?domain=x.ai&sz=64" width="16" height="16" alt="" /> Grok</a></td>
+<td><a href="https://hermes-agent.nousresearch.com/docs/"><img src="https://www.google.com/s2/favicons?domain=nousresearch.com&sz=64" width="16" height="16" alt="" /> Hermes Agent</a></td>
+<td><a href="https://kilo.ai/docs/cli"><img src="https://www.google.com/s2/favicons?domain=kilo.ai&sz=64" width="16" height="16" alt="" /> Kilo Code</a></td>
+<td><a href="https://www.kimi.com/code/docs/en/kimi-code-cli/getting-started.html"><img src="https://www.google.com/s2/favicons?domain=moonshot.cn&sz=64" width="16" height="16" alt="" /> Kimi</a></td>
+</tr>
+<tr>
+<td><a href="https://kiro.dev/docs/cli/"><img src="https://www.google.com/s2/favicons?domain=kiro.dev&sz=64" width="16" height="16" alt="" /> Kiro</a></td>
+<td><a href="https://mimo.xiaomi.com/coder"><img src="https://www.google.com/s2/favicons?domain=mimo.xiaomi.com&sz=64" width="16" height="16" alt="" /> MiMo Code</a></td>
+<td><a href="https://github.com/mistralai/mistral-vibe"><img src="https://www.google.com/s2/favicons?domain=mistral.ai&sz=64" width="16" height="16" alt="" /> Mistral Vibe</a></td>
+<td><a href="https://omp.sh"><img src="https://omp.sh/favicon.svg" width="16" height="16" alt="" /> oh-my-pi</a></td>
+<td><a href="https://openclaude.gitlawb.com/"><img src="../../brand/assets/readme/agents/openclaude.png" width="16" height="16" alt="" /> OpenClaude</a></td>
+</tr>
+<tr>
+<td><a href="https://opencode.ai/docs/cli/"><img src="https://www.google.com/s2/favicons?domain=opencode.ai&sz=64" width="16" height="16" alt="" /> OpenCode</a></td>
+<td><a href="https://pi.dev"><img src="https://pi.dev/favicon.svg" width="16" height="16" alt="" /> Pi</a></td>
+<td><a href="https://github.com/QwenLM/qwen-code"><img src="https://www.google.com/s2/favicons?domain=qwenlm.github.io&sz=64" width="16" height="16" alt="" /> Qwen Code</a></td>
+<td><a href="https://support.atlassian.com/rovo/docs/install-and-run-rovo-dev-cli-on-your-device/"><img src="https://www.google.com/s2/favicons?domain=atlassian.com&sz=64" width="16" height="16" alt="" /> Rovo Dev</a></td>
+<td><b>+ tout agent CLI</b></td>
+</tr>
+</table>
 
-## Installation
+## Moteurs d'IA
 
-### Desktop — macOS, Windows, Linux
+**Oxeegen Hermes.** Le moteur principal d'OxeeUI est Oxeegen Hermes, la version
+d'Oxeegen de l'agent Hermes. Il appelle les modèles d'Oxeegen — Max, Pro, Flash et
+Instant — par l'API Oxeegen : les mêmes modèles et la même API qu'OxeeOffice, servis
+depuis les serveurs d'Oxeegen dans une région US et une région UE, chacune avec ses
+propres clés.
 
-- **[Télécharger depuis onOrca.dev](https://onorca.dev/download)**
-- Ou récupérez un build directement : [macOS Apple Silicon](https://github.com/stablyai/orca/releases/latest/download/orca-macos-arm64.dmg) · [macOS Intel](https://github.com/stablyai/orca/releases/latest/download/orca-macos-x64.dmg) · [Windows (.exe)](https://github.com/stablyai/orca/releases/download/v1.4.147-rc.3/orca-windows-setup.exe) · [Linux AppImage](https://github.com/stablyai/orca/releases/latest/download/orca-linux.AppImage) · [Tous les builds](https://github.com/stablyai/orca/releases/latest)
-- **Sous Windows :** utilisez la [dernière RC (`v1.4.147-rc.3`)](https://github.com/stablyai/orca/releases#release-v1.4.147-rc.3) — elle inclut des correctifs Windows absents de la stable.
-- Vous lancez `orca serve` sur un serveur Linux headless ? Consultez le [guide serveur Linux headless](../reference/headless-linux-server.md).
+**Géré par Oxeegen.** Assembler un agent, l'accès aux modèles, les clés, les
+environnements d'exécution et les hôtes distants, c'est là que la plupart des équipes
+calent. Avec un contrat Oxeegen, toute la plateforme tourne dans un bureau virtuel (VDI)
+dédié dans le centre de données cloud d'Oxeegen, installée et configurée, en forfait
+mensuel géré par Oxeegen et couvert par l'**Ultra-Support 24/7** : assistance, mises à
+jour, maintenance et supervision. Voir les
+[ordinateurs cloud d'Oxeegen](https://www.oxeegen.com/computer).
 
-_Ou via un gestionnaire de paquets :_
+**Tout autre agent.** OxeeUI n'appelle jamais de modèle lui-même — c'est chaque agent qui
+le fait, avec ce qu'il est configuré pour utiliser : un forfait Claude ou ChatGPT, une
+clé d'API, ou un endpoint auto-hébergé. Les agents qui acceptent un fournisseur
+compatible OpenAI personnalisé, comme OpenCode, Qwen Code, Cline ou Kilo Code, peuvent
+aussi utiliser l'API Oxeegen : renseignez l'endpoint et la clé dans la configuration
+propre à l'agent, ou en variables d'environnement dans **Paramètres → Agents**.
+
+**Comptes et environnements.** **Paramètres → Comptes** passe d'une connexion Claude ou
+Codex à l'autre sans vous reconnecter, et affiche l'utilisation en direct et les
+réinitialisations de quotas. Les agents tournent sur cette machine, dans WSL ou sur un
+hôte SSH ; **Paramètres → Agents** définit l'agent par défaut et le mode d'autorisation
+par défaut, **Yolo** ou **Manuel**.
+
+## La pile Oxeegen
+
+Oxeegen construit une **pile d'IA souveraine** : ses propres modèles, servis depuis ses
+propres serveurs d'inférence, et les applications de bureau qui les mettent au travail.
+
+| | |
+|---|---|
+| **Modèles Oxeegen** | Max, Pro, Flash et Instant, qui tournent sur les serveurs d'Oxeegen et sont servis par une API compatible OpenAI, avec des régions US et UE. |
+| **Oxeegen Hermes** | La version d'Oxeegen de l'agent Hermes, qui tourne sur les modèles d'Oxeegen — le moteur principal d'OxeeUI. |
+| **[OxeeOffice](https://github.com/Oxeegen/OxeeOffice)** | La suite bureautique IA : fichiers Word, Excel, PowerPoint et PDF, édités avec une IA qui tourne sur les modèles d'Oxeegen. |
+| **[VOxee](https://github.com/Oxeegen/VOxee)** | La voix en texte : dictée, transcription de réunions et notes, sur les modèles auto-hébergés d'Oxeegen. |
+| **OxeeUI** | L'environnement de développement agentique — ce dépôt. |
+| **[Ordinateurs cloud](https://www.oxeegen.com/computer)** | Des bureaux virtuels gérés dans le centre de données d'Oxeegen, avec l'Ultra-Support 24/7, dont une plateforme OxeeUI dédiée. |
+
+OxeeUI est le poste du développeur dans cette pile. Il fait tourner Oxeegen Hermes et les
+agents de code que votre équipe utilise déjà, sur votre propre machine ou dans un
+ordinateur cloud Oxeegen — voir [Moteurs d'IA](#moteurs-dia).
+
+## Téléchargement
+
+| Plateforme | Configuration requise | Téléchargement |
+|---|---|---|
+| **Windows** (x64) | Windows 10 ou plus récent | [`oxeeui-windows-setup.exe`](https://github.com/Oxeegen/OxeeUI/releases/latest/download/oxeeui-windows-setup.exe) |
+| **Linux** (x86_64) | Environnement FUSE 2 | [`oxeeui-linux-x86_64.AppImage`](https://github.com/Oxeegen/OxeeUI/releases/latest/download/oxeeui-linux-x86_64.AppImage) |
+
+Toutes les versions et leurs notes sont sur la page [Releases](https://github.com/Oxeegen/OxeeUI/releases).
+Les installateurs **ne sont pas signés** : au premier lancement, Windows SmartScreen
+affiche un avertissement — choisissez **Informations complémentaires → Exécuter quand
+même**. Il n'existe pas encore de build macOS : sans certificat Apple Developer,
+Gatekeeper refuse l'application.
+
+<details>
+<summary><b>Lancer l'AppImage sous Linux</b></summary>
+
+L'AppImage s'exécute sur place. Installez l'environnement FUSE 2 s'il manque
+(`sudo apt install libfuse2` ; sous Ubuntu 24.04, le paquet s'appelle `libfuse2t64`),
+rendez le fichier exécutable, puis lancez-le :
 
 ```bash
-# macOS (Homebrew)
-brew install --cask stablyai/orca/orca
-
-# Arch Linux (AUR) — ou stably-orca-git pour compiler depuis les sources
-yay -S stably-orca-bin
+chmod +x oxeeui-linux-x86_64.AppImage
+./oxeeui-linux-x86_64.AppImage
 ```
 
-### Companion mobile — iOS, Android
+</details>
 
-Associez-la à l'app de bureau pour surveiller et piloter vos agents depuis votre téléphone.
+## FAQ
 
-- **iOS :** [Télécharger sur l'App Store](https://apps.apple.com/us/app/orca-ide/id6766130217) ou [rejoindre TestFlight](https://testflight.apple.com/join/YjeGMQBA)
-- **Android :** [Télécharger l'APK 0.0.48](https://github.com/stablyai/orca/releases/download/mobile-android-v0.0.48/app-release.apk)
+<details>
+<summary><b>OxeeUI est-il gratuit ?</b></summary>
 
----
+Oui. OxeeUI est un logiciel open source distribué sous licence MIT. Oxeegen Hermes
+utilise une clé d'API Oxeegen, les autres agents vos propres abonnements ou clés d'API,
+et la plateforme cloud gérée avec l'Ultra-Support 24/7 est un forfait mensuel proposé
+par Oxeegen.
 
-## Communauté &amp; support
+</details>
 
-- **Discord :** Rejoignez la communauté sur **[Discord](https://discord.gg/fzjDKHxv8Q)**.
-- **Twitter / X :** Suivez **[@orca_build](https://x.com/orca_build)** pour les news et annonces.
-- **WeChat :** Scannez pour rejoindre le groupe WeChat 9 de la communauté Orca.
+<details>
+<summary><b>Avec quels agents de code fonctionne-t-il ?</b></summary>
 
-  <img src="../assets/wechat-qr-group9.jpg" alt="QR code WeChat groupe 9 de la communauté Orca" width="160" />
+Avec tout agent qui tourne dans un terminal. Ceux de la liste
+[Agents compatibles](#agents-compatibles) sont reconnus d'emblée ; tout autre agent en
+ligne de commande tourne dans un onglet de terminal classique.
 
-- **Feedback &amp; idées :** On ship vite. Il manque quelque chose ? [Demandez une feature](https://github.com/stablyai/orca/issues).
-- **Confidentialité :** Voir la [doc confidentialité &amp; télémétrie](https://www.onorca.dev/docs/telemetry) pour ce qu'Orca collecte en anonyme et comment désactiver la télémétrie.
-- **Soutenez-nous :** [Mettez une star](https://github.com/stablyai/orca) sur ce repo pour suivre nos ships quotidiens.
+</details>
 
----
+<details>
+<summary><b>OxeeUI envoie-t-il mon code quelque part ?</b></summary>
+
+Non. Les dépôts et les worktrees restent sur votre machine, ou sur les hôtes SSH que vous
+connectez. Les builds d'OxeeUI ne contiennent aucune clé d'analytics : aucune donnée
+d'utilisation n'est envoyée. Les agents que vous lancez échangent avec leurs propres
+fournisseurs de modèles, exactement comme dans n'importe quel terminal.
+
+</details>
+
+<details>
+<summary><b>Puis-je utiliser les modèles d'Oxeegen ?</b></summary>
+
+Oui. Oxeegen Hermes tourne dessus, tout comme n'importe quel agent qui accepte un
+endpoint compatible OpenAI personnalisé, comme OpenCode, Qwen Code, Cline ou Kilo Code.
+Les clés sont délivrées par région (US ou UE) ; [Moteurs d'IA](#moteurs-dia) explique où
+renseigner l'endpoint et la clé.
+
+</details>
+
+<details>
+<summary><b>Oxeegen peut-il l'héberger et le gérer pour nous ?</b></summary>
+
+Oui. Avec un contrat Oxeegen, toute la plateforme tourne dans un bureau virtuel dédié
+dans le centre de données cloud d'Oxeegen, installée et configurée, en forfait mensuel
+géré avec l'Ultra-Support 24/7. Voir les
+[ordinateurs cloud d'Oxeegen](https://www.oxeegen.com/computer).
+
+</details>
+
+<details>
+<summary><b>Les agents peuvent-ils tourner sur une machine distante ?</b></summary>
+
+Oui. Les worktrees SSH donnent à un agent un hôte distant avec édition de fichiers, git
+et terminaux, et se reconnectent automatiquement en cas de coupure.
+
+</details>
+
+<details>
+<summary><b>Existe-t-il une version macOS ?</b></summary>
+
+Pas encore. Un build macOS nécessite un certificat Apple Developer ; sans lui,
+Gatekeeper refuse l'application.
+
+</details>
+
+<details>
+<summary><b>Pourquoi Windows affiche-t-il un avertissement à l'installation ?</b></summary>
+
+L'installateur n'est pas encore signé, donc SmartScreen ne le reconnaît pas. Choisissez
+**Informations complémentaires → Exécuter quand même**.
+
+</details>
 
 ## Développement
 
-Envie de contribuer ou de lancer le projet en local ? Consultez notre guide [CONTRIBUTING.md](../../.github/CONTRIBUTING.md).
+```bash
+pnpm install
+pnpm dev
+```
 
-<a href="https://github.com/stablyai/orca/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=stablyai/orca" alt="Contributeurs Orca" />
-</a>
-
-<p align="center">
-  <img src="../assets/star-history.png" alt="Graphique d'historique des étoiles GitHub pour stablyai/orca" width="880" />
-</p>
-
-## Builds signés
-
-Signature de code Windows sponsorisée / fournie par [SignPath.io](https://signpath.io), certificat par [SignPath Foundation](https://signpath.org).
+Les vérifications, la création des installateurs et les releases sont décrites dans
+[CONTRIBUTING.md](../../.github/CONTRIBUTING.md) (en anglais).
 
 ## Licence
 
-Orca est libre et open source sous la [licence MIT](../../LICENSE).
+OxeeUI est un logiciel open source distribué sous [licence MIT](../../LICENSE).
+
+Maintenu par [Oxeegen](https://oxeegen.com).

@@ -57,7 +57,7 @@ concurrency:
 
 jobs:
   verify:
-    if: github.event_name == 'pull_request'
+    if: github.repository == 'stablyai/orca' && (github.event_name == 'pull_request')
     runs-on: ubuntu-latest
 
     env:
@@ -136,6 +136,7 @@ jobs:
         run: pnpm format:check
 
   recording-pin:
+    if: github.repository == 'stablyai/orca'
     name: RPC recording pin
     runs-on: ubuntu-latest
 

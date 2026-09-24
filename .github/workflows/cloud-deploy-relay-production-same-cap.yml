@@ -96,7 +96,7 @@ defaults:
 
 jobs:
   gate:
-    if: ${{ vars.ORCA_CLOUD_OPERATIONS_ENABLED == 'true' && (github.ref == 'refs/heads/main') }}
+    if: ${{ github.repository == 'stablyai/orca' && (vars.ORCA_CLOUD_OPERATIONS_ENABLED == 'true' && (github.ref == 'refs/heads/main')) }}
     runs-on: blacksmith-2vcpu-ubuntu-2204
     # Headroom for the full-history checkout the canary provenance check needs.
     timeout-minutes: 15
@@ -223,6 +223,7 @@ jobs:
           if-no-files-found: error
 
   cell_1:
+    if: github.repository == 'stablyai/orca'
     needs: gate
     uses: ./.github/workflows/cloud-deploy-relay-production-same-cap-job.yml
     with:
@@ -245,7 +246,7 @@ jobs:
     secrets: inherit
 
   cell_2:
-    if: ${{ needs.cell_1.result == 'success' && fromJSON(needs.gate.outputs.cells)[1] != null }}
+    if: ${{ github.repository == 'stablyai/orca' && (needs.cell_1.result == 'success' && fromJSON(needs.gate.outputs.cells)[1] != null) }}
     needs: [gate, cell_1]
     uses: ./.github/workflows/cloud-deploy-relay-production-same-cap-job.yml
     with:
@@ -268,7 +269,7 @@ jobs:
     secrets: inherit
 
   cell_3:
-    if: ${{ needs.cell_2.result == 'success' && fromJSON(needs.gate.outputs.cells)[2] != null }}
+    if: ${{ github.repository == 'stablyai/orca' && (needs.cell_2.result == 'success' && fromJSON(needs.gate.outputs.cells)[2] != null) }}
     needs: [gate, cell_2]
     uses: ./.github/workflows/cloud-deploy-relay-production-same-cap-job.yml
     with:
@@ -291,7 +292,7 @@ jobs:
     secrets: inherit
 
   cell_4:
-    if: ${{ needs.cell_3.result == 'success' && fromJSON(needs.gate.outputs.cells)[3] != null }}
+    if: ${{ github.repository == 'stablyai/orca' && (needs.cell_3.result == 'success' && fromJSON(needs.gate.outputs.cells)[3] != null) }}
     needs: [gate, cell_3]
     uses: ./.github/workflows/cloud-deploy-relay-production-same-cap-job.yml
     with:
@@ -314,7 +315,7 @@ jobs:
     secrets: inherit
 
   cell_5:
-    if: ${{ needs.cell_4.result == 'success' && fromJSON(needs.gate.outputs.cells)[4] != null }}
+    if: ${{ github.repository == 'stablyai/orca' && (needs.cell_4.result == 'success' && fromJSON(needs.gate.outputs.cells)[4] != null) }}
     needs: [gate, cell_4]
     uses: ./.github/workflows/cloud-deploy-relay-production-same-cap-job.yml
     with:
@@ -337,7 +338,7 @@ jobs:
     secrets: inherit
 
   cell_6:
-    if: ${{ needs.cell_5.result == 'success' && fromJSON(needs.gate.outputs.cells)[5] != null }}
+    if: ${{ github.repository == 'stablyai/orca' && (needs.cell_5.result == 'success' && fromJSON(needs.gate.outputs.cells)[5] != null) }}
     needs: [gate, cell_5]
     uses: ./.github/workflows/cloud-deploy-relay-production-same-cap-job.yml
     with:
@@ -360,7 +361,7 @@ jobs:
     secrets: inherit
 
   cell_7:
-    if: ${{ needs.cell_6.result == 'success' && fromJSON(needs.gate.outputs.cells)[6] != null }}
+    if: ${{ github.repository == 'stablyai/orca' && (needs.cell_6.result == 'success' && fromJSON(needs.gate.outputs.cells)[6] != null) }}
     needs: [gate, cell_6]
     uses: ./.github/workflows/cloud-deploy-relay-production-same-cap-job.yml
     with:
@@ -383,7 +384,7 @@ jobs:
     secrets: inherit
 
   cell_8:
-    if: ${{ needs.cell_7.result == 'success' && fromJSON(needs.gate.outputs.cells)[7] != null }}
+    if: ${{ github.repository == 'stablyai/orca' && (needs.cell_7.result == 'success' && fromJSON(needs.gate.outputs.cells)[7] != null) }}
     needs: [gate, cell_7]
     uses: ./.github/workflows/cloud-deploy-relay-production-same-cap-job.yml
     with:
@@ -406,7 +407,7 @@ jobs:
     secrets: inherit
 
   cell_9:
-    if: ${{ needs.cell_8.result == 'success' && fromJSON(needs.gate.outputs.cells)[8] != null }}
+    if: ${{ github.repository == 'stablyai/orca' && (needs.cell_8.result == 'success' && fromJSON(needs.gate.outputs.cells)[8] != null) }}
     needs: [gate, cell_8]
     uses: ./.github/workflows/cloud-deploy-relay-production-same-cap-job.yml
     with:
@@ -429,7 +430,7 @@ jobs:
     secrets: inherit
 
   cell_10:
-    if: ${{ needs.cell_9.result == 'success' && fromJSON(needs.gate.outputs.cells)[9] != null }}
+    if: ${{ github.repository == 'stablyai/orca' && (needs.cell_9.result == 'success' && fromJSON(needs.gate.outputs.cells)[9] != null) }}
     needs: [gate, cell_9]
     uses: ./.github/workflows/cloud-deploy-relay-production-same-cap-job.yml
     with:
@@ -452,7 +453,7 @@ jobs:
     secrets: inherit
 
   seal_canary:
-    if: ${{ inputs.mode == 'canary-apply' }}
+    if: ${{ github.repository == 'stablyai/orca' && (inputs.mode == 'canary-apply') }}
     needs: [gate, cell_1]
     runs-on: blacksmith-2vcpu-ubuntu-2204
     timeout-minutes: 5
@@ -491,7 +492,7 @@ jobs:
 
   # Every cell job re-enters the run's lease with release: 'false'; only this job frees it.
   release_lease:
-    if: always()
+    if: github.repository == 'stablyai/orca' && (always())
     needs:
       - gate
       - cell_1

@@ -482,7 +482,7 @@ jobs:
     needs: build-adhoc-mac
     # Only once the mac release is actually live: there is no release to upload
     # into otherwise, and the Windows workflow refuses to create one.
-    if: needs.build-adhoc-mac.outputs.published == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.build-adhoc-mac.outputs.published == 'true')
     uses: ./.github/workflows/dev-channel-win-build.yml
     secrets: inherit
     with:

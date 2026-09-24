@@ -1,6 +1,7 @@
 import type React from 'react'
 import { useMemo, type RefObject } from 'react'
-import { ChevronRight, Folder, LoaderCircle } from 'lucide-react'
+import { ChevronRight, LoaderCircle } from 'lucide-react'
+import { BrandFolderIcon } from '@brand/file-icons/material-file-icons'
 import { cn } from '@/lib/utils'
 import { getFileTypeIcon } from '@/lib/file-type-icons'
 import {
@@ -108,7 +109,11 @@ export function RemoteFileBrowserEntryList({
                 )}
               >
                 {entry.isDirectory ? (
-                  <Folder className="size-3.5 text-muted-foreground shrink-0" />
+                  <BrandFolderIcon
+                    name={entry.name}
+                    expanded={false}
+                    className="size-3.5 text-muted-foreground shrink-0"
+                  />
                 ) : (
                   <FileIcon className="size-3.5 text-muted-foreground/60 shrink-0" />
                 )}

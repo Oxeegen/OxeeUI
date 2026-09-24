@@ -11,6 +11,7 @@ permissions:
   contents: read
 jobs:
   runtime:
+    if: github.repository == 'stablyai/orca'
     strategy:
       fail-fast: false
       matrix:
