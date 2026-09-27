@@ -4,7 +4,13 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { PersistedState } from '../shared/persisted-state-types'
 import { getDefaultPersistedState } from '../shared/constants'
-import { createStore, readDataFile, testState, writeDataFile } from './persistence-test-harness'
+import {
+  closeTestStores,
+  createStore,
+  readDataFile,
+  testState,
+  writeDataFile
+} from './persistence-test-harness'
 
 // Why this lives in src/main rather than brand/: it drives the real Store, and brand/ is
 // also type-checked by the web project, which must not pull in the main process. The
@@ -36,7 +42,10 @@ describe('a profile carried over with an icon OxeeUI does not offer', () => {
     testState.dir = mkdtempSync(join(tmpdir(), 'oxeeui-app-icon-'))
   })
 
-  afterEach(() => {
+  afterEach(async () => {
+    // Why first: the Store keeps files open, and Windows refuses to delete an open
+    // file — the release build runs this suite on a Windows runner.
+    await closeTestStores()
     rmSync(testState.dir, { recursive: true, force: true })
   })
 

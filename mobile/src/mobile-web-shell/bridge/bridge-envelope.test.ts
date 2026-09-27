@@ -34,6 +34,7 @@ import {
   type BridgeHostMessage,
   type BridgeReplyPayload
 } from './bridge-envelope'
+import { BRIDGE_BACK_CLAIM_NOTIFY, BRIDGE_BACK_FRAME } from './bridge-page-back'
 import { BRIDGE_PAGE_PAINTED } from './bridge-page-painted'
 
 const ID = 'AAAAAAAAAAAAAAAAAAAAAA'
@@ -96,6 +97,12 @@ describe('client messages', () => {
       { type: 'ready', reports: ['weather'] }
     ],
     ['a page painted notify', { type: 'notify', name: BRIDGE_PAGE_PAINTED }],
+    ['a back claim', { type: 'notify', name: BRIDGE_BACK_CLAIM_NOTIFY, claimed: true }],
+    [
+      'a back claim being let go',
+      { type: 'notify', name: BRIDGE_BACK_CLAIM_NOTIFY, claimed: false }
+    ],
+    ['ready naming what it takes', { type: 'ready', accepts: [BRIDGE_BACK_FRAME] }],
     ['request without params', { type: 'request', id: ID, method: 'status.get' }],
     ['request with params', { type: 'request', id: ID, method: 'status.get', params: { a: 1 } }],
     [
@@ -311,6 +318,7 @@ describe('host messages', () => {
       }
     ],
     ['state', { type: 'state', connection: CONNECTION }],
+    ['a back press handed to the page', { type: 'back' }],
     ['a whole reply', { type: 'reply', id: ID, payload: SUCCESS_PAYLOAD }],
     [
       'a failure reply, which is data and not a rejection',
@@ -356,6 +364,53 @@ describe('host messages', () => {
       expect(readHost(client(fields)).ok).toBe(true)
     })
   }
+
+  it("keeps the host's stored name identity, which the page's title rule reads", () => {
+    const host = {
+      id: 'host-a',
+      name: 'm4airs-Air',
+      lastKnownMachineName: 'm4airs-Air',
+      lastKnownHostPlatform: 'darwin',
+      endpoint: 'ws://host-a',
+      lastConnected: 0
+    }
+    const read = readHost(
+      client({
+        type: 'init',
+        sessionId: 's1',
+        buildId: 'b1',
+        connection: CONNECTION,
+        grants: GRANTS,
+        host
+      })
+    )
+    expect(read.ok && read.message.type === 'init' ? read.message.host : null).toEqual(host)
+  })
+
+  it('drops a name-identity value this page cannot read instead of refusing the init', () => {
+    const read = readHost(
+      client({
+        type: 'init',
+        sessionId: 's1',
+        buildId: 'b1',
+        connection: CONNECTION,
+        grants: GRANTS,
+        host: {
+          id: 'host-a',
+          name: 'Studio',
+          personalName: '',
+          lastKnownMachineName: 'Studio',
+          lastKnownHostPlatform: 'plan9',
+          endpoint: 'ws://host-a',
+          lastConnected: 0
+        }
+      })
+    )
+    const host = read.ok && read.message.type === 'init' ? read.message.host : null
+    expect(host).toMatchObject({ id: 'host-a', name: 'Studio', lastKnownMachineName: 'Studio' })
+    expect(host?.personalName).toBeUndefined()
+    expect(host?.lastKnownHostPlatform).toBeUndefined()
+  })
 
   const refused = [
     [

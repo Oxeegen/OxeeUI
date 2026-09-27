@@ -1,4 +1,5 @@
 import { BRIDGE_PAGE_PAINTED } from './bridge/bridge-page-painted'
+import { BRIDGE_SAFE_AREA_ACCEPT } from './bridge/bridge-safe-area-insets'
 import type {
   MobileWebShellSession,
   MobileWebShellSessionEvent
@@ -8,13 +9,15 @@ import type {
 export const CLEAR_PAGE_DOCUMENT_STATE = {
   pageReady: false,
   pageReportsPaint: false,
-  pagePainted: false
+  pagePainted: false,
+  pageBackClaimed: false,
+  pageOwnsSafeArea: false
 } as const
 
-/** The two things a document reports about itself, as the reducer receives them. */
+/** The three things a document reports about itself, as the reducer receives them. */
 export type PageDocumentEvent = Extract<
   MobileWebShellSessionEvent,
-  { type: 'page-ready' } | { type: 'page-painted' }
+  { type: 'page-ready' } | { type: 'page-painted' } | { type: 'page-back-claim' }
 >
 
 /**
@@ -28,12 +31,29 @@ export function pageDocumentStatePatch(
   if (session.state.kind !== 'ready') {
     return {}
   }
+  if (event.type === 'page-back-claim') {
+    return { pageBackClaimed: event.claimed }
+  }
   if (event.type === 'page-ready') {
     // Re-read on every ask rather than latched: a document that reloads inside this mount asks
-    // again, and it is the newest ask that says whether a paint report is coming.
-    return { pageReady: true, pageReportsPaint: event.reports.includes(BRIDGE_PAGE_PAINTED) }
+    // again, and it is the newest ask that says whether a paint report is coming. The key goes with
+    // it: the host drops the claim on the same `ready`, so a page that still holds one re-claims.
+    return {
+      pageReady: true,
+      pageReportsPaint: event.reports.includes(BRIDGE_PAGE_PAINTED),
+      pageBackClaimed: false,
+      pageOwnsSafeArea: event.accepts.includes(BRIDGE_SAFE_AREA_ACCEPT)
+    }
   }
   // Kept off a page that never said it would report: acting on an unasked-for frame would make
   // the wait depend on a name arriving instead of on a claim the page made.
   return session.pageReportsPaint ? { pagePainted: true } : {}
+}
+
+/** Whether the shell may draw the view edge-to-edge: gated on `ready` like the Back claim, so a
+ *  declaration never outlives the document on screen. */
+export function shellPageOwnsSafeArea(
+  session: Pick<MobileWebShellSession, 'state' | 'pageOwnsSafeArea'>
+): boolean {
+  return session.state.kind === 'ready' && session.pageOwnsSafeArea
 }

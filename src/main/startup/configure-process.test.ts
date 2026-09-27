@@ -1,8 +1,7 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { BRAND } from '@brand/config/brand'
 
 vi.mock('electron', () => {
   const paths = new Map<string, string>([['appData', '/tmp/app-data']])
@@ -341,49 +340,8 @@ describe('configureDevUserDataPath', () => {
     expect(app.setPath).toHaveBeenCalledWith('userData', '/tmp/orca-dev-repro')
   })
 
-  it('moves dev runs onto a brand-slugged dev userData path', async () => {
-    const { app } = await import('electron')
-    const { configureDevUserDataPath } = await import('./configure-process')
-
-    delete process.env.ORCA_DEV_USER_DATA_PATH
-    configureDevUserDataPath(true)
-
-    // Why: production code uses path.join(app.getPath('appData'), '<slug>-dev')
-    // which produces platform-specific separators.
-    expect(app.setPath).toHaveBeenCalledWith(
-      'userData',
-      join('/tmp/app-data', `${BRAND.artifactSlug}-dev`)
-    )
-  })
-
-  // Why this fork diverges from upstream, which asserts no call at all: Electron
-  // derives userData from package.json `name`, still upstream's `orca` here
-  // because the CLI and ~/.orca depend on that string. Leaving packaged runs on
-  // the default would put an installed OxeeUI in %APPDATA%/orca alongside an
-  // installed Orca — one settings store, and one daemon endpoint, since the
-  // endpoint name hashes this very path.
-  it('moves packaged runs onto a brand-slugged userData path', async () => {
-    const { app } = await import('electron')
-    const { configureDevUserDataPath } = await import('./configure-process')
-
-    vi.mocked(app.setPath).mockClear()
-    configureDevUserDataPath(false)
-
-    expect(app.setPath).toHaveBeenCalledWith('userData', join('/tmp/app-data', BRAND.artifactSlug))
-  })
-
-  it('keeps the packaged and dev profiles apart', async () => {
-    const { app } = await import('electron')
-    const { configureDevUserDataPath } = await import('./configure-process')
-
-    delete process.env.ORCA_DEV_USER_DATA_PATH
-    vi.mocked(app.setPath).mockClear()
-    configureDevUserDataPath(false)
-    configureDevUserDataPath(true)
-
-    const paths = vi.mocked(app.setPath).mock.calls.map(([, value]) => value)
-    expect(new Set(paths).size).toBe(2)
-  })
+  // The dev and packaged userData paths are brand-slugged here, so their tests
+  // live in configure-process-brand-profile.test.ts.
 })
 
 function restoreEnv(key: string, value: string | undefined): void {
@@ -441,6 +399,22 @@ describe('configureElectronNetworkCompatibility', () => {
     tempDirs.push(userDataPath)
     writeFileSync(join(userDataPath, 'orca-data.json'), JSON.stringify({ settings }), 'utf-8')
     return userDataPath
+  }
+
+  function createProfileState(
+    userDataPath: string,
+    profileId: string,
+    settings: Record<string, unknown>
+  ): string {
+    const profileDirectory = join(userDataPath, 'profiles', profileId)
+    mkdirSync(profileDirectory, { recursive: true })
+    writeFileSync(
+      join(userDataPath, 'orca-profile-index.json'),
+      JSON.stringify({ activeProfileId: profileId, profiles: [{ id: profileId }] }),
+      'utf-8'
+    )
+    writeFileSync(join(profileDirectory, 'orca-data.json'), JSON.stringify({ settings }), 'utf-8')
+    return profileDirectory
   }
 
   afterEach(() => {
@@ -525,6 +499,40 @@ describe('configureElectronNetworkCompatibility', () => {
     expect(
       shouldDisableHttp2ForElectronNetworking({ env: { ORCA_DISABLE_HTTP2: '0' }, userDataPath })
     ).toBe(false)
+  })
+
+  it('scopes a profile marker to the active profile before trusting it', async () => {
+    const { shouldDisableHttp2ForElectronNetworking } = await import('./configure-process')
+    const { writeHttp1CompatibilityMarker } = await import('./http1-compatibility-marker')
+    const userDataPath = mkdtempSync(join(tmpdir(), 'orca-http1-profile-'))
+    tempDirs.push(userDataPath)
+    createProfileState(userDataPath, 'profile-b', { electronHttp1CompatibilityMode: false })
+    writeHttp1CompatibilityMarker(userDataPath, true, 'profile-a')
+
+    expect(shouldDisableHttp2ForElectronNetworking({ env: {}, userDataPath })).toBe(false)
+  })
+
+  it('uses a matching profile marker even when the legacy JSON is stale', async () => {
+    const { shouldDisableHttp2ForElectronNetworking } = await import('./configure-process')
+    const { writeHttp1CompatibilityMarker } = await import('./http1-compatibility-marker')
+    const userDataPath = mkdtempSync(join(tmpdir(), 'orca-http1-profile-'))
+    tempDirs.push(userDataPath)
+    createProfileState(userDataPath, 'profile-b', { electronHttp1CompatibilityMode: false })
+    writeHttp1CompatibilityMarker(userDataPath, true, 'profile-b')
+
+    expect(shouldDisableHttp2ForElectronNetworking({ env: {}, userDataPath })).toBe(true)
+  })
+
+  it('fails closed when a profile database exists without a trusted marker', async () => {
+    const { shouldDisableHttp2ForElectronNetworking } = await import('./configure-process')
+    const userDataPath = mkdtempSync(join(tmpdir(), 'orca-http1-profile-'))
+    tempDirs.push(userDataPath)
+    const profileDirectory = createProfileState(userDataPath, 'profile-b', {
+      electronHttp1CompatibilityMode: true
+    })
+    writeFileSync(join(profileDirectory, 'profile-state.db'), 'sqlite-present', 'utf-8')
+
+    expect(shouldDisableHttp2ForElectronNetworking({ env: {}, userDataPath })).toBe(false)
   })
 
   it('appends Electron disable-http2 before sessions are created', async () => {

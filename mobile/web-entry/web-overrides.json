@@ -10,6 +10,10 @@
       "reason": "Vendored with the module, not added for Route A. Nothing on the page reaches it any more: dictation's capture went behind src/platform/dictation-capture.web.ts, which asks the shell for the microphone, so the only importer of @orca/expo-two-way-audio is the native half of that seam. The file stays because it ships with the vendored module, and it answers denied microphone permission and no playback, which is what a browser outside the shell can honestly say."
     },
     {
+      "file": "src/navigation/use-back-claim.web.ts",
+      "reason": "There is no hardware Back key inside a WebView: react-native-web answers BackHandler.addEventListener with a console warning and an inert subscription, so every sheet that claimed the key on the page armed nothing and one press left the whole session route. The native file registers the key; this one claims it from the shell over the bridge, and the shell hands one press back for the newest claim to spend."
+    },
+    {
       "file": "src/navigation/route-handoff.web.ts",
       "reason": "The page is one document standing in for one screen, so a route it does not render has to be handed to the app that does. The native file is the router; this one posts a navigate notify for a target outside the page's routes and pushes locally for one inside them."
     },
@@ -24,6 +28,10 @@
     {
       "file": "src/transport/host-device-token-store.web.ts",
       "reason": "expo-secure-store resolves to {} on web, and the bridge carries the RPC, so the page holds no device token."
+    },
+    {
+      "file": "app/_layout.web.tsx",
+      "reason": "The page's route tree starts at app/h, so without a root layout expo-router mounts DefaultNavigator, an all-edges SafeAreaView that would pad every screen a second time. The native root owns pairing and push and cannot reach the page. This one adds no padding and feeds the insets the shell sent in init to react-native-safe-area-context, whose web provider reads env(safe-area-inset-*) as 0 in both WebViews."
     },
     {
       "file": "app/h/[hostId]/index.web.tsx",
@@ -60,6 +68,10 @@
     {
       "file": "src/platform/keyboard-occlusion.web.ts",
       "reason": "react-native-web's Keyboard is a stub: addListener returns a subscription that never fires and isVisible() is always false, so a screen waiting for keyboardDidShow inside the page waits forever and the software keyboard covers whatever sits at the bottom of the document \u2014 the source-control commit bar, and the review note composer whose KeyboardAvoidingView is driven by those same events. The browser publishes the geometry a different way: the layout viewport keeps its size and visualViewport shrinks, so the occluded strip is innerHeight minus the visual viewport's height and offsetTop, tracked on its resize and scroll. A document with no visualViewport answers 0 rather than guessing."
+    },
+    {
+      "file": "src/platform/live-input-composing-range.web.ts",
+      "reason": "The terminal's Live input reads the change event's isComposing as the text system's marked-text range, and on the page that event is the DOM's. An Android WebView marks the keyboard's composing region, which Samsung and other Latin keyboards keep over every word, so the preedit mirror held each word unsent until the next keystroke or Enter. Native Android reports no range at all; this sibling answers the same in an Android WebView and passes the DOM's range through in any other browser. The native file passes the event's own through."
     },
     {
       "file": "src/platform/clipboard.web.ts",
@@ -139,7 +151,7 @@
     },
     {
       "file": "src/components/AuthFailedBannerActions.web.tsx",
-      "reason": "The auth-failed banner offers Retry, Re-pair and Remove, and the page can honour none of them: forceReconnect is () => Promise.resolve() there (client-context.web.tsx:55, read through host-client-hooks.ts:87), /pair-scan sits outside the page's route root of app/h (config/scripts/mobile-web-app-route-manifest.mjs:6), and removal refuses (page-host-removal-refusal.ts). The banner itself is reachable on the page: the shell forwards the native client's state verbatim (mobile-web-shell/bridge-host.ts:381) and auth-failed is in the wire enum (bridge/bridge-envelope.ts:43); the other trigger, pairingRejected, is hard-wired false at client-context.web.tsx:80. So this one renders no control and one line naming the app, because a banner that reports a failure and offers no way out reads as a dead end."
+      "reason": "The auth-failed banner offers Retry, Re-pair and Remove, and on the page only Re-pair works. /pair-scan sits outside the page's route root of app/h (config/scripts/mobile-web-app-route-manifest.mjs:6), so route-handoff.web.ts:207 hands the push to the shell, which opens the native scan screen and returns to the same page document on Back. Retry and Remove are inert here: forceReconnect is null (client-context.web.tsx:57, read through host-client-hooks.ts:88) and removal refuses (page-host-removal-refusal.ts). The banner is reachable on the page because the shell forwards the native client's state (mobile-web-shell/bridge-host.ts:301) and auth-failed is in the wire enum (bridge/bridge-envelope.ts:44). So this one renders Re-pair as native does and one line naming the app for reconnect and removal."
     },
     {
       "file": "src/components/MobileHtmlPreview.web.tsx",
@@ -164,6 +176,10 @@
     {
       "file": "src/terminal/terminal-live-input-text-write.web.ts",
       "reason": "setNativeProps does not exist on React Native Web, where a TextInput ref is the DOM node, so the native write threw out of the session route's mount effect and faulted the page instead of clearing the field; this one sets value on the <input> or <textarea> RN Web rendered."
+    },
+    {
+      "file": "src/terminal/terminal-text-field-submit-binding.web.ts",
+      "reason": "react-native-web's keydown handler withholds onSubmitEditing whenever the Enter keydown reports a composition \u2014 nativeEvent.isComposing, or the Android keyCode 229 that stands for it \u2014 which is a soft keyboard's normal state mid-word, so Enter on the page neither sent the line nor cleared the field while native Android's editor action fired as it always does. Both terminal fields reach their send through onSubmitEditing alone and both are bound here: the live input's carriage return, and the buffered command field's draft. The native file binds nothing, because that editor action needs no help; this one listens for beforeinput and acts on insertLineBreak and insertParagraph, the browser's own end-of-line signals. react-native-web calls preventDefault on every keydown it does submit on, so those events exist only in the cases it dropped and never produce a second carriage return; an IME still choosing a candidate reports insertCompositionText and is left alone."
     },
     {
       "file": "src/transport/host-app-version-store.web.ts",

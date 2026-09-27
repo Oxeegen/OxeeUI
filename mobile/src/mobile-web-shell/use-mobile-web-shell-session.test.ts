@@ -155,7 +155,10 @@ function createFakeStore(): {
     persistActiveManifest: async (_hostKey, manifest) => {
       persisted.push(manifest)
       return 'persisted'
-    }
+    },
+    recordUpdateFailure: async () => undefined,
+    readUpdateFailures: async () => [],
+    forgetHostUpdateFailures: async () => undefined
   }
   return {
     store,
@@ -216,7 +219,7 @@ async function mount(store: GenerationStore): Promise<Mounted> {
   const handle: {
     retry: () => void
     documentLoaded: () => void
-    pageReady: (reports: readonly string[]) => void
+    pageReady: (ready: { reports: readonly string[]; accepts: readonly string[] }) => void
     states: MobileWebShellSessionState[]
     handshakes: boolean[]
   } = {
@@ -259,7 +262,7 @@ async function mount(store: GenerationStore): Promise<Mounted> {
     states: () => handle.states,
     handshakes: () => handle.handshakes,
     documentLoaded: () => handle.documentLoaded(),
-    pageReady: (reports: readonly string[] = []) => handle.pageReady(reports),
+    pageReady: (reports: readonly string[] = []) => handle.pageReady({ reports, accepts: [] }),
     timers
   }
 }

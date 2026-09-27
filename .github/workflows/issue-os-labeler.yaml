@@ -13,7 +13,7 @@ permissions:
 jobs:
   apply-os-label:
     if: github.repository == 'stablyai/orca'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 5
     steps:
       - name: Apply OS label from issue form
