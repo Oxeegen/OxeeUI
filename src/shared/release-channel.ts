@@ -24,7 +24,43 @@ export const RELEASE_CHANNEL_LABELS: Readonly<Record<ReleaseChannel, string>> = 
 export const HOURLY_RELEASE_REPO = 'stablyai/orca-hourly'
 export const DAILY_RELEASE_REPO = 'stablyai/orca-daily'
 export const ADHOC_RELEASE_REPO = 'stablyai/orca-adhoc'
-export const MAIN_RELEASE_REPO = 'stablyai/orca'
+// Why a fork literal rather than an import from brand/: this module sits in the
+// CLI tsconfig project, which compiles with plain tsc and no bundler. tsc does
+// not rewrite path aliases, so an `@brand/...` import here type-checks and then
+// emits an unresolvable require into the packaged CLI. brand.config.json stays
+// the source of truth and brand/release-repo.test.ts pins the two equal.
+//
+// It has to be the fork's repo either way: the update feed and the "install a
+// specific build" list would otherwise offer upstream artifacts that replace this
+// app with a different product.
+export const MAIN_RELEASE_REPO = 'Oxeegen/OxeeUI'
+
+/**
+ * The stable feed electron-updater falls back to: the initial feed at setup, and
+ * the default check when no newer tag was found.
+ *
+ * Why derived, and why here: both call sites hardcoded upstream's repo, so an
+ * up-to-date build checked upstream's feed, read its higher version as an update,
+ * and offered to install a different product over this one. It lives beside
+ * MAIN_RELEASE_REPO rather than in the updater modules because upstream's updater
+ * tests mock those modules wholesale, and a new export there is undefined under
+ * every such mock. brand/updater-feed.test.ts fails on any other literal.
+ */
+export const LATEST_RELEASE_DOWNLOAD_URL = `https://github.com/${MAIN_RELEASE_REPO}/releases/latest/download`
+
+/**
+ * This product's release tags are `oxeeui-v<version>`, not bare `v<version>`.
+ *
+ * Why it has to be understood rather than ignored: the repo also carries the
+ * tags it was forked from, and GitHub's releases atom feed lists those as
+ * entries even though no release was ever cut for them. Reading only `v<semver>`
+ * therefore skipped every real release and picked an inherited `v1.4.x` tag,
+ * whose manifest 404s — so every update check died on "a newer release isn't
+ * available for this device yet" and never reached LATEST_RELEASE_DOWNLOAD_URL.
+ * Kept beside MAIN_RELEASE_REPO for the same reason: this module compiles with
+ * plain tsc, and upstream's updater tests mock the updater modules wholesale.
+ */
+export const MAIN_RELEASE_TAG_PREFIX = 'oxeeui-v'
 
 export const HOURLY_PRERELEASE_IDENTIFIER = 'hourly'
 export const DAILY_PRERELEASE_IDENTIFIER = 'daily'
@@ -119,7 +155,15 @@ export function getReleaseRepoForChannel(channel: ReleaseChannel): string {
 }
 
 export function normalizeTagToVersion(tag: string): string {
-  return tag.replace(/^v/i, '')
+  const withoutBrandPrefix = tag.startsWith(MAIN_RELEASE_TAG_PREFIX)
+    ? tag.slice(MAIN_RELEASE_TAG_PREFIX.length)
+    : tag
+  return withoutBrandPrefix.replace(/^v/i, '')
+}
+
+/** The tag a version was published under in the main repo. */
+export function formatMainReleaseTag(version: string): string {
+  return `${MAIN_RELEASE_TAG_PREFIX}${normalizeTagToVersion(version)}`
 }
 
 /** `1.4.160-hourly.202607281400` — a timestamp identifier keeps every build
@@ -245,9 +289,17 @@ export function getVersionChannel(version: string): ReleaseChannel | null {
 export function getReleaseNotesUrlForVersion(version: string | null): string {
   const channel = version ? getVersionChannel(version) : null
   const repo = channel ? getReleaseRepoForChannel(channel) : MAIN_RELEASE_REPO
-  return version
-    ? `https://github.com/${repo}/releases/tag/v${normalizeTagToVersion(version)}`
-    : `https://github.com/${repo}/releases`
+  if (!version) {
+    return `https://github.com/${repo}/releases`
+  }
+  // Why the split: only the main repo publishes under this product's tag prefix;
+  // the dev-channel repos keep plain `v<version>` tags, and a link built with the
+  // wrong one 404s.
+  const tag =
+    repo === MAIN_RELEASE_REPO
+      ? formatMainReleaseTag(version)
+      : `v${normalizeTagToVersion(version)}`
+  return `https://github.com/${repo}/releases/tag/${tag}`
 }
 
 /**

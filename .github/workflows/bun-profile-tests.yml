@@ -27,7 +27,7 @@ concurrency:
 
 jobs:
   changes:
-    if: github.event_name == 'pull_request'
+    if: github.repository == 'stablyai/orca' && (github.event_name == 'pull_request')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -52,7 +52,7 @@ jobs:
   persistence:
     needs: changes
     # Missing/failed detection runs the full matrix; manual runs remain unconditional.
-    if: ${{ !cancelled() && needs.changes.outputs.should_run != 'false' }}
+    if: ${{ github.repository == 'stablyai/orca' && (!cancelled() && needs.changes.outputs.should_run != 'false') }}
     strategy:
       fail-fast: false
       matrix:
@@ -86,7 +86,7 @@ jobs:
   linux_glibc_floor:
     needs: changes
     # Missing/failed detection runs the full matrix; manual runs remain unconditional.
-    if: ${{ !cancelled() && needs.changes.outputs.should_run != 'false' }}
+    if: ${{ github.repository == 'stablyai/orca' && (!cancelled() && needs.changes.outputs.should_run != 'false') }}
     strategy:
       fail-fast: false
       matrix:
@@ -111,7 +111,7 @@ jobs:
   linux_musl:
     needs: changes
     # Missing/failed detection runs the full matrix; manual runs remain unconditional.
-    if: ${{ !cancelled() && needs.changes.outputs.should_run != 'false' }}
+    if: ${{ github.repository == 'stablyai/orca' && (!cancelled() && needs.changes.outputs.should_run != 'false') }}
     strategy:
       fail-fast: false
       matrix:

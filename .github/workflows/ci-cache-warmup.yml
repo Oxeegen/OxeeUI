@@ -34,6 +34,7 @@ concurrency:
 
 jobs:
   warm:
+    if: github.repository == 'stablyai/orca'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:

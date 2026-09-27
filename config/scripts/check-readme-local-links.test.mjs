@@ -164,7 +164,9 @@ describe('README local link check', () => {
     const guardJob = workflow.jobs.code_paths
     const step = guardJob.steps.find((candidate) => candidate.name === 'Check README local links')
 
-    expect(guardJob.if).toBeUndefined()
+    // Why the guard and not undefined: this fork prefixes every job `if` with a
+    // repository guard, so an unconditional job carries exactly that guard.
+    expect(guardJob.if).toBe("github.repository == 'stablyai/orca'")
     expect(guardJob.needs).toBeUndefined()
     expect(step.if).toBeUndefined()
     expect(step.run).toBe('node config/scripts/check-readme-local-links.mjs')

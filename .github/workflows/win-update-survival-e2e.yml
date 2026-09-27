@@ -39,6 +39,7 @@ concurrency:
 
 jobs:
   survival:
+    if: github.repository == 'stablyai/orca'
     name: survival (branch build over itself)
     runs-on: windows-2022
     timeout-minutes: 50

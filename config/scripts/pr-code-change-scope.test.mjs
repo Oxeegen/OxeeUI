@@ -554,7 +554,9 @@ describe('PR Checks skip wiring', () => {
 
   it('keeps the root and README guards on docs-only PRs without another runner', () => {
     const detector = prWorkflow.jobs.code_paths
-    expect(detector.if).toBeUndefined()
+    // Why the guard and not undefined: this fork prefixes every job `if` with a
+    // repository guard, so an unconditional job carries exactly that guard.
+    expect(detector.if).toBe("github.repository == 'stablyai/orca'")
     expect(detector.needs).toBeUndefined()
     for (const name of ['Reject new root-level files and folders', 'Check README local links']) {
       const step = detector.steps.find((candidate) => candidate.name === name)
@@ -567,7 +569,7 @@ describe('PR Checks skip wiring', () => {
   it('gates each expensive job on its classifier and cache prerequisite', () => {
     for (const jobName of expensiveJobs.filter((jobName) => jobName !== 'test')) {
       expect(prWorkflow.jobs[jobName].needs, jobName).toEqual(['code_paths'])
-      expect(prWorkflow.jobs[jobName].if, jobName).toBe(
+      expect(prWorkflow.jobs[jobName].if, jobName).toContain(
         `needs.code_paths.outputs.${jobName} == 'true'`
       )
     }
@@ -576,7 +578,7 @@ describe('PR Checks skip wiring', () => {
     expect(prWorkflow.jobs.test.if).toContain("needs.test_native_cache.result == 'success'")
     expect(prWorkflow.jobs.test.if).toContain("needs.test_native_cache.result == 'skipped'")
     expect(prWorkflow.jobs.test_native_cache.needs).toEqual(['code_paths'])
-    expect(prWorkflow.jobs.test_native_cache.if).toBe(
+    expect(prWorkflow.jobs.test_native_cache.if).toContain(
       "needs.code_paths.outputs.native_cache_changed == 'true'"
     )
     expect(prWorkflow.jobs.test_native_cache.strategy).toBeUndefined()

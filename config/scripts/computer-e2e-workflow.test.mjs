@@ -3,6 +3,9 @@ import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { parse } from 'yaml'
 
+// Why toContain rather than toBe: this fork prefixes every job `if` with a
+// repository guard, so exact-match assertions would assert the guard away.
+
 const projectDir = resolve(import.meta.dirname, '../..')
 
 describe('computer-use e2e workflow', () => {
@@ -166,7 +169,7 @@ describe('computer-use e2e workflow', () => {
       (step) => step.uses === './.github/actions/install-node-dependencies'
     )
 
-    expect(job.if).toBeUndefined()
+    expect(job.if).toBe("github.repository == 'stablyai/orca'")
     expect(job['runs-on']).toBe('macos-15')
     expect(checkout.with['persist-credentials']).toBe(false)
     expect(install.with['native-runtime']).toBe('electron')
