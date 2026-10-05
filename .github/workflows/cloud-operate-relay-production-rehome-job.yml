@@ -34,7 +34,7 @@ defaults:
 
 jobs:
   control:
-    if: ${{ github.ref == 'refs/heads/main' }}
+    if: ${{ github.repository == 'stablyai/orca' && (github.ref == 'refs/heads/main') }}
     runs-on: blacksmith-2vcpu-ubuntu-2204
     timeout-minutes: 30
     environment: production

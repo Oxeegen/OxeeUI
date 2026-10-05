@@ -1,9 +1,20 @@
 const { closeSync, fstatSync, openSync, readSync } = require('node:fs')
 const { basename } = require('node:path')
 
+const brand = require('../../brand/config/brand.config.json')
+
+// Why the brand entries sit beside upstream's rather than replacing them:
+// config/electron-builder.brand.cjs names the AppImage `<slug>-linux-${arch}`,
+// where electron-builder renders x64 as `x86_64`, so a branded build produces a
+// filename this contract would otherwise reject outright — which is exactly how
+// the first v1.4.200 release build failed. Upstream's two names stay accepted so
+// the unbranded `build:linux` path and this file's own contract suite keep
+// passing untouched.
 const EXPECTED_ARCHITECTURE_BY_FILENAME = new Map([
   ['orca-linux.AppImage', 'x64'],
-  ['orca-linux-arm64.AppImage', 'arm64']
+  ['orca-linux-arm64.AppImage', 'arm64'],
+  [`${brand.artifactSlug}-linux-x86_64.AppImage`, 'x64'],
+  [`${brand.artifactSlug}-linux-arm64.AppImage`, 'arm64']
 ])
 const APPIMAGE_MAGIC = Buffer.from([0x41, 0x49, 0x02])
 const RUNTIME_SOURCE = Buffer.from('https://github.com/AppImage/type2-runtime')

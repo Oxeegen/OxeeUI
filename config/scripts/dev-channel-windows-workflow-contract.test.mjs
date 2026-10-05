@@ -43,7 +43,9 @@ describe('dev-channel Windows build wiring', () => {
   it.each(MAC_WORKFLOWS)(
     'only runs the %s Windows leg once the release is live',
     (channel, path, jobName) => {
-      expect(readWorkflow(path).jobs[`build-${channel}-win`].if).toBe(
+      // Why toContain rather than toBe: this fork prefixes every job `if` with a
+      // repository guard, so an exact match would assert the guard away.
+      expect(readWorkflow(path).jobs[`build-${channel}-win`].if).toContain(
         `needs.${jobName}.outputs.published == 'true'`
       )
     }

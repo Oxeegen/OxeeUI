@@ -28,6 +28,7 @@ concurrency:
 
 jobs:
   review_scope:
+    if: github.repository == 'stablyai/orca'
     runs-on: ubuntu-slim
     permissions:
       contents: read
@@ -52,7 +53,7 @@ jobs:
 
   pullfrog:
     needs: review_scope
-    if: needs.review_scope.outputs.current == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.review_scope.outputs.current == 'true')
     runs-on: ubuntu-latest
     permissions:
       id-token: write

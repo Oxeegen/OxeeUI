@@ -11,6 +11,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      '@brand': resolve('brand'),
       '@renderer': resolve('src/renderer/src'),
       '@': resolve('src/renderer/src')
     }
@@ -34,7 +35,10 @@ export default defineConfig({
       resolve('config/scripts/vitest-host-ports-setup.ts'),
       resolve('config/scripts/vitest-caller-identity-env-setup.ts')
     ],
-    include: UNIT_INCLUDE,
+    // Why prepended here and not added to UNIT_INCLUDE: that list lives in
+    // ci-unit-files.mjs, which upstream's CI sharding also reads, so keeping the
+    // brand tests out of it leaves those scripts and their tests untouched.
+    include: ['brand/**/*.test.ts', ...UNIT_INCLUDE],
     ...(process.env.ORCA_BALANCE_UNIT_SHARDS === '1' ? { exclude: UNIT_EXCLUDE } : {}),
     // Why: the full suite runs heavy TS transforms plus real git/http fixtures;
     // the Vitest 5s defaults are too tight for the slowest integration cases.

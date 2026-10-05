@@ -815,7 +815,7 @@ jobs:
 
   create-release:
     needs: cut
-    if: needs.cut.outputs.should_release == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.cut.outputs.should_release == 'true')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -843,7 +843,7 @@ jobs:
 
   terminal-rendering-golden:
     needs: cut
-    if: needs.cut.outputs.should_release == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.cut.outputs.should_release == 'true')
     name: golden e2e ${{ matrix.platform }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
@@ -970,7 +970,7 @@ jobs:
 
   skill-sharing-release-gate:
     needs: cut
-    if: needs.cut.outputs.should_release == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.cut.outputs.should_release == 'true')
     name: skill sharing release gate ${{ matrix.platform }}
     runs-on: ${{ matrix.os }}
     # The full suite is release-blocking on macOS. Windows still produces the
@@ -1026,7 +1026,7 @@ jobs:
 
   skill-sharing-linux-floor-release-gate:
     needs: cut
-    if: needs.cut.outputs.should_release == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.cut.outputs.should_release == 'true')
     name: skill sharing release gate linux-glibc-2.31
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -1079,7 +1079,7 @@ jobs:
   # but they include heavier app-like flows and must not block publishing.
   terminal-rendering-release-evidence:
     needs: cut
-    if: needs.cut.outputs.should_release == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.cut.outputs.should_release == 'true')
     continue-on-error: true
     name: terminal rendering release evidence ${{ matrix.platform }}
     runs-on: ${{ matrix.os }}
@@ -1170,7 +1170,7 @@ jobs:
   # signing quota, so it runs beside the release gates instead of behind them.
   orcad-template:
     needs: cut
-    if: needs.cut.outputs.should_release == 'true' && needs.cut.outputs.ships_orcad_template == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.cut.outputs.should_release == 'true' && needs.cut.outputs.ships_orcad_template == 'true')
     permissions:
       contents: read
     uses: ./.github/workflows/node-server-tests.yml
@@ -1188,11 +1188,13 @@ jobs:
       - skill-sharing-release-gate
       - skill-sharing-linux-floor-release-gate
     if: >-
+      github.repository == 'stablyai/orca' && (
       always() &&
       needs.cut.outputs.should_release == 'true' &&
       needs.terminal-rendering-golden.result == 'success' &&
       needs.skill-sharing-release-gate.result == 'success' &&
       needs.skill-sharing-linux-floor-release-gate.result == 'success'
+      )
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -1205,7 +1207,7 @@ jobs:
   # Needs only cut, so it overlaps the release gates instead of extending them.
   relay-windows-process-tree:
     needs: cut
-    if: needs.cut.outputs.should_release == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.cut.outputs.should_release == 'true')
     permissions:
       contents: read
     uses: ./.github/workflows/relay-windows-process-tree.yml
@@ -1221,6 +1223,7 @@ jobs:
       - relay-windows-process-tree
     # Why not the implicit success(): a tag without the orcad template skips that job on purpose.
     if: >-
+      github.repository == 'stablyai/orca' && (
       !cancelled() &&
       needs.cut.result == 'success' &&
       needs.cut.outputs.should_release == 'true' &&
@@ -1229,6 +1232,7 @@ jobs:
       needs.relay-windows-process-tree.result == 'success' &&
       (needs.orcad-template.result == 'success' ||
         (needs.orcad-template.result == 'skipped' && needs.cut.outputs.ships_orcad_template == 'false'))
+      )
     env:
       # beforePack and afterPack fail the package when the template is absent.
       ORCA_REQUIRE_ORCAD_TEMPLATE: '1'
@@ -2334,6 +2338,7 @@ jobs:
       - relay-windows-process-tree
     # Why not the implicit success(): a tag without the orcad template skips that job on purpose.
     if: >-
+      github.repository == 'stablyai/orca' && (
       !cancelled() &&
       needs.cut.result == 'success' &&
       needs.cut.outputs.should_release == 'true' &&
@@ -2342,6 +2347,7 @@ jobs:
       needs.relay-windows-process-tree.result == 'success' &&
       (needs.orcad-template.result == 'success' ||
         (needs.orcad-template.result == 'skipped' && needs.cut.outputs.ships_orcad_template == 'false'))
+      )
     # Why: SignPath requires every job in this signing workflow to be
     # GitHub-hosted. The actual mac build runs in release-mac-build.yml so
     # Blacksmith stays outside Windows artifact provenance.
@@ -2377,6 +2383,7 @@ jobs:
       - terminal-rendering-golden
     # Why explicit: a skipped orcad-template (tags that predate it) would skip every job after it.
     if: >-
+      github.repository == 'stablyai/orca' && (
       !cancelled() &&
       needs.cut.result == 'success' &&
       needs.build.result == 'success' &&
@@ -2384,6 +2391,7 @@ jobs:
       needs.skill-sharing-linux-floor-release-gate.result == 'success' &&
       needs.skill-sharing-release-gate.result == 'success' &&
       needs.terminal-rendering-golden.result == 'success'
+      )
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -2453,7 +2461,7 @@ jobs:
       - cut
       - publish-release
     # Why explicit: a skipped orcad-template (tags that predate it) would skip every job after it.
-    if: ${{ !cancelled() && needs.publish-release.result == 'success' && needs.cut.outputs.tag != '' }}
+    if: ${{ github.repository == 'stablyai/orca' && (!cancelled() && needs.publish-release.result == 'success' && needs.cut.outputs.tag != '') }}
     runs-on: ubuntu-latest
     permissions:
       actions: write
@@ -2483,7 +2491,7 @@ jobs:
     # event to other workflows. Dispatch the trusted default-branch workflow;
     # it validates and checks out the released tag before deploying.
     # Why explicit: a skipped orcad-template (tags that predate it) would skip every job after it.
-    if: ${{ !cancelled() && needs.publish-release.result == 'success' && needs.cut.outputs.tag != '' }}
+    if: ${{ github.repository == 'stablyai/orca' && (!cancelled() && needs.publish-release.result == 'success' && needs.cut.outputs.tag != '') }}
     runs-on: ubuntu-latest
     permissions:
       actions: write
@@ -2517,7 +2525,7 @@ jobs:
       - cut
     # Why: publish-complete-draft-releases can expose a recovered RC without
     # running the build/publish jobs; still advance the RC cask to that tag.
-    if: ${{ needs.cut.outputs.latest_published_rc_tag != '' }}
+    if: ${{ github.repository == 'stablyai/orca' && (needs.cut.outputs.latest_published_rc_tag != '') }}
     uses: ./.github/workflows/homebrew-bump.yml
     with:
       tag: ${{ needs.cut.outputs.latest_published_rc_tag }}
@@ -2528,7 +2536,7 @@ jobs:
       - cut
       - publish-release
     # Why explicit: a skipped orcad-template (tags that predate it) would skip every job after it.
-    if: ${{ !cancelled() && needs.publish-release.result == 'success' && needs.cut.outputs.tag != '' && startsWith(needs.cut.outputs.tag, 'v') }}
+    if: ${{ github.repository == 'stablyai/orca' && (!cancelled() && needs.publish-release.result == 'success' && needs.cut.outputs.tag != '' && startsWith(needs.cut.outputs.tag, 'v')) }}
     uses: ./.github/workflows/homebrew-bump.yml
     with:
       tag: ${{ needs.cut.outputs.tag }}

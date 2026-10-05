@@ -340,27 +340,8 @@ describe('configureDevUserDataPath', () => {
     expect(app.setPath).toHaveBeenCalledWith('userData', '/tmp/orca-dev-repro')
   })
 
-  it('moves dev runs onto an orca-dev userData path', async () => {
-    const { app } = await import('electron')
-    const { configureDevUserDataPath } = await import('./configure-process')
-
-    delete process.env.ORCA_DEV_USER_DATA_PATH
-    configureDevUserDataPath(true)
-
-    // Why: production code uses path.join(app.getPath('appData'), 'orca-dev')
-    // which produces platform-specific separators.
-    expect(app.setPath).toHaveBeenCalledWith('userData', join('/tmp/app-data', 'orca-dev'))
-  })
-
-  it('leaves packaged runs on the default userData path', async () => {
-    const { app } = await import('electron')
-    const { configureDevUserDataPath } = await import('./configure-process')
-
-    vi.mocked(app.setPath).mockClear()
-    configureDevUserDataPath(false)
-
-    expect(app.setPath).not.toHaveBeenCalled()
-  })
+  // The dev and packaged userData paths are brand-slugged here, so their tests
+  // live in configure-process-brand-profile.test.ts.
 })
 
 function restoreEnv(key: string, value: string | undefined): void {

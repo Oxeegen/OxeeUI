@@ -3,6 +3,9 @@ import { expect, it } from 'vitest'
 import { parse } from 'yaml'
 import { classifyPrJobs } from './pr-code-change-scope.mjs'
 
+// Why toContain for job `if`s: this fork prefixes every job `if` with a repository
+// guard, so exact matches would assert the guard away. Step conditions stay exact.
+
 const workflow = parse(readFileSync('.github/workflows/pr.yml', 'utf8'))
 const typecheck = workflow.jobs.typecheck
 const steps = typecheck.steps
@@ -58,7 +61,7 @@ it.each(
   )
 )('keeps desktop typechecking and planning off unrelated paths: $changed', ({ changed }) => {
   const scope = classifyPrJobs(changed)
-  expect(typecheck.if).toBe("needs.code_paths.outputs.typecheck == 'true'")
+  expect(typecheck.if).toContain("needs.code_paths.outputs.typecheck == 'true'")
   expect(scope.test).toBe(scope.typecheck)
   if (scope.test) {
     expect(scope.static_analysis).toBe(true)

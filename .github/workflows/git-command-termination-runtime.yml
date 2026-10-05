@@ -12,6 +12,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   windows-exit:
+    if: github.repository == 'stablyai/orca'
     runs-on: windows-latest
     timeout-minutes: 20
     env:

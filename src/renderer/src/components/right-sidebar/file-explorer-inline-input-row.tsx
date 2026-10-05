@@ -1,5 +1,6 @@
 import React, { useCallback, useRef } from 'react'
-import { File, Folder } from 'lucide-react'
+import { File } from 'lucide-react'
+import { BrandFolderIcon } from '@brand/file-icons/material-file-icons'
 import type { TreeNode } from './file-explorer-types'
 
 export type InlineInput = {
@@ -135,7 +136,11 @@ export function InlineInputRow({
     >
       <span className="size-3 shrink-0" />
       {inlineInput.type === 'folder' ? (
-        <Folder className="size-3 shrink-0 text-muted-foreground" />
+        <BrandFolderIcon
+          name=""
+          expanded={false}
+          className="size-3 shrink-0 text-muted-foreground"
+        />
       ) : (
         <File className="size-3 shrink-0 text-muted-foreground" />
       )}

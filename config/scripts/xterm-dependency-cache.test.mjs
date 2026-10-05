@@ -2,6 +2,9 @@ import { readFileSync } from 'node:fs'
 import { expect, it } from 'vitest'
 import { parse } from 'yaml'
 
+// Why toContain for job `if`s: this fork prefixes every job `if` with a repository
+// guard, so exact matches would assert the guard away. Step conditions stay exact.
+
 const readYaml = (path) => parse(readFileSync(new URL(path, import.meta.url), 'utf8'))
 const action = readYaml('../../.github/actions/prepare-xterm-dependencies/action.yml')
 const workflow = readYaml('../../.github/workflows/ci-xterm-cache.yml')
@@ -31,7 +34,7 @@ it('separates toolchains and restores dependencies without a stale fallback or b
 it('publishes only from main after a successful fresh verification, and skips work on hits', () => {
   expect(workflow.on.pull_request).toBeUndefined()
   expect(workflow.on.push.branches).toEqual(['main'])
-  expect(workflow.jobs.seed.if).toBe("github.ref == 'refs/heads/main'")
+  expect(workflow.jobs.seed.if).toContain("github.ref == 'refs/heads/main'")
   expect(workflow.permissions).toEqual({ contents: 'read' })
   const steps = workflow.jobs.seed.steps
   const verify = steps.find((step) => step.name === 'Verify and populate dependencies')

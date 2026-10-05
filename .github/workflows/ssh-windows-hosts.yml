@@ -55,7 +55,7 @@ concurrency:
 jobs:
   hosts:
     # A draft carries no verdict; readiness re-triggers this workflow.
-    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft != true }}
+    if: ${{ github.repository == 'stablyai/orca' && (github.event_name != 'pull_request' || github.event.pull_request.draft != true) }}
     strategy:
       fail-fast: false
       matrix:

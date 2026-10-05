@@ -31,6 +31,7 @@ import type { UseGhosttyImportReturn } from './useGhosttyImport'
 import type { UseWarpThemeImportReturn } from './useWarpThemeImport'
 import { AppIconSelector } from './AppIconSelector'
 import { normalizeAppIconId } from '../../../../shared/app-icon'
+import { IS_APP_ICON_CHOICE_OFFERED } from '@brand/settings/app-icons'
 import { getRendererAppPlatform } from '@/lib/renderer-app-platform'
 import { isWebClientLocation } from '@/lib/web-client-location'
 import { SHOW_UI_LANGUAGE_SETTING } from '@/i18n/supported-languages'
@@ -280,7 +281,9 @@ export function AppearancePane({
 
       {/* App icon stays at the bottom of Appearance as a small easter egg,
           matching production — not buried inside Interface advanced. */}
-      {appIconMatches ? (
+      {/* Why gated: OxeeUI offers a single icon, so there is nothing to pick.
+          See brand/settings/app-icons.ts. */}
+      {IS_APP_ICON_CHOICE_OFFERED && appIconMatches ? (
         <SearchableSetting
           title={translate('auto.components.settings.AppearancePane.ca1590d42f', 'App Icon')}
           description={translate(

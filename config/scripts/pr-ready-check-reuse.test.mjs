@@ -8,6 +8,9 @@ import {
   reusablePrCheckRun
 } from './pr-ready-check-reuse.mjs'
 
+// Why toContain for job `if`s: this fork prefixes every job `if` with a repository
+// guard, so exact matches would assert the guard away. Step conditions stay exact.
+
 const identity = {
   number: 42,
   sourceSha: 'a'.repeat(40),
@@ -156,7 +159,7 @@ describe('ready-for-review required check reuse', () => {
     expect(detector.steps.find((step) => step.id === 'e2e_filter').if).toBe(
       "github.event.pull_request.draft != true && steps.filter.outputs.should_run == 'true'"
     )
-    expect(workflow.jobs.verify.if).toBe('${{ !cancelled() }}')
+    expect(workflow.jobs.verify.if).toContain('!cancelled()')
     expect(workflow.jobs.verify.needs).toEqual(['code_paths', ...PR_CHECK_JOBS])
   })
 

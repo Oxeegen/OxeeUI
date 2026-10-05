@@ -5,6 +5,9 @@ import { dirname, join, resolve } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { parse } from 'yaml'
 
+// Why toContain for job `if`s: this fork prefixes every job `if` with a repository
+// guard, so exact matches would assert the guard away. Step conditions stay exact.
+
 const projectDir = resolve(import.meta.dirname, '../..')
 const guardScript = join(projectDir, '.github/scripts/check-root-directory-entries.mjs')
 const tempDirs = []
@@ -226,7 +229,7 @@ describe('root directory guard', () => {
       (step) => step.name === 'Reject new root-level files and folders'
     )
 
-    expect(guardJob.if).toBeUndefined()
+    expect(guardJob.if).toBe("github.repository == 'stablyai/orca'")
     expect(guardStep.if).toBeUndefined()
     // Why >= 2 rather than 0: the guard compares the merge commit's first parent against the
     // merged tree, so it needs both parents present but no history beyond them. Depth 1 would
