@@ -17,6 +17,12 @@ export type RuntimeTerminalSummary = {
   ptyId: string | null
   incarnationId?: string | null
   orphaned?: boolean
+  /**
+   * Orphaned only: the pane the host last recorded for this PTY, which the renderer owning it can
+   * still hold even when its graph omitted that pane. Absent when none was recorded or the host
+   * predates the field.
+   */
+  recordedPaneKey?: string
   worktreeId: string
   worktreePath: string
   branch: string
@@ -322,6 +328,9 @@ export type RuntimeTerminalClose = {
   ptyKilled: boolean
   ptyStopVerdict?: 'live' | 'unverifiable'
   ptyStopReason?: string
+  /** The host durably recorded a kill order it replays when the PTY's SSH host reconnects.
+   *  Older hosts never send it, so a client promises no retry without it. */
+  pendingKillRecorded?: true
 }
 
 export type RuntimeTerminalWaitCondition = 'exit' | 'tui-idle'

@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import {
-  getDefaultNotificationSettings,
-  getDefaultSettings,
-  getDefaultVoiceSettings
-} from '../../src/shared/constants'
+import { getDefaultSettings, getDefaultVoiceSettings } from '../../src/shared/constants'
+import { getDefaultNotificationSettings } from '../../src/shared/notification-settings-defaults'
 import { BRAND_DEFAULT_SETTINGS } from '../../src/shared/brand-default-settings'
 import { buildDefaultSettings } from '../../src/shared/default-global-settings'
 

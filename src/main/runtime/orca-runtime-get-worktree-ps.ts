@@ -14,11 +14,13 @@ import { compareWorktreePs } from './runtime-worktree-status-projection'
 import type { Repo } from '../../shared/repo-types'
 import { enrichMissingRepoGitRemoteIdentities } from '../repo-git-remote-identity-enrichment'
 import { ensureStructuredAgentSessionHost as installStructuredAgentSessionHost } from './structured-agent-session-runtime'
+import { createStructuredAgentSessionLogger } from '../native-chat/agent-session-wire/structured-agent-session-logger'
 import { maybeAutoRenameWorkspaceOnFirstStructuredTurn } from '../agent-hooks/first-work-structured-session-rename'
 import { firstWorkRenameDeps } from '../agent-hooks/first-work-rename-runtime'
 import { getProfileUserDataPath } from '../orca-profiles/profile-storage-paths'
 import { LOCAL_EXECUTION_HOST_ID } from '../../shared/execution-host'
 import { buildWorktreeListingPage } from './worktree-listing-host-scope'
+import { structuredWorkerOwesWork } from './structured-worker-custody'
 import { resolveTuiAgentLaunchEnv } from '../../shared/tui-agent-launch-defaults'
 import { nativeChatShellEnvironmentPolicy } from '../../shared/native-chat-shell-environment'
 import { claudeStructuredPermissionModeForSettings } from '../claude/claude-structured-permission-mode'
@@ -141,6 +143,8 @@ export class OrcaRuntimeWithGetWorktreePs extends OrcaRuntimeWithStartTuiIdleVis
       stateDirectory: getProfileUserDataPath(),
       hostId: LOCAL_EXECUTION_HOST_ID,
       claimKeyId: this.agentSessionClaimSigner.keyId,
+      // The host's local trace file (the desktop's or orcad's own), plus the console.
+      logger: createStructuredAgentSessionLogger(),
       // Resolves folder workspaces as well as git worktrees, so a chat session
       // in a plain folder lands in the folder rather than failing to resolve.
       resolveWorkspacePath: async (workspaceId) =>
@@ -165,13 +169,18 @@ export class OrcaRuntimeWithGetWorktreePs extends OrcaRuntimeWithStartTuiIdleVis
       // Structured chat has no agent CLI hooks, so this projection is what the first-work
       // workspace rename listens to instead of `agentStatus:set`.
       onSessionStatusChanged: (summary, options) => {
+        this.onStructuredSessionStatusForMail(summary)
         void maybeAutoRenameWorkspaceOnFirstStructuredTurn(
           summary,
           options,
           firstWorkRenameDeps(this.requireStore(), this)
         )
       },
-      ...(this.structuredAgentStatusSinkFn ? { statusSink: this.structuredAgentStatusSinkFn } : {})
+      ...(this.structuredAgentStatusSinkFn ? { statusSink: this.structuredAgentStatusSinkFn } : {}),
+      // Read per sweep tick from the orchestration database: a worker whose dispatch is open keeps
+      // its agent running. No database answers no.
+      hasOpenDispatch: (record) =>
+        structuredWorkerOwesWork(this.getOrchestrationDbIfAvailable?.() ?? null, record)
     })
   }
 }

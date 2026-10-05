@@ -47,7 +47,6 @@ export type RpcRequest = {
   authToken: string
   method: string
   params?: unknown
-  orchestrationCapability?: string
   orchestrationContractVersion?: number
   orchestrationRequestId?: string
   compatibilityInvocationId?: string
@@ -82,8 +81,6 @@ export type RpcContext = {
   clientCapabilities?: readonly RuntimeCapability[]
   // Why: mobile v2 auth is exact-key validated; capability upgrades must mutate only the authenticated socket after auth.
   updateClientCapabilities?: (capabilities: readonly RuntimeCapability[]) => void
-  // Why: Dispatch authority rides in the authenticated RPC envelope, never in user payload fields.
-  orchestrationCapability?: string
   // Why: long-lived mutations such as ask can durably expose acceptance before their waiter settles.
   recordMutationReceipt?: (receipt: unknown) => void
   // Why: only local worker_done makes pending proof that its atomic settlement transaction never committed.
@@ -229,6 +226,11 @@ export function eraseRpcMethods(
   methods: readonly RpcAnyMethodDeclaration[]
 ): readonly RpcAnyMethod[] {
   return methods as readonly RpcAnyMethod[]
+}
+
+// Unsubscribes that must not retire a registration created after their dispatch began.
+export function isRegistrationFencedUnsubscribe(method: string): boolean {
+  return method === 'terminal.unsubscribe' || method === 'session.tabs.unsubscribe'
 }
 
 export function isStreamingMethod(method: RpcAnyMethod): method is RpcStreamingMethod {

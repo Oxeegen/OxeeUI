@@ -62,7 +62,7 @@ describe('hourly build preflight', () => {
     expect(
       preflight.steps.find((step) => step.id === 'app_token').with['permission-contents']
     ).toBe('read')
-    expect(build.needs).toBe('preflight')
+    expect(build.needs).toEqual(['preflight', 'relay-windows-process-tree'])
     // Why toContain rather than toBe: this fork prefixes every job `if` with a
     // repository guard, so an exact match would assert the guard away.
     expect(build.if).toContain("needs.preflight.outputs.should_build == 'true'")

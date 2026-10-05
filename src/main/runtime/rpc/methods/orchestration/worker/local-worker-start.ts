@@ -188,10 +188,17 @@ export async function startLocalWorker(args: {
           effects,
           timeoutMs: params.timeoutMs ?? 60_000
         })
-      : await runtime.waitForTerminal(terminalHandle, {
-          condition: 'tui-idle',
-          timeoutMs: params.timeoutMs ?? 60_000
-        })
+      : // ZCode emits SessionStart only after input; its first dispatch must wait for the composer.
+        agent === 'zcode' && !params.terminal
+        ? await runtime.waitForFreshWorkerComposer(
+            terminalHandle,
+            agent,
+            params.timeoutMs ?? 60_000
+          )
+        : await runtime.waitForTerminal(terminalHandle, {
+            condition: 'tui-idle',
+            timeoutMs: params.timeoutMs ?? 60_000
+          })
     if (wait) {
       persistWorkerSetupWaitOutcome({ ...setupStage, wait })
       if (!wait.satisfied) {
@@ -208,7 +215,7 @@ export async function startLocalWorker(args: {
       }
     }
     const terminalAuthority = requireWorkerAuthority(runtime, terminalHandle)
-    const capability = db.prepareStartingWorkerAuthority({
+    db.prepareStartingWorkerAuthority({
       dispatchId: started.dispatch.id,
       handle: terminalHandle,
       ...terminalAuthority,
@@ -228,7 +235,6 @@ export async function startLocalWorker(args: {
       structuredSession,
       terminalHandle,
       coordinatorHandle: params.from,
-      dispatchCapability: capability,
       devMode: params.devMode,
       requestId: orchestrationMutation?.requestId ?? started.dispatch.id,
       agent: agent ?? null,

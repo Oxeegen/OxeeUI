@@ -38,4 +38,22 @@ describe('release build inputs', () => {
       workflow.indexOf('pnpm run ${{ matrix.script }}')
     )
   })
+
+  // Why: v1.4.220 made Windows packaging compile a Rust launcher from
+  // electron-builder's native hook. A runner without cargo fails only after the
+  // whole app has been built, so the workflow has to provide it up front.
+  it('provides cargo when Windows packaging compiles the CLI launcher', () => {
+    const nativeHook = readFileSync(
+      resolve('config/scripts/electron-builder-native-rebuild.cjs'),
+      'utf8'
+    )
+    if (!nativeHook.includes('build-windows-cli-launcher')) {
+      return
+    }
+    const rustStep = workflow.indexOf('Ensure the Rust toolchain')
+    expect(rustStep).toBeGreaterThan(-1)
+    expect(workflow.slice(rustStep, rustStep + 400)).toContain("if: runner.os == 'Windows'")
+    expect(workflow.slice(rustStep, rustStep + 400)).toContain('rustup toolchain install stable')
+    expect(rustStep).toBeLessThan(workflow.indexOf('pnpm run ${{ matrix.script }}'))
+  })
 })

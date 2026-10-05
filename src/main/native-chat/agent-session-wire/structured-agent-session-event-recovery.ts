@@ -1,18 +1,13 @@
-import {
-  stopAgentSessionProviderRoot,
-  type StructuredAgentSessionLifecycleEvent
-} from './structured-agent-session-adapter'
+import { agentSessionFailureFact } from '../../../shared/agent-session-failure'
+import type { StructuredAgentSessionLifecycleEvent } from './structured-agent-session-adapter'
+import { stopAgentSessionProviderRoot } from './structured-agent-session-provider-exit-proof'
 import type {
   StructuredAgentSessionHostDeps,
   StructuredAgentSessionHostSession
 } from './structured-agent-session-host-types'
 import type { StructuredAgentSessionSinkBarrier } from './structured-agent-session-event-sink'
-import type { StructuredAgentSessionHolds } from './structured-agent-session-holds'
 import { settleStructuredAgentSessionProviderStarted } from './structured-agent-session-provider-started'
-import {
-  isStructuredAgentSessionRecoveryTicketCurrent,
-  settleUnexpectedStructuredAgentSessionExit
-} from './structured-agent-session-unexpected-exit'
+import { settleUnexpectedStructuredAgentSessionExit } from './structured-agent-session-unexpected-exit'
 
 export class StructuredAgentSessionEventRecovery {
   private readonly sinkFailures = new Set<string>()
@@ -25,15 +20,14 @@ export class StructuredAgentSessionEventRecovery {
       flushLifecycle: (sessionId: string) => Promise<StructuredAgentSessionSinkBarrier>
       publishFence: (sessionId: string, session: StructuredAgentSessionHostSession) => void
       publishStatus?: (sessionId: string) => void
-      hasResumeCapableHolder: (sessionId: string) => boolean
-      restartReleaseGrace: (sessionId: string) => void
       serialize: <T>(sessionId: string, task: () => Promise<T>) => Promise<T>
       now: () => number
-      /** The one restart every asker shares; the holds put an unheld child on the idle clock. */
-      ensureProviderChild: StructuredAgentSessionHolds['ensureProviderChild']
-      onBarrierError: (sessionId: string, error: unknown) => void
     }
   ) {}
+
+  private get exitContext() {
+    return { ...this.context, logger: this.context.deps.logger }
+  }
 
   recoverAfterSinkFailure(sessionId: string, error: unknown): void {
     if (this.sinkFailures.has(sessionId)) {
@@ -42,14 +36,13 @@ export class StructuredAgentSessionEventRecovery {
     this.sinkFailures.add(sessionId)
     void this.context
       .serialize(sessionId, async () => {
-        const session = this.context.sessions.get(sessionId)
+        const child = this.context.sessions.get(sessionId)?.child
         const stop =
           this.context.deps.adapter.forceCloseSession ?? this.context.deps.adapter.closeSession
-        if (!session?.hasProviderChild || !stop) {
+        if (!child || !stop) {
           return null
         }
-        const fence = session.fence
-        const acquisitionGeneration = session.acquisitionGeneration
+        const { fence, generation: acquisitionGeneration } = child
         const stopped = await stopAgentSessionProviderRoot(() => stop(sessionId))
         if (!stopped || !acquisitionGeneration) {
           return null
@@ -58,44 +51,33 @@ export class StructuredAgentSessionEventRecovery {
           type: 'ended',
           sessionId,
           reason: `journal sink failure: ${error instanceof Error ? error.message : String(error)}`,
+          // Orca stopped the provider because its own journal failed.
+          failure: agentSessionFailureFact('hostFault'),
           cause: 'unexpected-exit',
           fence,
           acquisitionGeneration
         } as const
       })
       .then((event) => (event ? this.handle(event) : undefined))
-      .catch((recoveryError) => this.context.onBarrierError(sessionId, recoveryError))
+      .catch((error: unknown) =>
+        this.context.deps.logger.warn(
+          'stopping a provider after its journal failed did not finish',
+          {
+            scope: 'sink-failure-recovery',
+            sessionId,
+            error
+          }
+        )
+      )
       .finally(() => this.sinkFailures.delete(sessionId))
   }
 
+  /** An exit is settled and shown; nothing restarts the child. The next send does, through the
+   *  delivery loop, which also owns any message still queued. */
   async handle(event: StructuredAgentSessionLifecycleEvent): Promise<void> {
     if (event.type === 'started') {
       return settleStructuredAgentSessionProviderStarted(this.context, event)
     }
-    const ticket = await settleUnexpectedStructuredAgentSessionExit(this.context, event)
-    if (!ticket) {
-      return
-    }
-    // One serialized step with the ticket check inside it: a hold or a send that got there first
-    // has already replaced the owner, and this step finds that child and attaches nothing — or,
-    // once the lease has moved on, refuses on the stale ticket rather than spawning a second child.
-    try {
-      const resumed = await this.context.serialize(ticket.sessionId, () =>
-        this.context.ensureProviderChild(ticket.sessionId, {
-          admitRecoveryTicket: () =>
-            isStructuredAgentSessionRecoveryTicketCurrent(this.context, ticket)
-        })
-      )
-      if (!resumed.ok && isStructuredAgentSessionRecoveryTicketCurrent(this.context, ticket)) {
-        this.context.onBarrierError(
-          ticket.sessionId,
-          new Error(`${resumed.refusal.code}: ${resumed.refusal.message}`)
-        )
-      }
-    } catch (error) {
-      if (isStructuredAgentSessionRecoveryTicketCurrent(this.context, ticket)) {
-        this.context.onBarrierError(ticket.sessionId, error)
-      }
-    }
+    await settleUnexpectedStructuredAgentSessionExit(this.exitContext, event)
   }
 }

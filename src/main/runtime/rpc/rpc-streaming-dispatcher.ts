@@ -1,4 +1,10 @@
-import { isStreamingMethod, type RpcEnvelopeMeta, type RpcRegistry, type RpcRequest } from './core'
+import {
+  isRegistrationFencedUnsubscribe,
+  isStreamingMethod,
+  type RpcEnvelopeMeta,
+  type RpcRegistry,
+  type RpcRequest
+} from './core'
 
 import { errorResponse, successResponse } from './errors'
 import type { OrcaRuntimeService } from '../orca-runtime'
@@ -84,11 +90,11 @@ export class RpcStreamingDispatcher {
 
     if (!isStreamingMethod(method)) {
       try {
+        // Session tabs always need this fence. COMPAT(terminal request-addressed unsubscribe): terminal only for phones without `requestId`.
         // Capture before middleware yields to a replacement subscribe on the same connection.
-        const subscriptionRegistrationVersion =
-          request.method === 'terminal.unsubscribe'
-            ? runtime.getSubscriptionRegistrationVersion()
-            : undefined
+        const subscriptionRegistrationVersion = isRegistrationFencedUnsubscribe(request.method)
+          ? runtime.getSubscriptionRegistrationVersion()
+          : undefined
         const clientHostedBrowser = await routeDispatcherClientHostedBrowserRpc(
           runtime,
           request.method,
@@ -135,7 +141,6 @@ export class RpcStreamingDispatcher {
             clientKind: options?.clientKind,
             clientCapabilities: options?.clientCapabilities,
             updateClientCapabilities: options?.updateClientCapabilities,
-            orchestrationCapability: request.orchestrationCapability,
             authenticatedCallerFingerprint:
               mutation?.identity.callerFingerprint ??
               legacyCoordinator?.mutationCallerFingerprint ??
@@ -190,7 +195,6 @@ export class RpcStreamingDispatcher {
           clientKind: options?.clientKind,
           clientCapabilities: options?.clientCapabilities,
           updateClientCapabilities: options?.updateClientCapabilities,
-          orchestrationCapability: request.orchestrationCapability,
           pairing: options?.pairing,
           sendBinary: options?.sendBinary,
           registerBinaryStreamHandler: options?.registerBinaryStreamHandler,

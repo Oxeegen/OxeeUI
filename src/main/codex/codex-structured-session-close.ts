@@ -1,10 +1,10 @@
+import { agentSessionFailureFact, providerDiagnosticOf } from '../../shared/agent-session-failure'
 import type { CodexAppServerConnection } from './codex-app-server-connection-types'
 import { closeProcessRegistry } from '../../shared/child-process/close-process-registry'
 import {
   cancelCodexAcquisitionAttempt,
   type CodexAcquisitionRegistry,
   type CodexSession,
-  type CodexStructuredSessionAdapterDeps,
   type CodexStructuredSessionEvent
 } from './codex-structured-session-state'
 import type { StructuredAgentSessionEndedEvent } from '../native-chat/agent-session-wire/structured-agent-session-adapter'
@@ -14,10 +14,12 @@ export function handleCodexSessionExit(input: {
   sessionId: string
   connection: CodexAppServerConnection | null
   error: Error
+  /** Set by Orca's own close. Absent only from the connection's onExit, which the connection
+   *  withholds while Orca is closing the child. */
+  closedByOrca?: true
   prompts?: CodexSession['prompts']
   allowFailedSettlement?: boolean
   onEvent?: (event: CodexStructuredSessionEvent) => void
-  onBackgroundTasksChanged?: CodexStructuredSessionAdapterDeps['onBackgroundTasksChanged']
 }): boolean {
   const session = input.sessions.get(input.sessionId)
   if (!session || session.connection !== input.connection || session.ended) {
@@ -25,10 +27,16 @@ export function handleCodexSessionExit(input: {
     return false
   }
   session.exitObservedAt ??= Date.now()
+  // Before the admission check: the child is gone whether or not its end was admitted.
+  session.turnOpenWaits.releaseAll()
   const event: StructuredAgentSessionEndedEvent = {
     type: 'ended',
     sessionId: input.sessionId,
     reason: input.error.message,
+    // Only the child's own exit blames Codex; a close Orca made, for any reason, is Orca's.
+    failure: input.closedByOrca
+      ? agentSessionFailureFact('hostFault')
+      : agentSessionFailureFact('providerExited', { detail: providerDiagnosticOf(input.error) }),
     cause: session.requestedClose ? 'requested-close' : 'unexpected-exit',
     fence: session.fence,
     acquisitionGeneration: session.acquisitionGeneration,
@@ -47,7 +55,8 @@ export function handleCodexSessionExit(input: {
   // recovery is what settles the sends these were armed for.
   session.dispatchEchoes.clear()
   session.backgroundTasks.clear()
-  input.onBackgroundTasksChanged?.(input.sessionId, null)
+  // Every close path funnels here, so the session's children end with it on each one.
+  session.backgroundTasks.publishChildWork()
   session.unbindReadingControl?.()
   input.onEvent?.(event)
   session.prompts.clear()
@@ -93,6 +102,7 @@ export async function closeCodexPublishedSession(
       sessionId,
       connection: session.connection,
       error: options?.unexpectedReason ?? new Error('codex session closed'),
+      closedByOrca: true,
       prompts: session.prompts,
       ...(options?.allowFailedSettlement ? { allowFailedSettlement: true } : {}),
       ...(onEvent ? { onEvent } : {})

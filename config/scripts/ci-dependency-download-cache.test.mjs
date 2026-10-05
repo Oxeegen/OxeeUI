@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { runInNewContext } from 'node:vm'
 import { describe, expect, it } from 'vitest'
 import { parse } from 'yaml'
 
@@ -29,12 +30,14 @@ describe('CI dependency download caches', () => {
     ])
   })
 
-  it('restores PR stores with setup-node keys without registering a post-job save', () => {
+  it('restores PR stores except measured Windows mixed installs, without a post-job save', () => {
     const resolve = action.runs.steps.find((step) => step.id === 'pnpm-store')
     const restore = action.runs.steps.find(
       (step) => step.name === 'Restore pnpm download store without saving'
     )
-    expect(resolve.if).toBe("github.event_name == 'pull_request'")
+    expect(resolve.if).toBe(
+      "github.event_name == 'pull_request' && (runner.os != 'Windows' || runner.arch != 'X64' || !contains(inputs.cache-dependency-path, 'mobile/pnpm-lock.yaml'))"
+    )
     expect(restore.if).toBe(resolve.if)
     expect(restore.uses).toBe('actions/cache/restore@v5')
     expect(restore.with.path).toBe('${{ steps.pnpm-store.outputs.path }}')
@@ -48,7 +51,54 @@ describe('CI dependency download caches', () => {
       action.runs.steps.findIndex((step) => step.name === 'Install dependencies')
     )
     const saves = action.runs.steps.filter((step) => step.uses === 'actions/cache/save@v5')
-    expect(saves).toEqual([])
+    expect(saves).toHaveLength(1)
+    expect(saves[0].name).toBe('Save pnpm verification record on main')
+    expect(saves[0].if).toContain("github.ref == 'refs/heads/main'")
+    expect(saves[0].if).toContain("github.event_name != 'pull_request'")
+    expect(saves[0].with.path).toBe('${{ steps.verification-cache.outputs.path }}')
+    const windows = workflow('pr').jobs.package_windows.steps.find((step) =>
+      step.uses?.includes('install-node-dependencies')
+    )
+    expect(windows.with['cache-dependency-path'].trim().split('\n')).toEqual([
+      'pnpm-lock.yaml',
+      'mobile/pnpm-lock.yaml'
+    ])
+  })
+
+  it.each([
+    ['Windows x64 mixed PR', 'pull_request', 'Windows', 'X64', true, false, ''],
+    ['Windows ARM64 mixed PR', 'pull_request', 'Windows', 'ARM64', true, true, ''],
+    ['Windows x86 mixed PR', 'pull_request', 'Windows', 'X86', true, true, ''],
+    ['Windows x64 root-only PR', 'pull_request', 'Windows', 'X64', false, true, ''],
+    ['Linux x64 mixed PR', 'pull_request', 'Linux', 'X64', true, true, ''],
+    ['Linux ARM64 mixed PR', 'pull_request', 'Linux', 'ARM64', true, true, ''],
+    ['macOS ARM64 mixed PR', 'pull_request', 'macOS', 'ARM64', true, true, ''],
+    ['Windows x64 mixed push', 'push', 'Windows', 'X64', true, false, 'pnpm'],
+    ['Windows x64 mixed manual run', 'workflow_dispatch', 'Windows', 'X64', true, false, 'pnpm']
+  ])('%s keeps its scoped store policy', (_name, event, os, arch, mixed, restore, cache) => {
+    const context = {
+      github: { event_name: event },
+      runner: { os, arch },
+      inputs: {
+        'cache-dependency-path': mixed ? 'pnpm-lock.yaml\nmobile/pnpm-lock.yaml' : 'pnpm-lock.yaml'
+      },
+      contains: (value, search) => value.toLowerCase().includes(search.toLowerCase())
+    }
+    const evaluate = (expression) =>
+      runInNewContext(
+        expression.replaceAll('inputs.cache-dependency-path', 'inputs["cache-dependency-path"]'),
+        context
+      )
+    for (const step of action.runs.steps.filter(
+      (step) =>
+        step.id === 'pnpm-store' || step.name === 'Restore pnpm download store without saving'
+    )) {
+      expect(evaluate(step.if)).toBe(restore)
+    }
+    for (const step of action.runs.steps.filter((step) => step.uses === 'actions/setup-node@v6')) {
+      expect(evaluate(step.with.cache.slice(3, -2))).toBe(cache)
+      expect(step.with['package-manager-cache']).toBe(false)
+    }
   })
 
   it('restores Windows packaging downloads from the release cache without a PR upload', () => {
@@ -99,14 +149,28 @@ describe('CI dependency download caches', () => {
     expect(writer.with['restore-keys']).toBeUndefined()
     expect(writer.with['lookup-only']).toBe(true)
     expect(release.steps.indexOf(writer)).toBeGreaterThan(release.steps.indexOf(combined))
-    // Retain PR fallback saves until a successful release seeds the default-branch entry.
-    expect(consumer.uses).toBe('actions/cache@v5')
+    expect(consumer.uses).toBe('actions/cache/restore@v5')
+    expect(consumer.with['restore-keys'].trim()).toBe('electron-builder-linux-')
     expect(combined.uses).toBe('actions/cache@v5')
     expect(linux.eb_cache_path.trim().split('\n')).toEqual([
       '~/.cache/electron',
       '~/.cache/electron-builder'
     ])
   })
+})
+
+it('shares Electron archives with PRs without uploading PR-local copies', () => {
+  const save = action.runs.steps.find((step) => step.name === 'Cache Electron package archive')
+  const restore = action.runs.steps.find(
+    (step) => step.name === 'Restore Electron package archive without saving'
+  )
+  expect(save.if).toContain("github.event_name != 'pull_request' || runner.os != 'Linux'")
+  expect(restore.if).toContain("github.event_name == 'pull_request' && runner.os == 'Linux'")
+  expect(save.if).toContain("steps.electron-package-cache.outputs.version != ''")
+  expect(restore.if).toContain("steps.electron-package-cache.outputs.version != ''")
+  expect(save.uses).toBe('actions/cache@v5')
+  expect(restore.uses).toBe('actions/cache/restore@v5')
+  expect(restore.with).toEqual(save.with)
 })
 
 describe('release install targets', () => {
