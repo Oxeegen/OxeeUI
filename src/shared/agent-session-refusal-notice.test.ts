@@ -7,14 +7,13 @@ import {
   agentSessionReadHistoryRefusalParts,
   agentSessionRefusalCauseParts,
   agentSessionRefusalNotice,
-  agentSessionRefusalReasonWords,
   agentSessionWriteFailureNotice,
   agentSessionWriteNoticeEnglish,
   agentSessionWriteNoticeParts
 } from './agent-session-refusal-notice'
+import { agentSessionRefusalReasonWords } from './agent-session-refusal-reason-words'
 import {
   AGENT_SESSION_WRITE_NOTICE_COPY,
-  agentSessionNoticeSaysThisChatUnread,
   type AgentSessionWriteNoticeSentence
 } from './agent-session-write-notice-copy'
 import { AGENT_SESSION_REFUSAL_REASONS } from './agent-session-refusal-details'
@@ -22,6 +21,7 @@ import { agentSessionFailureSentence } from './agent-session-failure-words'
 import {
   agentSessionRefusalFailure,
   agentSessionRpcErrorFailure,
+  parseAgentSessionWriteFailure,
   agentSessionWriteKindForMethod,
   type AgentSessionWriteFailure,
   type AgentSessionWriteKind,
@@ -63,7 +63,8 @@ const CAUSES: Partial<Record<AgentSessionWireRefusalCode, AgentSessionWriteNotic
   agent_session_already_resolved: 'questionChanged',
   // Send preparation, for any failed open; the code names nothing else.
   agent_session_journal_unreadable: 'historyUnreadable',
-  // On these writes, only an older host, or the phone reading an unknown method.
+  // With no reason: a method the host doesn't know, or a host from before reasons. Either way an
+  // older Orca runs the chat.
   structured_agent_session_unsupported: 'unsupported'
 }
 
@@ -341,6 +342,24 @@ describe('the notice for every reason a host names', () => {
     }))
   )
 
+  // An unsupported location or agent, or no chat host, is not fixed by updating Orca. Only an
+  // agent or location the host can't run names its cause; a read otherwise asked for nothing
+  // "this" could name, so it says only that the history didn't load.
+  it('says an unsupported write never asks for an update when the host names why', () => {
+    for (const { failure, write, parts, cell } of cells) {
+      if (failure.code !== 'structured_agent_session_unsupported') {
+        continue
+      }
+      if (failure.details?.reason === 'hostUnsupported') {
+        expect(parts, cell).toEqual(['cannotRunHere', NOT_DONE[write]])
+        continue
+      }
+      expect(parts, cell).toEqual(
+        write === 'read-history' ? ['notDoneReadHistory'] : ['notAvailable']
+      )
+    }
+  })
+
   it('has words for every reason', () => {
     for (const { words, cell } of cells) {
       expect(words, cell).toBeDefined()
@@ -428,7 +447,10 @@ describe('the notice for every reason a host names', () => {
       }
       const notDone = parts.filter((part) => typeof part === 'string' && part.startsWith('notDone'))
       const answeredAway = write === 'answer' && parts.includes('questionChanged')
-      const unsupported = failure.code === 'structured_agent_session_unsupported'
+      const unsupported =
+        failure.code === 'structured_agent_session_unsupported' &&
+        failure.details?.reason !== 'hostUnsupported' &&
+        write !== 'read-history'
       const saysNotDone =
         write === 'read-history' && failure.code === 'agent_session_journal_unreadable'
       expect(notDone, cell).toEqual(
@@ -546,7 +568,12 @@ describe('a chat whose history the host could not open', () => {
       'send',
       "Orca couldn't open this chat's history right now. Your message was not sent. Try again."
     ],
-    // Only an update gets past it, so it never says to try again.
+    // Only an update gets past it, so it never says to try again. A read meets it on one chat.
+    [
+      'journalWrittenByNewerOrca',
+      'read-history',
+      'This chat was saved by a newer Orca. Update Orca to open it.'
+    ],
     [
       'journalWrittenByNewerOrca',
       'send',
@@ -578,23 +605,6 @@ describe('a chat whose history the host could not open', () => {
     expect(
       agentSessionReadHistoryRefusalParts('agent_session_journal_unreadable', details)
     ).toEqual(['historyUnreadable'])
-  })
-
-  // A pane headed by such words drops its own "didn't load", so each one must count.
-  it("knows which read notices already say this chat's history did not load", () => {
-    for (const failure of [...FAILURES, ...REASONED]) {
-      for (const retryControl of [false, true]) {
-        const parts = agentSessionWriteNoticeParts(failure, 'read-history', { retryControl })
-        // "Chats were saved by a newer Orca" is about every chat, not this one.
-        const notAboutThisRead =
-          mayHaveRun(failure) ||
-          codeOf(failure) === 'structured_agent_session_unsupported' ||
-          parts.includes('savedByNewerOrca')
-        expect(agentSessionNoticeSaysThisChatUnread(parts), JSON.stringify(parts)).toBe(
-          !notAboutThisRead
-        )
-      }
-    }
   })
 
   it('says only that the history did not load for any other read refusal', () => {
@@ -689,5 +699,65 @@ describe('agentSessionRefusalCauseParts', () => {
     ['an unconfirmed one', { kind: 'unconfirmed' }]
   ])('names nothing for %s', (_label, failure) => {
     expect(agentSessionRefusalCauseParts(failure)).toEqual([])
+  })
+})
+
+describe('saved Arguments refusals', () => {
+  it('keeps generic launch copy when an older reader drops the new detail', () => {
+    const wire = JSON.parse(
+      JSON.stringify({
+        code: 'agent_session_operation_invalid',
+        details: {
+          reason: 'attachFailed',
+          argumentProblem: { agent: 'Codex', option: '--remote', problem: 'unsupportedOption' }
+        }
+      })
+    )
+    // The prior reader kept only its known reason and facts from details.
+    const older = agentSessionRefusalFailure({
+      code: wire.code,
+      details: { reason: wire.details.reason }
+    })
+    expect(agentSessionRefusalCauseParts(older)).toEqual([])
+    expect(agentSessionWriteNoticeEnglish(agentSessionWriteNoticeParts(older, 'send'))).toBe(
+      'Your message was not sent.'
+    )
+  })
+
+  it('keeps the validated cause after durable parsing and names the correction beside Retry', () => {
+    const refused = agentSessionRefusalFailure({
+      code: 'agent_session_operation_invalid',
+      details: {
+        reason: 'attachFailed',
+        argumentProblem: { agent: 'Codex', option: '--remote', problem: 'unsupportedOption' }
+      }
+    })
+    const parsed = parseAgentSessionWriteFailure(JSON.parse(JSON.stringify(refused)))
+    if (!parsed) {
+      throw new Error('saved refusal was not read')
+    }
+    expect(agentSessionWriteNoticeEnglish(agentSessionRefusalCauseParts(parsed))).toBe(
+      "Codex couldn't start. Saved Arguments contain an unsupported option (--remote). Edit them in Settings > Agents > Arguments."
+    )
+  })
+
+  it.each([
+    { agent: 'Codex', option: '--remote', problem: 'futureProblem' },
+    { agent: 'Codex', option: '--remote=private', problem: 'unsupportedOption' }
+  ])('ignores an unrecognized or unsafe argument detail', (argumentProblem) => {
+    const refused = parseAgentSessionWriteFailure({
+      kind: 'refused',
+      code: 'agent_session_operation_invalid',
+      details: { reason: 'attachFailed', argumentProblem }
+    })
+    expect(refused).toEqual({
+      kind: 'refused',
+      code: 'agent_session_operation_invalid',
+      details: { reason: 'attachFailed' }
+    })
+    if (!refused) {
+      throw new Error('refusal was not read')
+    }
+    expect(agentSessionRefusalCauseParts(refused)).toEqual([])
   })
 })

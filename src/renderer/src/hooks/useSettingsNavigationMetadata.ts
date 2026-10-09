@@ -20,6 +20,8 @@ import {
 } from '@/lib/windows-terminal-capabilities'
 import { getActiveRuntimeTarget } from '@/runtime/runtime-rpc-client'
 import { useAppStore } from '@/store'
+import { useProjectHostSetupProjection } from '@/store/selectors'
+import type { ProjectGroupingModel } from '@/components/sidebar/worktree-list/grouping/project-grouping'
 import type { Repo } from '../../../shared/repo-types'
 import {
   buildCapabilitySettingsSections,
@@ -40,22 +42,26 @@ export function buildSettingsNavigationMetadata({
   isLocalWindowsHost = isWindows,
   isWindowsTerminalHost = isWindows,
   isWebClient,
+  experimentalStructuredNativeChat = false,
   managedBrowserCreationEnabled = !isWebClient,
   mobileEmulatorCreationEnabled = !isWebClient,
   isDev = import.meta.env.DEV,
   isLinearConnected = false,
-  repos
+  repos,
+  projectGrouping
 }: {
   isMac: boolean
   isWindows: boolean
   isLocalWindowsHost?: boolean
   isWindowsTerminalHost?: boolean
   isWebClient: boolean
+  experimentalStructuredNativeChat?: boolean
   managedBrowserCreationEnabled?: boolean
   mobileEmulatorCreationEnabled?: boolean
   isDev?: boolean
   isLinearConnected?: boolean
   repos: readonly Repo[]
+  projectGrouping?: ProjectGroupingModel
 }): SettingsNavSection[] {
   const terminalPaneSearchEntries = getTerminalPaneSearchEntries({
     isWindows,
@@ -77,11 +83,13 @@ export function buildSettingsNavigationMetadata({
     isLocalWindowsHost,
     isWindowsTerminalHost,
     isWebClient,
+    experimentalStructuredNativeChat,
     managedBrowserCreationEnabled,
     mobileEmulatorCreationEnabled,
     isDev,
     isLinearConnected,
-    repos
+    repos,
+    projectGrouping
   }
 
   // Why: this array's order must mirror SETTINGS_NAV_GROUPS so the Settings
@@ -104,6 +112,7 @@ export function useSettingsNavigationMetadata(): SettingsNavSection[] {
   const { i18n } = useTranslation()
   const activeLocale = i18n.language
   const repos = useAppStore((state) => state.repos)
+  const projectHostSetupProjection = useProjectHostSetupProjection()
   const settings = useAppStore((state) => state.settings)
   const [managedBrowserCreationEnabled, mobileEmulatorCreationEnabled] = useAppStore(
     useShallow((state) => {
@@ -114,6 +123,7 @@ export function useSettingsNavigationMetadata(): SettingsNavSection[] {
       ] as const
     })
   )
+  const experimentalStructuredNativeChat = settings?.experimentalStructuredNativeChat === true
   const isMac = isMacUserAgent()
   const isWindows = isWindowsUserAgent()
   const isWebClient = isWebClientLocation()
@@ -156,11 +166,16 @@ export function useSettingsNavigationMetadata(): SettingsNavSection[] {
         isLocalWindowsHost,
         isWindowsTerminalHost,
         isWebClient,
+        experimentalStructuredNativeChat,
         managedBrowserCreationEnabled,
         mobileEmulatorCreationEnabled,
         isDev: import.meta.env.DEV,
         isLinearConnected,
-        repos
+        repos,
+        projectGrouping: {
+          projects: projectHostSetupProjection.projects,
+          projectHostSetups: projectHostSetupProjection.setups
+        }
       }).filter((section) => !isBrandSettingsSectionHidden(section.id)),
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- activeLocale is read implicitly by the translate() calls inside buildSettingsNavigationMetadata; without it the memo keeps the previous language's sections.
     [
@@ -169,10 +184,12 @@ export function useSettingsNavigationMetadata(): SettingsNavSection[] {
       isLocalWindowsHost,
       isWindowsTerminalHost,
       isWebClient,
+      experimentalStructuredNativeChat,
       managedBrowserCreationEnabled,
       mobileEmulatorCreationEnabled,
       isLinearConnected,
       repos,
+      projectHostSetupProjection,
       activeLocale
     ]
   )

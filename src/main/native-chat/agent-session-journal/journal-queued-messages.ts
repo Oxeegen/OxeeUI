@@ -13,7 +13,7 @@ import {
 import type { JournalHostDatabase } from './journal-host-database'
 import type { JournalReducerState } from './journal-reducer'
 import type { JournalRow } from './journal-row-schema'
-import type { JournalRowTransactionHook } from './journal-row-writer'
+import type { JournalOperationReceipt, JournalRowTransactionHook } from './journal-row-writer'
 import type { JournalSubmissionConsume } from './journal-store-contracts'
 import { adoptQueuedMessages, holdQueuedMessages } from './queued-message-holds'
 import {
@@ -34,6 +34,7 @@ import {
   type QueuedMessageRow
 } from './queued-message-table'
 import { draftsDeliveredByAppliedEcho } from './queued-message-delivered-echo'
+import { moveQueuedMessages, type QueuedMessagePositionMove } from './queued-message-positions'
 import { pruneQueuedMessages, retainedSubmissionVerdict } from './queued-message-retention'
 import {
   queuedMessageSettlementOwed,
@@ -41,6 +42,7 @@ import {
   settleQueuedMessagesForRow
 } from './queued-message-settlement'
 import { AgentSessionJournalError, assertJournalWritable } from './journal-write-guards'
+import type { JournalWriteBody, JournalWriteResult } from './journal-write-queue'
 
 /** Tombstones must outlive the window in which their operation id could still be admitted as new. */
 export const QUEUED_MESSAGE_REPLAY_WINDOW_MS =
@@ -49,7 +51,7 @@ export const QUEUED_MESSAGE_REPLAY_WINDOW_MS =
 export type JournalQueuedMessagesDeps = {
   sessionId: string
   now: () => number
-  serialize: <T>(run: () => Promise<T>) => Promise<T>
+  serialize: <T>(run: JournalWriteBody<T>) => Promise<T>
   database: () => JournalHostDatabase
   readOnly: () => boolean
   state: () => JournalReducerState
@@ -69,6 +71,10 @@ export class JournalQueuedMessages {
   private listed: { revision: number; rows: readonly QueuedMessageRow[] } | null = null
 
   constructor(private readonly deps: JournalQueuedMessagesDeps) {}
+
+  get sessionId(): string {
+    return this.deps.sessionId
+  }
 
   revision(): number {
     return this.changeRevision
@@ -100,14 +106,20 @@ export class JournalQueuedMessages {
     return queuedMessagesSettledByOp(this.deps.database().db, this.deps.sessionId, settledByOp)
   }
 
-  /** `carriedFrom`: a /clear's carry. The card is its own 'cleared' pause, so it lands paused. */
-  insert(input: {
-    messageId: string
-    body: AgentJournalMessageItem
-    fingerprint: string
-    hostInstance: string
-    carriedFrom?: string
-  }): Promise<QueuedMessageRow> {
+  /** `carriedFrom`: a /clear's carry. The card is its own 'cleared' pause, so it lands paused;
+   *  `holdReason` carries a hold of its own over with it. `receipt`: the send's ledger answer,
+   *  committed with the draft only when this inserts it. */
+  insert(
+    input: {
+      messageId: string
+      body: AgentJournalMessageItem
+      fingerprint: string
+      hostInstance: string
+      carriedFrom?: string
+      holdReason?: QueuedMessageHoldReason
+    },
+    receipt?: JournalOperationReceipt
+  ): Promise<QueuedMessageRow> {
     const { sessionId } = this.deps
     let inserted = false
     return this.transact(
@@ -120,14 +132,17 @@ export class JournalQueuedMessages {
         }
         inserted = true
         const { epoch, lastSequence } = this.deps.state()
-        return insertQueuedMessage(db, {
+        const row = insertQueuedMessage(db, {
           ...input,
           sessionId,
           queuedAt: { epoch, sequence: lastSequence },
           now: this.deps.now()
         })
+        receipt?.write(db)
+        return row
       },
-      () => inserted
+      () => inserted,
+      receipt?.committed
     )
   }
 
@@ -149,7 +164,7 @@ export class JournalQueuedMessages {
   /** The person's Stop still pausing the queue, if any (`journalUserStopInForce`). */
   userStopInForce(): JournalQueuePauseMarks['latestStop'] {
     const state = this.deps.state()
-    return journalUserStopInForce(state.queuePauseMarks, state.latestPersonTurnSequence)
+    return journalUserStopInForce(state.queuePauseMarks, state.latestAcceptedTurnSequence)
   }
 
   private derivePauses(
@@ -160,16 +175,16 @@ export class JournalQueuedMessages {
     return deriveQueuePauses({
       epoch: state.epoch,
       marks: state.queuePauseMarks,
-      latestPersonTurnSequence: state.latestPersonTurnSequence,
+      latestAcceptedTurnSequence: state.latestAcceptedTurnSequence,
       cards,
       hostInstance,
       restartEnded: this.restartEnded()
     })
   }
 
-  /** A person's turn started since this handle opened, which ends a restart's pause. */
+  /** A turn started since this handle opened, which ends a restart's pause. */
   restartEnded(): boolean {
-    const latest = this.deps.state().latestPersonTurnSequence
+    const latest = this.deps.state().latestAcceptedTurnSequence
     return latest > 0 && !this.deps.wroteBeforeOpen(latest)
   }
 
@@ -181,6 +196,26 @@ export class JournalQueuedMessages {
       (db) => adoptQueuedMessages(db, { sessionId, hostInstance }),
       (changed) => changed > 0
     ).then((changed) => changed > 0)
+  }
+
+  /** Inside the caller's journal-row transaction (`journal-unsent-send-hold.ts`): one kept send
+   *  becomes a card, and the cards ahead of the queue take the positions given. False when a card
+   *  by that id already exists, which then stands. */
+  holdInTransaction(
+    db: Database.Database,
+    input: {
+      card: Omit<Parameters<typeof insertQueuedMessage>[1], 'sessionId' | 'now'> | null
+      positions: readonly QueuedMessagePositionMove[]
+    }
+  ): boolean {
+    const { sessionId } = this.deps
+    this.changeRevision += moveQueuedMessages(db, sessionId, input.positions)
+    if (!input.card || getQueuedMessage(db, sessionId, input.card.messageId)) {
+      return false
+    }
+    insertQueuedMessage(db, { ...input.card, sessionId, now: this.deps.now() })
+    this.changeRevision++
+    return true
   }
 
   /** Compare-and-transition waiting ∪ returned rows to op-stamped tombstones,
@@ -205,15 +240,17 @@ export class JournalQueuedMessages {
   }
 
   /** One standalone draft-table transaction on the journal's queue; one that
-   *  changed rows bumps the revision and notifies after COMMIT. */
+   *  changed rows bumps the revision and notifies after COMMIT, `adopted` first. */
   private transact<T>(
-    run: (db: Database.Database) => T,
-    changed: (result: T) => boolean
+    run: (db: Database.Database) => JournalWriteResult<T>,
+    changed: (result: T) => boolean,
+    adopted?: () => void
   ): Promise<T> {
-    return this.deps.serialize(async () => {
+    return this.deps.serialize(() => {
       assertJournalWritable(this.deps.readOnly(), this.deps.sessionId)
       const result = this.deps.database().transaction(run)
       if (changed(result)) {
+        adopted?.()
         this.changeRevision++
         this.deps.committed()
       }
@@ -307,7 +344,7 @@ export class JournalQueuedMessages {
    * no hook), then retention runs.
    */
   repairAndPrune(): Promise<void> {
-    // No draft, no work, and no write: a chat whose first-use copy is still owed stays uncopied.
+    // No draft, no work, and no write.
     if (this.deps.readOnly() || this.list().length === 0) {
       return Promise.resolve()
     }

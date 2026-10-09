@@ -1,3 +1,4 @@
+import { ImeInput } from '@/lib/ime-text-field'
 import type { CSSProperties, RefObject } from 'react'
 import {
   MessageSquare,
@@ -149,6 +150,7 @@ export default function TerminalPaneHeaderOverlay({
             className="pane-title-bar"
             data-native-file-drop-target="terminal"
             data-terminal-tab-id={tabId}
+            data-terminal-pane-leaf-id={pane.leafId}
             data-pane-prevent-terminal-focus=""
             {...(isActivePane ? { 'data-active-pane': '' } : {})}
             {...(isChromeless ? { 'data-chromeless': '' } : {})}
@@ -157,7 +159,6 @@ export default function TerminalPaneHeaderOverlay({
               title || isEditing ? () => onActivatePaneTitleInteraction(pane.id) : undefined
             }
             onDragOver={(event) => {
-              onActivatePaneTitleInteraction(pane.id)
               if (
                 event.dataTransfer.types.includes(WORKSPACE_FILE_PATH_MIME) ||
                 event.dataTransfer.types.includes(WORKSPACE_FILE_PATHS_MIME)
@@ -175,7 +176,6 @@ export default function TerminalPaneHeaderOverlay({
               }
               event.preventDefault()
               event.stopPropagation()
-              onActivatePaneTitleInteraction(pane.id)
               const manager = managerRef.current
               if (!manager) {
                 return
@@ -187,7 +187,7 @@ export default function TerminalPaneHeaderOverlay({
                 tabId,
                 cwd,
                 dataTransfer: event.dataTransfer,
-                dropTarget: event.target
+                paneLeafId: pane.leafId
               })
             }}
             onContextMenuCapture={(event) => onPaneTitleContextMenu(event, pane.id)}
@@ -198,7 +198,7 @@ export default function TerminalPaneHeaderOverlay({
             }}
           >
             {isEditing ? (
-              <input
+              <ImeInput
                 ref={renameInputRef}
                 className="pane-title-input"
                 aria-label={translate(

@@ -11,11 +11,19 @@
 import { attachFingerprintFields } from '../../../src/main/native-chat/agent-session-wire/structured-agent-session-attach'
 import type { AgentSessionAttachParams } from '../../../src/main/native-chat/agent-session-wire/structured-agent-session-attach'
 import { computeAgentSessionPayloadFingerprint } from '../../../src/shared/agent-session-mutation-envelope'
+import {
+  createStructuredAgentSessionOutboxEntry,
+  structuredAgentSessionSendRequest
+} from '../../../src/shared/structured-agent-session-outbox'
 
 export const SESSION = 'session-alpha'
 export const WORKSPACE = 'workspace-1'
 export const THREAD = '019fd532-7c11-7a90-b6de-4e1a2c3d5f60'
 export const NOW = 1_800_000_000_000
+export const ATTENTION_READ = {
+  sessionId: SESSION,
+  observedCursor: { epoch: 'attention-epoch', sequence: 7 }
+} as const
 export const REWIND_METHOD = 'agentSession.rewind'
 export const CONVERSATION_OUTLINE_METHOD = 'agentSession.conversationOutline'
 export const STATUS_FEED_METHOD = 'agentSession.subscribeStatus'
@@ -181,9 +189,22 @@ export const STRUCTURED_CALLS: {
     method: TURN_COMPLETION_FEED_METHOD,
     hostMethod: 'subscribeTurnCompletions'
   },
+  // Reading a chat retires the phone alerts its host pushed, through the runtime's own store, so
+  // its reply is the only signal that the gate opened.
+  {
+    method: 'agentSession.acknowledgeAttention',
+    hostMethod: null,
+    result: { acknowledged: true }
+  },
   // Teardown runs through the runtime's subscription registry rather than the
   // host, so its reply is the only signal that the gate opened.
-  { method: 'agentSession.unsubscribe', hostMethod: null, result: { unsubscribed: true } }
+  { method: 'agentSession.unsubscribe', hostMethod: null, result: { unsubscribed: true } },
+  // The host's registered agents, each with its declared capability record.
+  {
+    method: 'agentSession.agents',
+    hostMethod: 'agentDefinitions',
+    result: { agents: [{ agent: 'codex', capabilities: { compact: true } }] }
+  }
 ]
 
 export function envelope(args: {
@@ -237,9 +258,21 @@ export function createIntentParams(): Record<string, unknown> {
   return { envelope: envelope({ method: 'agentSession.create', fields, fence: null }), ...fields }
 }
 
-export function sendParams(text: string, fence: number): Record<string, unknown> {
-  const body = { kind: 'message', role: 'user', blocks: [{ type: 'text', text }] }
-  return { envelope: envelope({ method: 'agentSession.send', fields: { body }, fence }), body }
+/** Built by the outbox clients send from, so an older host is handed exactly what a current
+ *  client puts on the wire, fingerprint included. */
+export function sendParams(
+  text: string,
+  fence: number,
+  sentDelivery?: 'queue-if-active'
+): Record<string, unknown> {
+  const entry = createStructuredAgentSessionOutboxEntry({
+    clientMessageId: operationId(),
+    sessionId: SESSION,
+    text,
+    attachments: [],
+    queuedAt: NOW
+  })
+  return structuredAgentSessionSendRequest({ ...entry, sentDelivery }, fence)
 }
 
 /** Schema-valid params per method; values only need to survive validation. */
@@ -289,11 +322,14 @@ export function paramsFor(method: string): unknown {
     }
     case 'agentSession.history':
       return { sessionId: SESSION, direction: 'tail' }
+    case 'agentSession.acknowledgeAttention':
+      return { ...ATTENTION_READ, observedCursor: { ...ATTENTION_READ.observedCursor } }
     case 'agentSession.modelCatalog':
       return { agent: 'codex', sessionId: SESSION }
     case 'agentSession.hold':
     case 'agentSession.release':
       return { sessionId: SESSION, holderId: 'surface-1' }
+    case 'agentSession.agents':
     case 'agentSession.restartResumable':
     case 'agentSession.restartResumableDismiss':
     case 'agentSession.restartResume':

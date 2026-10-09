@@ -29,7 +29,14 @@ vi.mock('@/runtime/structured-agent-session-client', () => ({
 }))
 
 import { useStructuredAgentSessionOutbox } from './use-structured-agent-session-outbox'
-import { readOutbox } from './structured-agent-session-outbox-storage'
+import { readOutbox, writeOutbox } from './structured-agent-session-outbox-storage'
+import { createStructuredAgentSessionOutboxEntry } from '../../../../shared/structured-agent-session-outbox'
+import type {
+  AgentJournalRenderItem,
+  AgentJournalSubmission
+} from '../../../../shared/agent-session-journal-types'
+
+const NO_JOURNAL_ITEMS: readonly AgentJournalRenderItem[] = []
 
 // Why: every hook here shares the session outbox store; one left mounted would drain the next test's.
 afterEach(cleanup)
@@ -53,6 +60,7 @@ function queuedReceipt(clientMessageId: string) {
 function renderOutbox(queue: boolean) {
   return renderHook(() =>
     useStructuredAgentSessionOutbox({
+      journalItems: NO_JOURNAL_ITEMS,
       sessionId: 'session-1',
       target: LOCAL_TARGET,
       fence: 1,
@@ -154,6 +162,7 @@ describe('outbox queue delivery selection', () => {
     const first = renderHook(
       (props: { queuedMessageIds: string[] }) =>
         useStructuredAgentSessionOutbox({
+          journalItems: NO_JOURNAL_ITEMS,
           sessionId: 'session-1',
           target: LOCAL_TARGET,
           fence: 1,
@@ -177,6 +186,147 @@ describe('outbox queue delivery selection', () => {
     await waitFor(() => expect(mocks.call).toHaveBeenCalledTimes(2))
   })
 
+  // After a quit, the outbox sends an unconfirmed message again under its own id, to a host that
+  // does not queue, and the host has kept that message as a held card under the same id. Its reply
+  // is the send's own rejected record; the card is what says the host holds it.
+  it.each(['reply first', 'card first'] as const)(
+    'a send a restart kept as a card leaves the outbox with no Retry and no restore (%s)',
+    async (order) => {
+      let answer: (value: unknown) => void = () => undefined
+      mocks.call.mockImplementation(() => new Promise((resolve) => (answer = resolve)))
+      const view = renderHook(
+        (props: { queuedMessageIds: string[] }) =>
+          useStructuredAgentSessionOutbox({
+            journalItems: NO_JOURNAL_ITEMS,
+            sessionId: 'session-1',
+            target: LOCAL_TARGET,
+            fence: 1,
+            submissions: [],
+            composerScopeKey: 'kept-scope',
+            queueDelivery: { capability: 'unsupported', enabled: true },
+            queuedMessageIds: props.queuedMessageIds
+          }),
+        { initialProps: { queuedMessageIds: Array.of<string>() } }
+      )
+      expect(view.result.current.send('kept by the host')).toBe(true)
+      const id = (await sentParams()).envelope.clientOperationId
+      const rejectedReplay = {
+        ok: true,
+        replayed: true,
+        fence: 1,
+        cursor: { epoch: 'epoch-1', sequence: 2 },
+        value: {
+          clientMessageId: id,
+          submission: {
+            clientMessageId: id,
+            fence: 1,
+            payloadFingerprint: 'fp',
+            dispatchState: 'rejected',
+            providerItemId: null,
+            reason: 'Orca restarted before this message was sent.',
+            rejection: { kind: 'hostRestarted' },
+            submittedAt: 1,
+            resolvedAt: 2,
+            recovered: true,
+            handoverRecorded: true
+          }
+        }
+      }
+      if (order === 'reply first') {
+        await act(async () => answer(rejectedReplay))
+        await waitFor(() => expect(view.result.current.outbox[0]?.state).toBe('rejected'))
+        view.rerender({ queuedMessageIds: [id] })
+      } else {
+        view.rerender({ queuedMessageIds: [id] })
+        await waitFor(() => expect(view.result.current.outbox).toHaveLength(0))
+        await act(async () => answer(rejectedReplay))
+      }
+      await waitFor(() => expect(view.result.current.outbox).toHaveLength(0))
+      expect(readOutbox('session-1')).toEqual([])
+      expect(readNativeChatDraftCache('kept-scope')).toBe('')
+      expect(mocks.call).toHaveBeenCalledTimes(1)
+    }
+  )
+
+  // The card may be sent, edited or deleted on another device before this desktop ever sees it:
+  // the send's own record says the host kept it, so its local copy leaves with no Retry.
+  describe('a send the host kept as a card, its card never seen here', () => {
+    function keptRejection(id: string): AgentJournalSubmission {
+      return {
+        clientMessageId: id,
+        fence: 1,
+        payloadFingerprint: 'fp',
+        dispatchState: 'rejected',
+        providerItemId: null,
+        reason: 'Orca restarted before this message was sent.',
+        rejection: { kind: 'hostRestarted' },
+        submittedAt: 1,
+        resolvedAt: 2,
+        recovered: true,
+        handoverRecorded: true,
+        keptAsQueuedMessageId: id
+      }
+    }
+
+    it('leaves the outbox on the host’s answer', async () => {
+      mocks.call.mockImplementation(async (_target, _method, params) => ({
+        ok: true,
+        replayed: true,
+        fence: 1,
+        cursor: { epoch: 'epoch-1', sequence: 2 },
+        value: {
+          clientMessageId: params.envelope.clientOperationId,
+          submission: keptRejection(params.envelope.clientOperationId)
+        }
+      }))
+      const view = renderHook(() =>
+        useStructuredAgentSessionOutbox({
+          journalItems: NO_JOURNAL_ITEMS,
+          sessionId: 'session-1',
+          target: LOCAL_TARGET,
+          fence: 1,
+          submissions: [],
+          composerScopeKey: 'kept-elsewhere',
+          queueDelivery: { capability: 'unsupported', enabled: true }
+        })
+      )
+      expect(view.result.current.send('kept, then deleted elsewhere')).toBe(true)
+      await waitFor(() => expect(mocks.call).toHaveBeenCalledTimes(1))
+      await waitFor(() => expect(view.result.current.outbox).toHaveLength(0))
+      expect(readOutbox('session-1')).toEqual([])
+      expect(readNativeChatDraftCache('kept-elsewhere')).toBe('')
+    })
+
+    it('leaves the outbox when the journal shows it, from a stored not-sent copy', async () => {
+      writeOutbox('session-1', [
+        {
+          ...createStructuredAgentSessionOutboxEntry({
+            clientMessageId: 'kept-id',
+            sessionId: 'session-1',
+            text: 'kept, then deleted elsewhere',
+            attachments: [],
+            queuedAt: 1
+          }),
+          state: 'unconfirmed',
+          lastAttemptAt: 5
+        }
+      ])
+      const view = renderHook(() =>
+        useStructuredAgentSessionOutbox({
+          journalItems: NO_JOURNAL_ITEMS,
+          sessionId: 'session-1',
+          target: LOCAL_TARGET,
+          fence: 1,
+          submissions: [keptRejection('kept-id')],
+          queueDelivery: { capability: 'unsupported', enabled: true }
+        })
+      )
+      await waitFor(() => expect(view.result.current.outbox).toHaveLength(0))
+      expect(readOutbox('session-1')).toEqual([])
+      expect(mocks.call).not.toHaveBeenCalled()
+    })
+  })
+
   it("Stop's local step never restores a queued send already in flight — its answer settles it", async () => {
     // The send is on its way; the Stop lands behind it, so the host may already hold
     // it as a paused card. Restoring it locally too would double the text.
@@ -184,6 +334,7 @@ describe('outbox queue delivery selection', () => {
     const view = renderHook(
       (props: { queuedMessageIds: string[] }) =>
         useStructuredAgentSessionOutbox({
+          journalItems: NO_JOURNAL_ITEMS,
           sessionId: 'session-1',
           target: LOCAL_TARGET,
           fence: 1,
@@ -252,6 +403,7 @@ describe('outbox queue delivery selection', () => {
     }))
     const { result } = renderHook(() =>
       useStructuredAgentSessionOutbox({
+        journalItems: NO_JOURNAL_ITEMS,
         sessionId: 'session-1',
         target: LOCAL_TARGET,
         fence: 1,
@@ -306,6 +458,7 @@ async function attemptedQueueSend() {
   const view = renderHook(
     (props: { capability: StructuredAgentSessionQueueCapability }) =>
       useStructuredAgentSessionOutbox({
+        journalItems: NO_JOURNAL_ITEMS,
         sessionId: 'session-1',
         target: LOCAL_TARGET,
         fence: 1,
@@ -320,3 +473,32 @@ async function attemptedQueueSend() {
   mocks.call.mockImplementation(() => new Promise(() => {}))
   return view
 }
+
+// The composer moves the reader only for a message the transcript draws as a bubble.
+it.each([
+  ['a text follow-up while the agent works', QUEUEING, true, [], 'queued'],
+  ['the same follow-up when the agent is idle', QUEUEING, false, [], true],
+  ['with the queue setting off', { capability: 'supported', enabled: false }, true, [], true],
+  ['an image, which never queues', QUEUEING, true, [{ path: '/a.png', previewUri: '/a.png' }], true]
+] as const)(
+  'answers whether %s waits as a queued card',
+  (_case, queueDelivery, isWorking, images, admission) => {
+    mocks.call.mockImplementation(() => new Promise(() => {}))
+    const { result } = renderHook(() =>
+      useStructuredAgentSessionOutbox({
+        journalItems: NO_JOURNAL_ITEMS,
+        sessionId: 'session-1',
+        target: LOCAL_TARGET,
+        fence: 1,
+        submissions: [],
+        queueDelivery,
+        isWorking
+      })
+    )
+    let sent: boolean | 'queued' = false
+    act(() => {
+      sent = result.current.send('follow up', images)
+    })
+    expect(sent).toBe(admission)
+  }
+)

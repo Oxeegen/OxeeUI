@@ -8,9 +8,8 @@ import {
 } from '../../shared/process-table-index'
 import { getProcessTableSnapshot } from '../../shared/process-table-snapshot-reader'
 import { readWindowsProcessTable } from '../windows/windows-process-table'
-import { isShellStartupEnvProbeSupported } from '../pty/shell-startup-env'
 import { fishArgsSkipConfig } from '../fish-xdg-data-dirs-handoff'
-import { getSystemCodexHomePath, resolveOrcaManagedCodexHomePath } from './codex-home-paths'
+import { getSystemCodexHomePath } from './codex-home-paths'
 import { getCodexPaneAccount } from './codex-pane-account-registry'
 import { probeCodexSharedServer } from './codex-shared-server-probe'
 
@@ -72,29 +71,20 @@ export function resolveCodexPaneHome(ptyId: string): string | null {
   if (record?.selectionKey !== 'host') {
     return null
   }
-  const customHome =
-    record.environmentHomeOverride?.codexHome ?? record.shellStartupHomeOverride?.codexHome
   switch (record.homeRoute) {
+    // Why: a custom CODEX_HOME routes a pane to Orca's mirror, so real-home is always ~/.codex.
     case 'real-home':
-      return customHome ?? getSystemCodexHomePath()
-    case 'custom-home':
-      return customHome ?? null
+      return getSystemCodexHomePath()
+    // Why: an unnamed home (managed account, WSL, pre-route record) skips the
+    // warning rather than probing the wrong server. Orca's mirror (shared-home)
+    // gets none either, as macOS and Linux already did: it is a fallback lane
+    // (custom CODEX_HOME, hook approval) or a pre-upgrade home refreshed from ~/.codex.
     case 'shared-home':
-      // Why: off Windows the mirror is retired and never promoted, so a fix there would be reverted.
-      return isShellStartupEnvProbeSupported() ? null : resolveOrcaManagedCodexHomePath()
-    // Why: an unnamed home (managed account, WSL, pre-route record) skips the warning rather than probing the wrong server.
     case 'account-home':
     case 'wsl-home':
     case undefined:
       return null
   }
-}
-
-/** Whether the pane's home is Orca's mirror, whose settings reach ~/.codex only through promotion. */
-export function isCodexPaneOnOrcaMirrorHome(ptyId: string): boolean {
-  return (
-    getCodexPaneAccount(ptyId)?.homeRoute === 'shared-home' && resolveCodexPaneHome(ptyId) !== null
-  )
 }
 
 /** This local pane's Codex when it is a client of Codex's shared server; otherwise null. */

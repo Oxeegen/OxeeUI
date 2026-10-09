@@ -4,12 +4,15 @@
 import type { AgentJournalSubmission } from '../../../../shared/agent-session-journal-types'
 import {
   structuredAgentSessionEntryIdExpired,
+  structuredAgentSessionEntryRejectedByHost,
   type StructuredAgentSessionOutboxEntry
 } from '../../../../shared/structured-agent-session-outbox'
 import {
   commitStructuredAgentSessionOutbox,
   getStructuredAgentSessionOutbox
 } from './structured-agent-session-outbox-storage'
+import { STRUCTURED_AGENT_SESSION_OUTBOX_NOT_SAVED } from '../../../../shared/structured-agent-session-send-disposition'
+import { agentSessionWriteNoticeText } from './agent-session-write-notice-text'
 
 export function retryStructuredAgentSessionOutboxEntry(args: {
   clientMessageId: string
@@ -28,7 +31,7 @@ export function retryStructuredAgentSessionOutboxEntry(args: {
   // settled the message already rotated it. An expired id is refused for good; its row told the
   // user to check the chat first.
   const recordedRejection =
-    current?.state === 'rejected' && current.lastFailure?.kind === 'rejected'
+    current !== undefined && structuredAgentSessionEntryRejectedByHost(current)
   if (
     current &&
     (recordedRejection ||
@@ -47,7 +50,7 @@ export function retryStructuredAgentSessionOutboxEntry(args: {
         : entry
     )
     if (!commitStructuredAgentSessionOutbox(sessionId, rotated, { onlyIfSaved: true })) {
-      setError('Message could not be saved to the outbox')
+      setError(agentSessionWriteNoticeText(STRUCTURED_AGENT_SESSION_OUTBOX_NOT_SAVED))
     }
     return
   }
@@ -67,14 +70,16 @@ export function retryStructuredAgentSessionOutboxEntry(args: {
       : entry
   )
   if (!commitStructuredAgentSessionOutbox(sessionId, next, { onlyIfSaved: true })) {
-    setError('Message could not be saved to the outbox')
+    setError(agentSessionWriteNoticeText(STRUCTURED_AGENT_SESSION_OUTBOX_NOT_SAVED))
   }
 }
 
-/** The user's own Retry is what a Stop, or a failure saved on the message, left it waiting for. */
+/** The user's own Retry is what a Stop, or a failure saved on the message, left it waiting for. It
+ *  is a new send, so it no longer waits behind the turn a Stop was ending when it was first sent. */
 function retriedByUser({
   outlivedStop: _retried,
   lastFailure: _sentAgain,
+  sentWhileStopping: _sentNow,
   ...entry
 }: StructuredAgentSessionOutboxEntry): StructuredAgentSessionOutboxEntry {
   return entry

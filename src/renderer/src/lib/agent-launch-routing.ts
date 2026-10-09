@@ -11,8 +11,6 @@ import {
   type NativeChatLaunchPromptDelivery
 } from '@/lib/native-chat-initial-view-mode'
 
-export { hasExplicitTuiLaunchCommand } from '../../../shared/tui-agent-launch-command-override'
-
 export type AgentLaunchRoute = 'structured-native-chat' | 'legacy-native-chat' | 'terminal-tui'
 
 export type AgentLaunchRoutingInput = {
@@ -29,22 +27,26 @@ export type AgentLaunchRoutingInput = {
   executionHostId: string
   /** Capabilities of the target host; `null` = not yet established. */
   hostCapabilities: readonly string[] | null
+  /** What this client advertises to a paired host. */
+  clientCapabilities?: readonly string[]
   workspaceKind?: WorkspaceLaunchKind
   projectRuntime?: ProjectExecutionRuntimeResolution | null
   promptDelivery?: NativeChatLaunchPromptDelivery
   launchText?: string
   nativeChatTranscriptIsLocalReadable?: boolean
-  requiresTuiLaunchCommand?: boolean
+  startsOutsideWorkspaceRoot?: boolean
   initialSessionOptions?: Readonly<Record<string, unknown>>
+  /** The agents the target host listed as structured; absent until it has. */
+  hostStructuredAgents?: readonly string[]
 }
 
 export function resolveAgentLaunchRoute(input: AgentLaunchRoutingInput): AgentLaunchRoute {
   // Why: structured eligibility is decided before the view-mode decider. That decider applies the
   // terminal mirror gate (a TUI cannot clear more than forty lines of prefilled draft), which has
   // no meaning for a session that seeds the composer store directly. Its other gates are already
-  // implied here: the structured resolver admits only claude/codex, both native-chat agents, and
-  // refuses every non-local host, and a structured session reads its journal over RPC rather than
-  // the transcript file, so local transcript readability does not apply either.
+  // implied here: the structured resolver admits only agents the host runs as chats, and
+  // only hosts with an Orca runtime, and a structured session reads its journal over RPC rather
+  // than the transcript file, so local transcript readability does not apply either.
   if (
     prefersStructuredNativeChatByDefault(input.settings) &&
     structuredAgentLaunchSupported(input)
@@ -72,9 +74,11 @@ export function structuredAgentLaunchSupported(
       agent: input.agent,
       executionHostId: input.executionHostId,
       hostCapabilities: input.hostCapabilities,
+      ...(input.clientCapabilities ? { clientCapabilities: input.clientCapabilities } : {}),
       workspaceKind: input.workspaceKind,
       projectRuntime: input.projectRuntime,
-      requiresTuiLaunchCommand: input.requiresTuiLaunchCommand
+      startsOutsideWorkspaceRoot: input.startsOutsideWorkspaceRoot,
+      ...(input.hostStructuredAgents ? { hostStructuredAgents: input.hostStructuredAgents } : {})
     }).supported
   )
 }

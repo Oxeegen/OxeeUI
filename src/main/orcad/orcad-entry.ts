@@ -151,6 +151,7 @@ async function startOrcadRuntime(
     | undefined
   let uninstallHookStatusRepublish = (): void => {}
   let uninstallObservedStatusIdentity = (): void => {}
+  let removeStatusHookSettingsListener = (): void => {}
   registerCleanup(async () => {
     try {
       await rpc?.stop()
@@ -167,6 +168,7 @@ async function startOrcadRuntime(
           // orcad restart goes back to killing every running terminal.
           await stopOrcadDaemon()
         } finally {
+          removeStatusHookSettingsListener()
           uninstallObservedStatusIdentity()
           uninstallHookStatusRepublish()
           agentHookServer.stop()
@@ -194,9 +196,17 @@ async function startOrcadRuntime(
   uninstallObservedStatusIdentity = agentHookServer.subscribeEnrichedStatus((enriched) =>
     observedStatusCapture.observe(enriched)
   )
-  if (isAgentStatusHooksEnabled(profileStore.getSettings())) {
-    await agentHookServer.start({ env: 'production', userDataPath: runtimeUserDataPath })
-  }
+  await agentHookServer.start({
+    env: 'production',
+    userDataPath: runtimeUserDataPath,
+    statusHooksEnabled: isAgentStatusHooksEnabled(profileStore.getSettings())
+  })
+
+  removeStatusHookSettingsListener = profileStore.onSettingsChanged((updates, settings) => {
+    if ('agentStatusHooksEnabled' in updates) {
+      agentHookServer.setStatusHooksEnabled(isAgentStatusHooksEnabled(settings))
+    }
+  })
 
   // Why before the runtime and the PTY handlers: `setLocalPtyProvider` installs the daemon
   // adapter as THE local provider, and the registry's contract is that it lands before
@@ -227,10 +237,13 @@ async function startOrcadRuntime(
     // PTY agent on this host, and the store is the only place `worktree.ps` and the mobile
     // projection read from — unwired, orcad lists no PTY agents at all.
     onTerminalAgentStatus: (event) => agentHookServer.ingestTerminalStatus(event),
+    onClaudeTerminalEvidence: (paneKey, evidence) =>
+      agentHookServer.observeClaudeTerminalEvidence(paneKey, evidence),
     // Why here too and not only on the desktop: orcad serves `worktree.ps` and `agentSession.*`,
     // so without these a headless host publishes its structured chats nowhere and lists no agents.
     getAgentStatusSnapshot: () =>
       agentHookServer.getStatusSnapshot().filter((entry) => entry.providerSessionOnly !== true),
+    getAgentStatusSnapshotForPane: (paneKey) => agentHookServer.getStatusSnapshotForPane(paneKey),
     getAgentProviderSessionSnapshot: () => agentHookServer.getStatusSnapshot(),
     getAgentProviderSessionRowsForPane: (paneKey) =>
       agentHookServer.getStatusSnapshotForPane(paneKey),
@@ -247,6 +260,8 @@ async function startOrcadRuntime(
     checkHookAgentPresence: (paneKey) => agentHookServer.checkAgentPresence(paneKey),
     reconcileAgentStatusForEndedProcess: (paneKeys) =>
       agentHookServer.reconcileEndedProcessForPaneKeys(paneKeys),
+    dropAgentStatusForRemovedWorktree: (worktreeId, host) =>
+      agentHookServer.dropStatusEntriesForRemovedWorktree(worktreeId, host),
     buildAgentHookPtyEnv: () =>
       isAgentStatusHooksEnabled(profileStore.getSettings()) ? agentHookServer.buildPtyEnv() : {},
     // Why the dedupe here and not in the instance: `apply` closes and reconstructs
@@ -265,6 +280,13 @@ async function startOrcadRuntime(
     getSettings: () => profileStore.getSettings()
   })
   getAppEnvironment().onWillQuit(() => sessionSearch?.dispose())
+
+  // Why: this host evaluates its own panes, so it keeps its own rules current.
+  const { startAgentStateRulesLiveUpdates } =
+    await import('../runtime/agent-state-rules/agent-state-rules-live-update')
+  startAgentStateRulesLiveUpdates(profileStore, (rules) =>
+    console.info(`[orcad] agent state rules ${rules.version} (${rules.source})`)
+  )
 
   // Why here too and not only on the desktop: nothing else republishes `session.tabs` when a
   // pane's status row changes, and orcad's whole job is serving paired clients.

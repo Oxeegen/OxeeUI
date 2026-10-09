@@ -1,5 +1,5 @@
-// The queue's pause is a pure function of the journal: a Stop and a Resume are rows, a person's
-// accepted turn is a row, and a /clear's carried card names its source. Nothing is stored beside
+// The queue's pause is a pure function of the journal: a Stop and a Resume are rows, an accepted
+// turn is a row, and a /clear's carried card names its source. Nothing is stored beside
 // them, so nothing has to retire.
 
 import { mkdtemp, rm } from 'node:fs/promises'
@@ -29,13 +29,15 @@ import {
 } from './queued-message-pause'
 import { agentSessionFailureFact } from '../../../shared/agent-session-failure'
 import { agentSessionFailureWords } from '../../../shared/agent-session-failure-words'
+import { QUEUED_MESSAGE_PAUSED_KEPT } from '../../../shared/agent-session-queued-message-wire'
+import { claudeProviderHandle } from '../../../shared/agent-session-provider-handle-encoding'
 
 const IDENTITY: AgentSessionJournalIdentity = {
   sessionId: 'session-p',
   workspaceId: 'ws-1',
   hostId: 'host-1',
   agent: 'claude',
-  providerHandle: { kind: 'claude', sessionId: 'native-1', leafUuid: null }
+  providerHandle: claudeProviderHandle('native-1', null)
 }
 const HOST = 'proc-1'
 
@@ -66,16 +68,10 @@ function queueDraft(journal: AgentSessionJournal, messageId: string, carriedFrom
   })
 }
 
-/** A turn sent, then accepted by the provider; `origin` says who asked for it. */
-async function turn(
-  journal: AgentSessionJournal,
-  id: string,
-  origin: 'client' | 'host',
-  accept = true
-): Promise<void> {
+/** A turn sent, then accepted by the provider. */
+async function turn(journal: AgentSessionJournal, id: string, accept = true): Promise<void> {
   await journal.appendSubmission({
     clientMessageId: id,
-    origin,
     payloadFingerprint: `fp-${id}`,
     body: message(id),
     fence: 0,
@@ -179,24 +175,24 @@ describe("the queue's pause, derived from the journal", () => {
     expect(pauseTables()).toBe(0)
   })
 
-  it("only a person's turn sent after the Stop and accepted lifts it; host turns never do", async () => {
+  it("any turn sent after the Stop and accepted lifts it, Orca's own mail included", async () => {
     const journal = await open()
-    await turn(journal, 'before-stop', 'client', false)
+    await turn(journal, 'before-stop', false)
     await userStop(journal)
     // Sent before the Stop: its acceptance now does not end a Stop that came after it.
     await acceptTurn(journal, 'before-stop')
-    await turn(journal, 'mail', 'host')
     expect(reason(journal)).toBe('stopped')
-    await turn(journal, 'typed', 'client', false)
+    // Orchestration mail: sent, not yet accepted, lifts nothing; accepted, it lifts the pause.
+    await turn(journal, 'mail', false)
     expect(reason(journal)).toBe('stopped')
-    await acceptTurn(journal, 'typed')
+    await acceptTurn(journal, 'mail')
     expect(reason(journal)).toBeNull()
   })
 
   it('a later Stop is the latest, and a Resume row lifts it', async () => {
     const journal = await open()
     await userStop(journal)
-    await turn(journal, 'typed', 'client')
+    await turn(journal, 'typed')
     expect(reason(journal)).toBeNull()
     await userStop(journal)
     expect(reason(journal)).toBe('stopped')
@@ -219,18 +215,18 @@ describe("the queue's pause, derived from the journal", () => {
     expect(pauseTables()).toBe(0)
   })
 
-  it("a person's accepted turn on the replacement lifts 'cleared'; a host turn does not", async () => {
+  it("any accepted turn on the replacement lifts 'cleared', a launch prompt Orca sent included", async () => {
     const journal = await open()
     await queueDraft(journal, 'carried', 'source-session')
-    await turn(journal, 'launch', 'host')
+    await turn(journal, 'launch', false)
     expect(reason(journal)).toBe('cleared')
-    await turn(journal, 'typed', 'client')
+    await acceptTurn(journal, 'launch')
     expect(reason(journal)).toBeNull()
   })
 
   it('rides a tombstone of an id no item takes, so an older build reads it and changes nothing', async () => {
     const journal = await open()
-    await turn(journal, 'typed', 'client')
+    await turn(journal, 'typed')
     await journal.appendStopEvent({ reason: 'user-stop', turnId: 'turn-1', caller: 'client-1' }, 0)
     const db = new Database(journalDatabasePath(root), { readonly: true })
     const stored = liveTestJournalRows(db, IDENTITY.sessionId)
@@ -302,7 +298,6 @@ describe("the queue's pause, derived from the journal", () => {
       journal.appendSubmission(
         {
           clientMessageId: id,
-          origin: automatic ? 'host' : 'client',
           payloadFingerprint: 'fp-draft-1',
           body: message('draft-1'),
           fence: 0,
@@ -323,12 +318,12 @@ describe("the queue's pause, derived from the journal", () => {
     expect(journal.queuedMessages.get('draft-1')?.state).toBe('dispatched')
   })
 
-  it("a rewind's epoch replacement restates a Stop still pausing, and not one a person ended", async () => {
+  it("a rewind's epoch replacement restates a Stop still pausing, and not one a turn ended", async () => {
     const journal = await open()
     await userStop(journal)
     await journal.replaceEpochItems('handle_forked', 0, [])
     expect(reason(journal)).toBe('stopped')
-    await turn(journal, 'typed', 'client')
+    await turn(journal, 'typed')
     await journal.replaceEpochItems('handle_forked', 0, [])
     expect(reason(journal)).toBeNull()
   })
@@ -378,7 +373,7 @@ describe("the queue's pause, derived from the journal", () => {
   })
 
   it.each([
-    ["a person's turn", (journal: AgentSessionJournal) => turn(journal, 'typed', 'client')],
+    ['an accepted turn', (journal: AgentSessionJournal) => turn(journal, 'typed')],
     ['a Resume', (journal: AgentSessionJournal) => journal.appendQueueResume(0)]
   ])('a /clear pause %s already lifted stays lifted across a rewind', async (_name, lift) => {
     const journal = await open()
@@ -392,7 +387,7 @@ describe("the queue's pause, derived from the journal", () => {
   it('a lifted /clear pause and a later Stop are both restated, the Stop still in force', async () => {
     const journal = await open()
     await queueDraft(journal, 'carried', 'source-session')
-    await turn(journal, 'typed', 'client')
+    await turn(journal, 'typed')
     await userStop(journal)
     await journal.replaceEpochItems('handle_forked', 0, [])
     expect(journal.queuedMessages.pauses(HOST).map((pause) => pause.reason)).toEqual(['stopped'])
@@ -425,7 +420,6 @@ describe('which cards a pause holds', () => {
     await journal.appendSubmission(
       {
         clientMessageId: 'send-now-1',
-        origin: 'client',
         payloadFingerprint: 'fp-steered',
         body: message('steered'),
         fence: 0,
@@ -456,7 +450,6 @@ describe('which cards a pause holds', () => {
       journal.appendSubmission(
         {
           clientMessageId: 'drain-newer',
-          origin: 'host',
           payloadFingerprint: 'fp-newer',
           body: message('newer'),
           fence: 0,
@@ -517,6 +510,23 @@ describe("a restart's pause", () => {
     ])
   })
 
+  it('adoption and Resume keep a kept card held: only its own Send, Edit or Delete releases it', async () => {
+    const journal = await open()
+    const kept = await journal.queuedMessages.insert({
+      messageId: 'kept',
+      body: message('kept across a restart'),
+      fingerprint: 'fp-kept',
+      hostInstance: 'proc-0',
+      holdReason: QUEUED_MESSAGE_PAUSED_KEPT
+    })
+    expect(kept.holdReason).toBe(QUEUED_MESSAGE_PAUSED_KEPT)
+    expect(await journal.queuedMessages.adopt(HOST)).toBe(true)
+    expect(journal.queuedMessages.get('kept')).toMatchObject({
+      hostInstance: HOST,
+      holdReason: QUEUED_MESSAGE_PAUSED_KEPT
+    })
+  })
+
   it('an adoption with nothing to adopt changes nothing and fires no commit notification', async () => {
     const journal = await open()
     await queueDraft(journal, 'draft-1')
@@ -536,7 +546,7 @@ describe('which cards the pauses in force hold', () => {
     return { messageId, ...base, queuedAt, ...fields }
   }
 
-  /** A Stop at sequence 5 unless `stopped` is 0; no person's turn or Resume since. */
+  /** A Stop at sequence 5 unless `stopped` is 0; no turn or Resume since. */
   function pausesOver(cards: readonly Card[], stopped = 5) {
     return deriveQueuePauses({
       epoch: 'epoch-1',
@@ -544,7 +554,7 @@ describe('which cards the pauses in force hold', () => {
         latestStop: stopped ? { sequence: stopped, event: { reason: 'user-stop', at: 0 } } : null,
         resumedSequence: 0
       },
-      latestPersonTurnSequence: 0,
+      latestAcceptedTurnSequence: 0,
       cards,
       hostInstance: HOST,
       restartEnded: false
@@ -591,6 +601,31 @@ describe('which cards the pauses in force hold', () => {
       ['after', 'restarted']
     ])
     expect(resumableQueuePause(pausesOver(cards), cards)?.reason).toBe('stopped')
+  })
+
+  // Held on its own, as a card whose send failed: the queue goes past it, and Resume is offered
+  // over the cards a pause holds behind it.
+  it('a kept card is skipped like a send_failed one; the cards behind it still send', () => {
+    const behind = card('behind', 2)
+    const kept = [card('kept', 1, { holdReason: QUEUED_MESSAGE_PAUSED_KEPT }), behind]
+    expect(holding(kept, 0)).toEqual([
+      ['kept', null],
+      ['behind', null]
+    ])
+    expect(nextSendableQueuedCard(pausesOver(kept, 0), kept)).toBe(behind)
+    expect(resumableQueuePause(pausesOver(kept, 0), kept)).toBeNull()
+    const restarted = [kept[0]!, card('dead', 2, { hostInstance: DEAD })]
+    expect(nextSendableQueuedCard(pausesOver(restarted, 0), restarted)).toBeNull()
+    expect(resumableQueuePause(pausesOver(restarted, 0), restarted)?.reason).toBe('restarted')
+  })
+
+  // A dead process's card held on its own waits for its own Send, so it pauses no other card.
+  it('a card held on its own from a dead process starts no restart pause', () => {
+    for (const holdReason of [QUEUED_MESSAGE_PAUSED_KEPT, 'send_failed']) {
+      const cards = [card('held', 1, { hostInstance: DEAD, holdReason }), card('live', 2)]
+      expect(pausesOver(cards, 0)).toEqual([])
+      expect(nextSendableQueuedCard(pausesOver(cards, 0), cards)?.messageId).toBe('live')
+    }
   })
 
   it("a /clear's pause that holds nothing never hides a restart's", () => {

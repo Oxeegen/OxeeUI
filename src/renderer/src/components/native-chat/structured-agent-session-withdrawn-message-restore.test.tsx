@@ -1,5 +1,6 @@
-// A message a Stop withdrew never ran, and nothing sends it again. Its sender gets the text and
-// images back in the composer, once, after whatever is typed there.
+// A message a Stop withdrew never ran, and nothing sends it again. One the host held stays in the
+// transcript, so the composer keeps what is typed there. One this client's own Stop took before
+// the host held it comes back to the composer, and only to an empty one.
 
 // @vitest-environment happy-dom
 
@@ -57,7 +58,6 @@ import {
   appendNativeChatDraftCache,
   clearNativeChatDraftCacheForTests,
   readNativeChatDraftCache,
-  subscribeToNativeChatDraftAppend,
   writeNativeChatDraftCache
 } from './native-chat-draft-cache'
 import {
@@ -74,6 +74,15 @@ import {
 } from './structured-agent-session-outbox-storage'
 import { useStructuredAgentSessionOutbox } from './use-structured-agent-session-outbox'
 import { useStructuredAgentSession } from './use-structured-agent-session'
+
+/** What these hooks render with: the journal's submissions, and the rows loaded so far. */
+type OutboxProps = { submissions: AgentJournalSubmission[]; rows?: AgentJournalRenderItem[] }
+
+function outboxProps(submissions: AgentJournalSubmission[]): OutboxProps {
+  return { submissions }
+}
+
+const NO_JOURNAL_ITEMS: readonly AgentJournalRenderItem[] = []
 
 const SESSION = 'session-1'
 const PANE = 'tab-1::session-1'
@@ -129,15 +138,16 @@ function answerSendsPending(): void {
 
 function renderOutbox(composerScopeKey: string | null = PANE) {
   return renderHook(
-    (props: { submissions: AgentJournalSubmission[] }) =>
+    (props: OutboxProps) =>
       useStructuredAgentSessionOutbox({
+        journalItems: props.rows ?? NO_JOURNAL_ITEMS,
         sessionId: SESSION,
         target,
         fence: 1,
         submissions: props.submissions,
         ...(composerScopeKey ? { composerScopeKey } : {})
       }),
-    { initialProps: { submissions: NONE } }
+    { initialProps: outboxProps(NONE) }
   )
 }
 
@@ -149,10 +159,6 @@ async function sendToHost(
   act(() => expect(result.current.send(text, attachments)).toBe(true))
   await waitFor(() => expect(result.current.outbox.at(-1)?.state).toBe('dispatching'))
   return result.current.outbox.at(-1)!.clientMessageId
-}
-
-function occurrences(text: string, of: string): number {
-  return text.split(of).length - 1
 }
 
 afterEach(() => {
@@ -178,30 +184,24 @@ describe('a message the host withdrew at a Stop', () => {
   it.each([
     ['a Stop during the start withdrew it from the host queue', {}],
     ['Claude cancelled it as a queued follow-up', { handedOverAt: 12 }]
-  ])(
-    'comes back to the composer with its images, after the draft, when %s',
-    async (_case, handover) => {
-      answerSendsPending()
-      writeNativeChatDraftCache(PANE, 'already typed')
-      appendNativeChatAttachmentCache(PANE, [{ id: 'typed', path: '/tmp/typed.png' }])
-      const { result, rerender } = renderOutbox()
-      const id = await sendToHost(result, 'hello', [
-        { path: '/tmp/shot.png', previewUri: '/tmp/shot.png' }
-      ])
-      rerender({ submissions: [submission(id, handover)] })
+  ])('leaves the outbox and leaves the composer as it is, when %s', async (_case, handover) => {
+    answerSendsPending()
+    writeNativeChatDraftCache(PANE, 'already typed')
+    appendNativeChatAttachmentCache(PANE, [{ id: 'typed', path: '/tmp/typed.png' }])
+    const { result, rerender } = renderOutbox()
+    const id = await sendToHost(result, 'hello', [
+      { path: '/tmp/shot.png', previewUri: '/tmp/shot.png' }
+    ])
+    rerender({ submissions: [submission(id, handover)] })
 
-      rerender({ submissions: [withdrawn(id, handover)] })
+    rerender({ submissions: [withdrawn(id, handover)] })
 
-      await waitFor(() => expect(result.current.outbox).toEqual([]))
-      expect(readNativeChatDraftCache(PANE)).toBe('already typed\n\nhello')
-      expect(readNativeChatAttachmentCache(PANE)).toEqual([
-        { id: 'typed', path: '/tmp/typed.png' },
-        { id: expect.any(String), path: '/tmp/shot.png' }
-      ])
-    }
-  )
+    await waitFor(() => expect(result.current.outbox).toEqual([]))
+    expect(readNativeChatDraftCache(PANE)).toBe('already typed')
+    expect(readNativeChatAttachmentCache(PANE)).toEqual([{ id: 'typed', path: '/tmp/typed.png' }])
+  })
 
-  it('comes back when the host wrote the withdrawal as a typed fact in a sentence', async () => {
+  it('leaves an empty composer empty when the host wrote the withdrawal as a typed fact', async () => {
     answerSendsPending()
     const { result, rerender } = renderOutbox()
     const id = await sendToHost(result, 'hello')
@@ -216,10 +216,10 @@ describe('a message the host withdrew at a Stop', () => {
     })
 
     await waitFor(() => expect(result.current.outbox).toEqual([]))
-    expect(readNativeChatDraftCache(PANE)).toBe('hello')
+    expect(readNativeChatDraftCache(PANE)).toBe('')
   })
 
-  it('comes back once, whatever replays the journal or shows the chat again', async () => {
+  it('is never put back by a replay or a second view of the chat', async () => {
     answerSendsPending()
     const first = renderOutbox()
     const id = await sendToHost(first.result, 'hello')
@@ -235,31 +235,10 @@ describe('a message the host withdrew at a Stop', () => {
 
     await waitFor(() => expect(readOutbox(SESSION)).toEqual([]))
     const restored = readNativeChatDraftCache(PANE) + readNativeChatDraftCache(OTHER_PANE)
-    expect(occurrences(restored, 'hello')).toBe(1)
+    expect(restored).toBe('')
   })
 
-  it('is back in the composer before it leaves storage, so a crash between repeats it', async () => {
-    answerSendsPending()
-    const { result, rerender } = renderOutbox()
-    const id = await sendToHost(result, 'hello')
-    let storedAtRestore: string[] = []
-    const unsubscribe = subscribeToNativeChatDraftAppend(PANE, () => {
-      storedAtRestore = readOutbox(SESSION).map((entry) => entry.clientMessageId)
-    })
-    const beforeDrop = readOutbox(SESSION, { recoverDispatching: false })
-
-    rerender({ submissions: [withdrawn(id)] })
-    unsubscribe()
-
-    expect(storedAtRestore).toEqual([id])
-    // The drop never reached storage: the next mount gives the text back again rather than losing it.
-    cleanup()
-    writeOutbox(SESSION, beforeDrop)
-    renderOutbox().rerender({ submissions: [withdrawn(id)] })
-    expect(readNativeChatDraftCache(PANE)).toBe('hello\n\nhello')
-  })
-
-  it('keeps a message refused for any other reason on its Retry, and gives nothing back', async () => {
+  it("leaves a message rejected for any other reason to the host's row, and gives nothing back", async () => {
     answerSendsPending()
     const { result, rerender } = renderOutbox()
     const id = await sendToHost(result, 'hello')
@@ -267,10 +246,19 @@ describe('a message the host withdrew at a Stop', () => {
     rerender({
       submissions: [
         submission(id, { dispatchState: 'rejected', reason: DISPATCH_REJECTED_WRITE_FAILED })
+      ],
+      rows: [
+        {
+          itemId: `orca:${id}`,
+          revision: 1,
+          sequence: 1,
+          observedAt: 1,
+          body: { kind: 'message', role: 'user', blocks: [{ type: 'text', text: 'hello' }] }
+        }
       ]
     })
 
-    await waitFor(() => expect(result.current.outbox[0]?.state).toBe('rejected'))
+    await waitFor(() => expect(result.current.outbox).toEqual([]))
     expect(readNativeChatDraftCache(PANE)).toBe('')
   })
 
@@ -287,7 +275,7 @@ describe('a message the host withdrew at a Stop', () => {
 })
 
 describe('a message a Stop took out of the outbox before the host held it', () => {
-  it('comes back to the composer when the Stop follows the send at once', async () => {
+  it('comes back to an empty composer when the Stop follows the send at once', async () => {
     mocks.call.mockImplementation(() => new Promise<never>(() => {}))
     const { result } = renderOutbox()
     act(() => expect(result.current.send('first')).toBe(true))
@@ -302,7 +290,7 @@ describe('a message a Stop took out of the outbox before the host held it', () =
     expect(readNativeChatDraftCache(PANE)).toBe('second')
   })
 
-  it('gives back a send already on its way only when the host withdraws it', async () => {
+  it('never gives back a send already on its way, even when the host withdraws it', async () => {
     answerSendsPending()
     const reply = Promise.withResolvers<void>()
     const answer = mocks.call.getMockImplementation()!
@@ -325,7 +313,76 @@ describe('a message a Stop took out of the outbox before the host held it', () =
     rerender({ submissions: [withdrawn(id)] })
 
     await waitFor(() => expect(result.current.outbox).toEqual([]))
-    expect(readNativeChatDraftCache(PANE)).toBe('hello')
+    expect(readNativeChatDraftCache(PANE)).toBe('')
+  })
+
+  it.each([
+    ['text', () => writeNativeChatDraftCache(PANE, 'typed since')],
+    [
+      'an image',
+      () => appendNativeChatAttachmentCache(PANE, [{ id: 'typed', path: '/tmp/typed.png' }])
+    ]
+  ])(
+    'leaves a composer holding %s as it is, and keeps the message as not sent',
+    async (_holding, fill) => {
+      mocks.call.mockImplementation(() => new Promise<never>(() => {}))
+      const { result } = renderOutbox()
+      act(() => expect(result.current.send('first')).toBe(true))
+      await waitFor(() => expect(mocks.call).toHaveBeenCalledTimes(1))
+      act(() =>
+        expect(
+          result.current.send('second', [{ path: '/tmp/shot.png', previewUri: '/tmp/shot.png' }])
+        ).toBe(true)
+      )
+      const before = {
+        draft: readNativeChatDraftCache(PANE),
+        images: readNativeChatAttachmentCache(PANE)
+      }
+      fill()
+      const filled = {
+        draft: readNativeChatDraftCache(PANE),
+        images: readNativeChatAttachmentCache(PANE)
+      }
+      expect(filled).not.toEqual(before)
+
+      act(() => result.current.withdrawUnsent())
+
+      expect({
+        draft: readNativeChatDraftCache(PANE),
+        images: readNativeChatAttachmentCache(PANE)
+      }).toEqual(filled)
+      // Its only copy, so it stays as not sent, text and image, on its Retry.
+      expect(
+        readOutbox(SESSION, { recoverDispatching: false }).map((entry) => ({
+          state: entry.state,
+          blocks: entry.body.blocks
+        }))
+      ).toEqual([
+        { state: 'dispatching', blocks: [{ type: 'text', text: 'first' }] },
+        {
+          state: 'rejected',
+          blocks: [
+            { type: 'text', text: 'second' },
+            { type: 'image-ref', path: '/tmp/shot.png' }
+          ]
+        }
+      ])
+    }
+  )
+
+  it('keeps the message as not sent where no composer shows the chat', async () => {
+    mocks.call.mockImplementation(() => new Promise<never>(() => {}))
+    const { result } = renderOutbox(null)
+    act(() => expect(result.current.send('first')).toBe(true))
+    await waitFor(() => expect(mocks.call).toHaveBeenCalledTimes(1))
+    act(() => expect(result.current.send('second')).toBe(true))
+
+    act(() => result.current.withdrawUnsent())
+
+    expect(result.current.outbox.map((entry) => [entry.state, entry.body.blocks])).toEqual([
+      ['dispatching', [{ type: 'text', text: 'first' }]],
+      ['rejected', [{ type: 'text', text: 'second' }]]
+    ])
   })
 
   it('leaves a message waiting on Retry where it is, and gives back only what it withdrew', async () => {
@@ -391,7 +448,7 @@ describe('Stop through the chat', () => {
     )
   }
 
-  it('gives back what the host withdrew into the pane that pressed it', async () => {
+  it('keeps what the host withdrew out of the composer of the pane that pressed it', async () => {
     mocks.call.mockImplementation(async (_target, method) =>
       method === 'agentSession.cancel' ? { ok: true, value: { cancelled: true } } : null
     )
@@ -404,7 +461,7 @@ describe('Stop through the chat', () => {
     rerender()
 
     await waitFor(() => expect(result.current.outbox).toEqual([]))
-    expect(readNativeChatDraftCache(PANE)).toBe('hello')
+    expect(readNativeChatDraftCache(PANE)).toBe('')
   })
 
   it('says a failed Stop in a toast and gives nothing back', async () => {

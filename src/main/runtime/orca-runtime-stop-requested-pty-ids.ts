@@ -2,7 +2,9 @@
 import { OrchestrationStructuredMailboxPointerDelivery } from './orchestration/structured-mailbox-pointer-delivery'
 import { createStructuredMailboxPointerHost } from './orchestration/structured-mailbox-pointer-host'
 import { localOrchestrationCliCommand } from './orchestration/cli-command'
+import { RuntimeOrchestrationSenderNames } from './runtime-orchestration-sender-names'
 import { isStructuredWorkerHandle } from './structured-worker-identity'
+import { ORCA_SESSION_ADDRESS_PREFIX } from '../../shared/orca-session-address'
 import { resolveStructuredWorkerAuthority } from './structured-worker-authority'
 import { OrcaRuntimeWithRuntimeId } from './orca-runtime-runtime-id'
 import { RuntimeTerminalAgentPresence } from './runtime-terminal-agent-presence'
@@ -52,7 +54,8 @@ export class OrcaRuntimeWithStopRequestedPtyIds extends OrcaRuntimeWithRuntimeId
     getPrimaryLeaf: (ptyId) => this.getLeavesForPty(ptyId)[0] ?? null,
     getTrackedPty: (ptyId) => this.ptysById.get(ptyId) ?? null,
     getTabTitle: (tabId) => this.tabs.get(tabId)?.title?.trim() || null,
-    getForegroundProcess: (ptyId) => this.ptyController?.getForegroundProcess(ptyId) ?? null
+    getForegroundProcess: (ptyId) => this.ptyController?.getForegroundProcess(ptyId) ?? null,
+    getTitleDisplayClear: (ptyId) => this.getPtyTitleDisplayClear(ptyId)
   })
 
   protected notifier: RuntimeNotifier | null = null
@@ -147,7 +150,7 @@ export class OrcaRuntimeWithStopRequestedPtyIds extends OrcaRuntimeWithRuntimeId
     listResolved: () => this.listResolvedWorktrees(),
     resolveRepo: (selector) => this.resolveRepoSelector(selector),
     selectRepos: (selector) => this.selectReposBySelector(selector),
-    scanRepo: (repo) => this.listRepoWorktreesForResolution(repo),
+    scanRepo: (repo) => this.listRepoWorktreesForListing(repo),
     listKnownHostIds: () => this.listKnownExecutionHostIds()
   })
 
@@ -200,7 +203,8 @@ export class OrcaRuntimeWithStopRequestedPtyIds extends OrcaRuntimeWithRuntimeId
     getTabTitle: (tabId) => this.tabs.get(tabId)?.title ?? null,
     getExplicitStatus: (handle) => this.getFreshExplicitAgentStatusForHandle(handle),
     getLifecycleStatus: (ptyId) => this.agentPromptLifecycleByPtyId.get(ptyId),
-    isRunning: (handle) => this.isTerminalRunningAgent(handle)
+    isRunning: (handle) => this.isTerminalRunningAgent(handle),
+    getTitleDisplayClear: (ptyId) => this.getPtyTitleDisplayClear(ptyId)
   })
 
   protected _orchestrationDb: OrchestrationDb | null = null
@@ -221,7 +225,8 @@ export class OrcaRuntimeWithStopRequestedPtyIds extends OrcaRuntimeWithRuntimeId
     getDb: () => this._orchestrationDb,
     getTerminalHandleForPaneKey: (paneKey) => this.getTerminalHandleForPaneKey(paneKey),
     hasTerminalHandle: (handle) => this.handles.has(handle),
-    isStructuredWorkerHandle: (handle) => isStructuredWorkerHandle(handle),
+    isStructuredSessionOwner: (handle) =>
+      isStructuredWorkerHandle(handle) || handle.startsWith(ORCA_SESSION_ADDRESS_PREFIX),
     canProbePtyLiveness: () => Boolean(this.ptyController?.probePtyLiveness),
     controllerKnowsPtyIsLive: (ptyId) => this.controllerKnowsPtyIsLive(ptyId),
     isLeafPtyProvenAbsent: (ptyId) => this.isLeafPtyProvenAbsent(ptyId)
@@ -253,8 +258,19 @@ export class OrcaRuntimeWithStopRequestedPtyIds extends OrcaRuntimeWithRuntimeId
       resolveStructuredTarget: (mailboxHandle) =>
         this.resolveStructuredMailboxTarget(mailboxHandle),
       getCliCommand: localOrchestrationCliCommand,
+      senderName: (party, reportedDispatchId) =>
+        this.orchestrationSenderNames.nameOf(party, reportedDispatchId),
       host: createStructuredMailboxPointerHost()
     })
+
+  /** What Orca calls an agent that sends through it; public for every such send site. */
+  readonly orchestrationSenderNames = new RuntimeOrchestrationSenderNames({
+    getDb: () => this._orchestrationDb,
+    getHandleRecord: (handle) => this.handles.get(handle),
+    getPtyAgents: (ptyId) => this.ptysById.get(ptyId),
+    getTerminalPaneKey: (handle) => this.getTerminalPaneKey(handle),
+    getWorkspaceSession: (worktreeId) => this.getWorkspaceSessionForWorktree(worktreeId)
+  })
 
   protected readonly orchestrationMailboxNotifications =
     new OrchestrationMailboxNotificationCoordinator<RuntimeMessageWaiter>({

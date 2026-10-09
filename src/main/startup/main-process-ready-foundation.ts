@@ -38,6 +38,7 @@ import {
   setBrowserNetworkProxySettingsResolver
 } from '../browser/browser-session-proxy'
 import { installDocPreviewProtocolHandler } from '../browser/doc-preview-protocol'
+import { installMediaPreviewProtocolHandler } from '../media/media-preview-protocol'
 import { registerDocPreviewGrantHandlers } from '../ipc/doc-preview-grant-ipc'
 import { initializeBrowserSessionsForApp } from '../browser/browser-session-startup'
 import { browserSessionRegistry } from '../browser/browser-session-registry'
@@ -49,6 +50,7 @@ import { syncMacMenuBarIcon } from './main-window-actions'
 import { updateGpuAccelerationAboutPanel } from './gpu-lifecycle'
 import { reconcileManagedWslCliRegistrations } from '../cli/wsl-cli-registration-reconciliation'
 import { createWslCliReconciliationStartupBarrier } from './wsl-cli-reconciliation-startup-barrier'
+import { agentHookServer } from '../agent-hooks/server'
 import { isAgentStatusHooksEnabled } from '../agent-hooks/managed-agent-hook-controls'
 import { reportProfileStateWriteFailure } from './profile-state-write-failure'
 
@@ -248,6 +250,7 @@ export async function initializeReadyFoundation(): Promise<void> {
       syncMacMenuBarIcon(settings.showMenuBarIcon !== false)
     }
     if ('agentStatusHooksEnabled' in updates) {
+      agentHookServer.setStatusHooksEnabled(isAgentStatusHooksEnabled(settings))
       // Why both directions: the ensure gate only blocks NEW relays, so off must stop the running
       // guest process and timers, and on must restart them — otherwise open WSL panes report no
       // status until their next spawn.
@@ -280,6 +283,7 @@ export async function initializeReadyFoundation(): Promise<void> {
   // Why: the partition installer reads the proxy through this resolver, so register it before sessions materialize.
   setBrowserNetworkProxySettingsResolver(() => state.store!.getSettings())
   // Why: the preview session is protocol-scoped, so the handler must exist before any preview webview attaches.
+  installMediaPreviewProtocolHandler()
   installDocPreviewProtocolHandler()
   registerDocPreviewGrantHandlers()
   // Why: browser sessions serve desktop webviews and runtime profile commands, so init at app startup rather than via a renderer IPC path.

@@ -88,19 +88,13 @@ jobs:
           if-no-files-found: error
 
   musl_slot:
-    if: github.repository == 'stablyai/orca'
-    needs: glibc_slot
+    if: ${{ github.repository == 'stablyai/orca' && (github.event_name != 'pull_request' || github.event.pull_request.draft != true) }}
     runs-on: ubuntu-22.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
-      # Why chained after the glibc slot: the musl build merges into the same prebuild manifest.
-      - uses: actions/download-artifact@v8
-        with:
-          name: hostile-hosts-glibc-slot
-          path: out/orcad-prebuilds
       - uses: ./.github/actions/restore-pnpm-verification
         id: pnpm-verification
         with:
@@ -122,12 +116,12 @@ jobs:
           npm install -g "$(node -p "require('./package.json').packageManager.split('+')[0]")"
           pnpm install --frozen-lockfile --ignore-scripts
           pnpm build:orcad-prebuilds --slot=linux-x64-musl
-          pnpm build:orcad-prebuilds --require-slots linux-x64-glibc,linux-x64-musl
+          pnpm build:orcad-prebuilds --require-slots linux-x64-musl
           pnpm build:orcad-prebuilds --slot=linux-x64-musl --smoke
           MUSL_SLOT
       - uses: actions/upload-artifact@v7
         with:
-          name: hostile-hosts-slots
+          name: hostile-hosts-musl-slot
           path: out/orcad-prebuilds
           include-hidden-files: true
           retention-days: 1
@@ -136,8 +130,7 @@ jobs:
   # Design D6 rung B: the CentOS 7 cell lands on the glibc 2.17 compat slot, built exactly as the
   # headless-server compat lane builds it (see linux_glibc217_compat in node-server-tests.yml).
   glibc217_slot:
-    if: github.repository == 'stablyai/orca'
-    needs: musl_slot
+    if: ${{ github.repository == 'stablyai/orca' && (github.event_name != 'pull_request' || github.event.pull_request.draft != true) }}
     runs-on: ubuntu-22.04
     timeout-minutes: 25
     env:
@@ -147,11 +140,6 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/install-node-dependencies
-      # Why chained after musl: the compat build merges into the same prebuild manifest.
-      - uses: actions/download-artifact@v8
-        with:
-          name: hostile-hosts-slots
-          path: out/orcad-prebuilds
       - name: Build and smoke the glibc 2.17 compat slot under the glibc-217 Node
         run: |
           compat_node="$(node config/scripts/build-orcad-prebuilds.mjs --slot=linux-x64-glibc217 --print-runtime)"
@@ -169,13 +157,13 @@ jobs:
           set -eu
           export PATH="$(dirname "$COMPAT_NODE"):$PATH"
           node config/scripts/build-orcad-prebuilds.mjs --slot=linux-x64-glibc217
-          node config/scripts/build-orcad-prebuilds.mjs --require-slots linux-x64-glibc,linux-x64-musl,linux-x64-glibc217
+          node config/scripts/build-orcad-prebuilds.mjs --require-slots linux-x64-glibc217
           # The image's devtoolset LD_LIBRARY_PATH must not stand in for a host C++ runtime.
           env -u LD_LIBRARY_PATH node config/scripts/build-orcad-prebuilds.mjs --slot=linux-x64-glibc217 --smoke
           GLIBC217_COMPAT_SLOT
       - uses: actions/upload-artifact@v7
         with:
-          name: hostile-hosts-slots-compat
+          name: hostile-hosts-glibc217-slot
           path: out/orcad-prebuilds
           include-hidden-files: true
           retention-days: 1
@@ -183,7 +171,7 @@ jobs:
 
   hosts:
     if: github.repository == 'stablyai/orca'
-    needs: glibc217_slot
+    needs: [glibc_slot, musl_slot, glibc217_slot]
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
@@ -197,8 +185,12 @@ jobs:
           native-runtime: node
       - uses: actions/download-artifact@v8
         with:
-          name: hostile-hosts-slots-compat
-          path: out/orcad-prebuilds
+          pattern: hostile-hosts-*-slot
+          path: ${{ runner.temp }}/hostile-host-prebuild-lanes
+      - name: Merge verified Linux slots
+        run: |
+          node config/scripts/merge-orcad-prebuilds.mjs "$RUNNER_TEMP"/hostile-host-prebuild-lanes/*
+          pnpm build:orcad-prebuilds --require-slots linux-x64-glibc,linux-x64-musl,linux-x64-glibc217
       # The deploy materializes rung A, B and C addons from this template; only the x64 Linux
       # slots exist here, so it is built for those two, and glibc217 is staged beside its base.
       - name: Build the orcad template and relay
@@ -209,7 +201,7 @@ jobs:
         env:
           ORCA_RUN_SSH_HOSTILE_HOSTS: '1'
           ORCA_SSH_HOSTILE_HOST_CELLS: ${{ github.event.inputs.cells || '' }}
-        run: pnpm test src/main/ssh/ssh-relay-hostile-hosts.docker.test.ts
+        run: pnpm test:node src/main/ssh/ssh-relay-hostile-hosts.docker.test.ts
 
   # Design D6 on macOS: the runner is the SSH host. A user-level sshd on a loopback port logs in
   # as the runner user with PATH cut to the toolchain shims and /usr/bin:/bin, so Homebrew's node
@@ -248,4 +240,4 @@ jobs:
         env:
           ORCA_RUN_SSH_HOSTILE_HOSTS: '1'
           ORCA_SSH_HOSTILE_HOST_CELLS: ${{ matrix.cell }}
-        run: pnpm test src/main/ssh/ssh-relay-hostile-hosts.docker.test.ts
+        run: pnpm test:node src/main/ssh/ssh-relay-hostile-hosts.docker.test.ts

@@ -28,7 +28,8 @@ concurrency:
 
 jobs:
   review_scope:
-    if: github.repository == 'stablyai/orca'
+    # Paused while we measure CI queue recovery.
+    if: github.repository == 'stablyai/orca' && (vars.PULLFROG_PAUSED != 'true')
     runs-on: ubuntu-slim
     permissions:
       contents: read

@@ -1,3 +1,4 @@
+import { markdownParserAliases } from './config/build-plugins/markdown-parser-exports'
 import { isBuiltin } from 'node:module'
 import { resolve } from 'node:path'
 import { defineConfig, type UserConfig } from 'electron-vite'
@@ -13,10 +14,12 @@ import {
 import packageJson from './package.json' with { type: 'json' }
 
 const BUNDLED_MAIN_DEPENDENCIES = new Set([
-  '@streamparser/json',
+  'stream-json',
+  'stream-chain',
   '@xterm/headless',
   '@xterm/addon-serialize',
   'tldts',
+  'smol-toml',
   // Why: Windows NSIS deploys app.asar before external resources; bootstrap must
   // not race the later resources/node_modules copy.
   'zod'
@@ -234,16 +237,10 @@ export const electronViteConfig: UserConfig = {
           'daemon-entry': resolve('src/main/daemon/daemon-entry.ts'),
           'plugin-host-entry': resolve('src/main/plugins/plugin-host-entry.ts'),
           'computer-sidecar': resolve('src/main/computer/sidecar-entry.ts'),
-          'cursor-desktop-profile-worker-entry': resolve(
-            'src/main/rate-limits/cursor-desktop-profile-worker-entry.ts'
-          ),
           'stt-worker': resolve('src/main/speech/stt-worker.ts'),
           'warp-theme-parser-worker': resolve('src/main/warp-themes/warp-theme-parser-worker.ts'),
-          'session-scanner-opencode-sqlite-worker-entry': resolve(
-            'src/main/ai-vault/session-scanner-opencode-sqlite-worker-entry.ts'
-          ),
-          'session-scanner-worker-entry': resolve(
-            'src/main/ai-vault/session-scanner-worker-entry.ts'
+          'foreign-sqlite-reader-entry': resolve(
+            'src/main/foreign-sqlite-readers/foreign-sqlite-reader-entry.ts'
           ),
           'session-scanner-service-entry': resolve(
             'src/main/ai-vault/session-scanner-service-entry.ts'
@@ -260,6 +257,10 @@ export const electronViteConfig: UserConfig = {
           // corpora and read SQLite synchronously; a worker thread keeps that
           // off the main-process event loop.
           'usage-scan-worker-entry': resolve('src/main/usage/usage-scan-worker-entry.ts'),
+          // Why: a first account setup can merge a large history tree with sync fs calls.
+          'claude-profile-setup-worker-entry': resolve(
+            'src/main/claude-accounts/claude-profile-setup-worker-entry.ts'
+          ),
           'profile-state-backup-worker-entry': resolve(
             'src/main/persistence/profile-state/profile-state-backup-worker-entry.ts'
           ),
@@ -319,6 +320,7 @@ export const electronViteConfig: UserConfig = {
     resolve: {
       alias: {
         '@brand': resolve('brand'),
+        ...markdownParserAliases,
         '@renderer': resolve('src/renderer/src'),
         '@': resolve('src/renderer/src')
       }

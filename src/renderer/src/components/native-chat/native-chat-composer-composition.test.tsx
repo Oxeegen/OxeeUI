@@ -14,7 +14,7 @@ vi.mock('./NativeChatComposerActions', () => ({
 }))
 
 vi.mock('./NativeChatAutocompleteMenus', () => ({
-  NativeChatMentionHint: () => null,
+  NativeChatMentionMenu: () => null,
   NativeChatPickerMenu: () => null
 }))
 
@@ -35,7 +35,8 @@ function TestField(props: TestFieldProps): React.JSX.Element {
 
 function fieldProps(overrides: Partial<TestFieldProps> = {}): TestFieldProps {
   return {
-    composerScopeKey: 'pane-test',
+    dropScopeKey: 'pane-test',
+    draftScopeKey: 'pane-test',
     textareaRef: createRef<HTMLTextAreaElement>(),
     draft: '',
     disabled: false,
@@ -43,7 +44,7 @@ function fieldProps(overrides: Partial<TestFieldProps> = {}): TestFieldProps {
     canSend: true,
     autocomplete: { mode: 'none' },
     activeSuggestion: 0,
-    notice: null,
+    notices: [],
     imageAttachments: [],
     sendButtonDisabled: false,
     isWorking: false,
@@ -59,7 +60,8 @@ function fieldProps(overrides: Partial<TestFieldProps> = {}): TestFieldProps {
     pickerListboxId: 'picker',
     onChoosePickerItem: vi.fn(),
     onRetrySkills: vi.fn(),
-    onAcceptMention: vi.fn(),
+    onChooseMentionFile: vi.fn(),
+    mentionFiles: { files: [], loading: false, failed: false },
     onRemoveImageAttachment: vi.fn(),
     onAttach: vi.fn(),
     onDictationToggle: vi.fn(),
@@ -79,8 +81,12 @@ function textarea(): HTMLTextAreaElement {
 describe('native chat composer drop-scope marker', () => {
   // The drop pipeline stops walking at the drop-target marker, so a scope key on
   // any other element would never reach the payload.
-  it('publishes the scope key on the same element as the drop-target marker', () => {
-    const view = render(<TestField {...fieldProps({ composerScopeKey: 'tab-7:pane-9' })} />)
+  it('publishes the pane key, not the draft key, on the same element as the drop-target marker', () => {
+    const view = render(
+      <TestField
+        {...fieldProps({ dropScopeKey: 'tab-7:pane-9', draftScopeKey: 'agent-session:session-9' })}
+      />
+    )
     const marker = view.container.querySelector('[data-native-file-drop-target="composer"]')
     expect(marker).not.toBeNull()
     expect(marker?.getAttribute('data-composer-scope-key')).toBe('tab-7:pane-9')

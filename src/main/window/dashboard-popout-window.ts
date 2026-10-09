@@ -1,4 +1,4 @@
-import { app, BrowserWindow, nativeTheme, type WebContents } from 'electron'
+import { app, BrowserWindow, nativeTheme, type WebContents, type Event } from 'electron'
 import { BRAND } from '@brand/config/brand'
 import { join } from 'node:path'
 import { is } from '@electron-toolkit/utils'
@@ -265,7 +265,10 @@ export function createOrFocusDashboardPopout(
   window.on('resize', saveBounds)
   window.on('move', saveBounds)
 
-  const freezeBounds = (): void => {
+  const freezeBounds = (event?: Event): void => {
+    if (event?.defaultPrevented) {
+      return
+    }
     windowClosing = true
     if (boundsTimer) {
       clearTimeout(boundsTimer)

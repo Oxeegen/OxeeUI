@@ -1,4 +1,3 @@
-import { agentJournalItemKey } from '../../shared/agent-session-journal-item-key'
 import {
   AGENT_JOURNAL_THREAD_SCOPE,
   type AgentJournalRowAttribution
@@ -6,17 +5,14 @@ import {
 import { createAgentSessionDeltaCoalescer } from '../native-chat/agent-session-wire/agent-session-delta-coalescer'
 import { CodexItemStreamRetention } from './codex-item-stream-retention'
 import { appendCodexItemAndPublish } from './codex-structured-journal-sink'
-import {
-  codexJournalItem,
-  codexStreamingJournalItem,
-  type CodexThreadItem
-} from './codex-structured-item-translation'
+import { codexJournalItem, codexStreamingJournalItem } from './codex-structured-item-translation'
+import { withJournalReasoningLifecycle } from '../native-chat/agent-session-journal/journal-reasoning-row'
 import {
   codexStructuredItemKey,
   MAX_CODEX_ITEM_STREAM_PENDING_PATCHES,
   MAX_CODEX_ITEM_STREAM_PENDING_PATCH_BYTES,
   MAX_CODEX_ITEM_STREAM_RETAINED_BYTES,
-  boundStreamItem,
+  codexItemStreamState,
   pendingPatchBytes
 } from './codex-structured-item-stream-bounds'
 import {
@@ -118,9 +114,11 @@ export function createCodexStructuredItemStreams(
     if (!translated.body) {
       return true
     }
-    return appendCodexItemAndPublish(deps.sink, state.identity, translated.body, {
-      coalescingKey: `checkpoint:${agentJournalItemKey(state.identity)}`,
-      ...attributionOf(key)
+    // A stream only ever carries an item that has not completed yet.
+    const body = withJournalReasoningLifecycle(translated.body, { state: 'running' })
+    return appendCodexItemAndPublish(deps.sink, state.identity, body, {
+      ...attributionOf(key),
+      ...(state.startedAt === undefined ? {} : { observedAt: state.startedAt })
     }).accepted
   }
 
@@ -212,13 +210,13 @@ export function createCodexStructuredItemStreams(
       return states.persistentSize
     },
     canTrack: (threadId, item, identity) =>
-      states.canRetain(codexStructuredItemKey(threadId, item.id), {
-        item: boundStreamItem(item) as CodexThreadItem,
-        identity
-      }),
-    track: (threadId, turnId, item, identity) => {
+      states.canRetain(
+        codexStructuredItemKey(threadId, item.id),
+        codexItemStreamState(item, identity)
+      ),
+    track: (threadId, turnId, item, identity, startedAt) => {
       const key = codexStructuredItemKey(threadId, item.id)
-      if (!states.retain(key, { item: boundStreamItem(item) as CodexThreadItem, identity })) {
+      if (!states.retain(key, codexItemStreamState(item, identity, startedAt))) {
         return false
       }
       producers.set(key, { threadId, turnId })

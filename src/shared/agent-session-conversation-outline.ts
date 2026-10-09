@@ -13,6 +13,8 @@ import type {
 } from './agent-session-journal-types'
 import type { NativeChatBlock } from './native-chat-types'
 import { deriveNativeChatRowContent, nativeChatRowRendersContent } from './native-chat-row-content'
+import { agentJournalSubmissionKey } from './agent-session-journal-item-key'
+import { dispatchWasWithdrawn } from './structured-agent-session-dispatch-rejection'
 import { projectStructuredAgentSessionMessages } from './structured-agent-session-message-projection'
 import { projectNativeChatTranscriptMessages } from './native-chat-transcript-projection'
 
@@ -87,14 +89,22 @@ export function projectAgentSessionConversationOutline(
       sequences.set(item.itemId, item.sequence)
     }
   }
+  // Served to clients of every version, so a send a Stop took back stays out, as it always was.
+  const stopped = new Set(
+    submissions
+      .filter((submission) => dispatchWasWithdrawn(submission))
+      .map((submission) => agentJournalSubmissionKey(submission.clientMessageId))
+  )
   const entries: AgentSessionConversationOutlineEntry[] = []
   const transcript = projectNativeChatTranscriptMessages(
-    projectStructuredAgentSessionMessages(items, [], submissions)
+    // Unchanged on the wire: a desktop's rejected rows tick once their page is loaded.
+    projectStructuredAgentSessionMessages(items, [], submissions, { rejectedInPlace: false })
   )
   for (const message of transcript) {
     const sequence = sequences.get(message.id)
     if (
       sequence === undefined ||
+      stopped.has(message.id) ||
       message.role !== 'user' ||
       !nativeChatRowRendersContent(message.blocks)
     ) {

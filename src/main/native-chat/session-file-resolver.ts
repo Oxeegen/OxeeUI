@@ -1,3 +1,4 @@
+import { claudeProfileHistoryDirs } from '../claude-accounts/claude-profile-installed-router'
 import { homedir } from 'node:os'
 import { basename, extname, join } from 'node:path'
 import type { AgentType } from '../../shared/native-chat-types'
@@ -38,7 +39,8 @@ import { wslTranscriptFsRefusal, type WslTranscriptFsError } from './wsl-transcr
 function claudeProjectsDirs(): string[] {
   const candidates = [
     join(process.env.CLAUDE_CONFIG_DIR?.trim() || join(homedir(), '.claude'), 'projects'),
-    join(homedir(), '.claude', 'projects')
+    join(homedir(), '.claude', 'projects'),
+    ...claudeProfileHistoryDirs('projects')
   ]
   return candidates.filter((dir, index) => candidates.indexOf(dir) === index)
 }
@@ -101,7 +103,7 @@ export async function resolveSessionFilePath(
 ): Promise<string | null> {
   signal?.throwIfAborted()
   const transcriptAgent = resolveNativeChatTranscriptAgent(agent)
-  if (!transcriptAgent) {
+  if (!transcriptAgent || transcriptAgent === 'opencode') {
     return null
   }
   // Why: the hook's transcript_path is the exact file the agent is writing, so it
@@ -160,6 +162,9 @@ async function resolveSessionFileById(
   options: ResolveSessionFileOptions,
   signal?: AbortSignal
 ): Promise<string | null> {
+  if (transcriptAgent === 'opencode') {
+    return null
+  }
   const trimmedId = sessionId.trim()
   if (!trimmedId) {
     return null

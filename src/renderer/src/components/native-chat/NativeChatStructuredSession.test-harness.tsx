@@ -1,4 +1,5 @@
-import { forwardRef, useImperativeHandle, useRef } from 'react'
+import { act } from '@testing-library/react'
+import { useImperativeHandle } from 'react'
 import { vi } from 'vitest'
 import type { AgentJournalRenderItem } from '../../../../shared/agent-session-journal-types'
 import type { QueuedMessageCard } from './structured-agent-session-queued-cards'
@@ -9,6 +10,10 @@ import type { NativeChatApprovalCardProps } from './NativeChatApprovalCard'
 import type { NativeChatDeliveryNotice } from './NativeChatMessageRow'
 import type { NativeChatQuestionCardProps } from './NativeChatQuestionCard'
 import type { NativeChatLaunchSeed } from './native-chat-composer-types'
+import type { NativeChatMessageListHandle } from './use-native-chat-reveal-latest'
+import type { NativeChatFileLinkContext } from './native-chat-file-link'
+import type { NativeChatComposerNotice } from './native-chat-composer-notice'
+import { createStructuredSessionComposerMock } from './NativeChatStructuredSession.test-composer'
 import type { NativeChatOlderPageResult } from './native-chat-pagination'
 import type { StructuredAgentSessionThreadGoal } from './use-structured-agent-session-thread-goal'
 import type { StructuredAgentSessionLaunchLifecycle } from '@/lib/structured-agent-session-launch'
@@ -23,11 +28,16 @@ function nullable<T>(): T | null {
   return null
 }
 
+function widened<T>(value: T): T {
+  return value
+}
+
 function absent<T>(): T | undefined {
   return undefined
 }
 
-/** Stands in for the transcript: renders only each message's delivery notice and its Retry. */
+/** Stands in for the transcript: renders only each message's delivery notice and its Retry, or the
+ *  row's quiet "Sending…" while nothing has confirmed it. */
 export function DeliveryNoticesMock({
   notices
 }: {
@@ -37,7 +47,7 @@ export function DeliveryNoticesMock({
     <div data-testid="message-list">
       {[...(notices ?? [])].map(([id, notice]) => (
         <div key={id} data-message-id={id}>
-          <span>{notice.text}</span>
+          <span>{notice.sending ? 'Sending…' : notice.text}</span>
           {notice.onRetry ? (
             <button type="button" onClick={notice.onRetry}>
               Retry
@@ -49,19 +59,65 @@ export function DeliveryNoticesMock({
   )
 }
 
+export function useProbeClock(): void {
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+}
+
+export async function advanceProbeClock(milliseconds: number): Promise<void> {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(milliseconds)
+  })
+}
+
+export function seededEntry(
+  sessionId: string,
+  clientMessageId: string,
+  text: string,
+  state: 'queued' | 'unconfirmed'
+) {
+  return {
+    clientMessageId,
+    sessionId,
+    body: { kind: 'message', role: 'user', blocks: [{ type: 'text', text }] },
+    previewUris: [],
+    state,
+    queuedAt: clientMessageId === 'op-head' ? 1 : 2,
+    lastAttemptAt: null,
+    // Already force-retried once, so the automatic probe leaves the head alone
+    // and only the user's Retry moves it.
+    retryAfterUnknownSubmittedAt: -1
+  }
+}
+
+export function seedOutbox(sessionId: string, entries: unknown[]): void {
+  localStorage.setItem(
+    `orca:desktopStructuredAgentSessionOutbox:v1:${encodeURIComponent(sessionId)}`,
+    JSON.stringify(entries)
+  )
+}
+
 type StructuredSessionMessageListProps = {
+  ref?: React.Ref<NativeChatMessageListHandle>
   allowFileUriLinks?: boolean
   isVisible?: boolean
   onLinkClick?: (...args: unknown[]) => void
   awaitingInput?: 'shown' | 'unshown' | null
   isWorking?: boolean
+  stopping?: boolean
   runtimeContext?: unknown
   session?: { hasMore: boolean; loadingEarlier: boolean; loadEarlier: () => Promise<void> }
   deliveryNotices?: ReadonlyMap<string, NativeChatDeliveryNotice>
 }
 
+const DEFAULT_FILE_LINK_CONTEXT: NativeChatFileLinkContext = {
+  worktreeId: 'wt-1',
+  worktreePath: '/repo',
+  runtimeEnvironmentId: null
+}
+
 const initialMessageListProps: StructuredSessionMessageListProps | null = null
 const initialApprovalCardProps: NativeChatApprovalCardProps | null = null
+type QueueResumeMock = { resume: () => void; resuming: boolean }
 
 /**
  * Shared mock state and `vi.mock` factories for the NativeChatStructuredSession test files.
@@ -73,6 +129,9 @@ export function createStructuredSessionMocks() {
     call: vi.fn<(...args: never[]) => unknown>(),
     fileLinkClick: vi.fn<(...args: never[]) => unknown>(),
     launchLifecycle: nullable<StructuredAgentSessionLaunchLifecycle>(),
+    ownerWorktreeId: widened<string | null>('wt-1'),
+    fileLinkContext: widened<NativeChatFileLinkContext | null>(DEFAULT_FILE_LINK_CONTEXT),
+    lifecycleLookup: vi.fn<(worktreeId: string, sessionId: string) => void>(),
     launchFailure: nullable<AgentSessionWriteRefusal>(),
     launchResumes: false,
     retryLaunch: vi.fn<(worktreeId: string, sessionId: string) => unknown>(),
@@ -84,9 +143,16 @@ export function createStructuredSessionMocks() {
     messageListProps: initialMessageListProps,
     composerProps: nullable<{
       launchSeed?: NativeChatLaunchSeed
-      structuredTransport?: Record<string, unknown>
+      structuredTransport?: Record<string, unknown> & {
+        queueResume?: QueueResumeMock
+        onError?: (text: string | null, errorText?: string) => void
+      }
       isWorking?: boolean
+      isStopping?: boolean
+      afterStop?: 'queue' | 'send'
+      steerQueued?: () => boolean
       onStop?: () => void
+      notices?: readonly NativeChatComposerNotice[]
     }>(),
     approvalCardProps: initialApprovalCardProps,
     questionCardProps: null as NativeChatQuestionCardProps | null,
@@ -104,6 +170,8 @@ export function createStructuredSessionMocks() {
     turnId: null as string | null,
     // Unset: Stop follows the turn, as against an older host.
     canStop: nullable<boolean>(),
+    stopPressed: false,
+    sendsQueue: false,
     supportsBackgroundTaskStop: false,
     supportsBackgroundTaskStopAll: true,
     backgroundTasks: [] as AgentSessionBackgroundTask[],
@@ -118,7 +186,11 @@ export function createStructuredSessionMocks() {
     queuedSteer: vi.fn<(messageId: string) => Promise<void>>(async () => {}),
     queuedRemove: vi.fn<(messageId: string) => Promise<void>>(async () => {}),
     queuedEdit: vi.fn<(messageId: string) => Promise<void>>(async () => {}),
-    queuedSteerNewest: vi.fn<() => boolean>(() => false)
+    queuedSteerNewest: vi.fn<() => boolean>(() => false),
+    queuedResumable: false,
+    queueSendsNext: false,
+    queuedResume: vi.fn<() => Promise<boolean>>(async () => true),
+    revealLatest: vi.fn<() => void>()
   }
 
   const moduleFactories = {
@@ -140,6 +212,7 @@ export function createStructuredSessionMocks() {
         }) => {
           mocks.controllerProps = props
           const outbox = useStructuredAgentSessionOutbox({
+            journalItems: mocks.journalItems,
             sessionId: props.sessionId,
             target: props.target,
             fence: props.transportEnabled === false ? null : 1,
@@ -150,7 +223,9 @@ export function createStructuredSessionMocks() {
             messages:
               mocks.messages ??
               (mocks.mode === 'outbox'
-                ? projectStructuredAgentSessionMessages([], outbox.outbox, [])
+                ? projectStructuredAgentSessionMessages([], outbox.outbox, [], {
+                    rejectedInPlace: true
+                  })
                 : [
                     {
                       id: 'message-1',
@@ -188,14 +263,22 @@ export function createStructuredSessionMocks() {
               supportsStopAll: mocks.supportsBackgroundTaskStopAll
             },
             turnId: mocks.turnId,
+            epoch: 'epoch-1',
+            rewind: { surface: undefined },
             canStop: mocks.canStop ?? mocks.turnId !== null,
+            queueSendsNext: mocks.queueSendsNext,
+            stopPressed: mocks.stopPressed,
+            sendsQueue: mocks.sendsQueue,
             stop: mocks.stop,
             queuedMessages: {
               cards: mocks.queuedCards,
               steer: mocks.queuedSteer,
               remove: mocks.queuedRemove,
               edit: mocks.queuedEdit,
-              steerNewest: mocks.queuedSteerNewest
+              steerNewest: mocks.queuedSteerNewest,
+              queueResume: mocks.queuedResumable
+                ? { resume: mocks.queuedResume, resuming: false }
+                : undefined
             },
             threadGoal: mocks.threadGoal,
             cancel: mocks.cancel,
@@ -239,18 +322,20 @@ export function createStructuredSessionMocks() {
       getStructuredAgentSessionLaunchLifecycle: () => mocks.launchLifecycle,
       getStructuredAgentSessionLaunchResumes: () => mocks.launchResumes,
       useStructuredAgentSessionLaunchSelection: () => null,
-      useStructuredAgentSessionLaunchLifecycle: () => mocks.launchLifecycle,
+      useStructuredAgentSessionLaunchLifecycle: (worktreeId: string, sessionId: string) => {
+        mocks.lifecycleLookup(worktreeId, sessionId)
+        return mocks.launchLifecycle
+      },
       useStructuredAgentSessionLaunchFailure: () => mocks.launchFailure
     }),
-    useNativeChatFontScale: () => ({
-      useNativeChatFontScale: () => ({ scale: 1 })
+    useNativeChatFontSize: () => ({
+      useNativeChatFontSize: () => undefined
     }),
     useNativeChatFileLinkContext: () => ({
-      useNativeChatFileLinkContext: () => ({
-        worktreeId: 'wt-1',
-        worktreePath: '/repo',
-        runtimeEnvironmentId: null
-      })
+      useNativeChatFileLinkContext: () => mocks.fileLinkContext
+    }),
+    useNativeChatTabOwner: () => ({
+      useNativeChatTabOwnerWorktreeId: () => mocks.ownerWorktreeId
     }),
     useNativeChatFileLinkClick: () => ({
       useNativeChatFileLinkClick: (context: unknown) => (context ? mocks.fileLinkClick : undefined)
@@ -258,27 +343,11 @@ export function createStructuredSessionMocks() {
     nativeChatMessageList: () => ({
       NativeChatMessageList: (props: typeof mocks.messageListProps) => {
         mocks.messageListProps = props
+        useImperativeHandle(props?.ref, () => ({ revealLatest: mocks.revealLatest }))
         return <DeliveryNoticesMock notices={props?.deliveryNotices} />
       }
     }),
-    nativeChatComposer: () => ({
-      NativeChatComposer: forwardRef((props: typeof mocks.composerProps, ref) => {
-        mocks.composerProps = props
-        const fieldRef = useRef<HTMLTextAreaElement>(null)
-        useImperativeHandle(ref, () => ({
-          // Real DOM focus: the reveal-focus loop retries until focus lands in the pane.
-          focus: () => {
-            fieldRef.current?.focus()
-            return true
-          },
-          insertTypedText: () => true,
-          handlePasteEvent: mocks.handlePasteEvent,
-          pasteFromClipboard: mocks.pasteFromClipboard,
-          contains: (node: Node | null) => fieldRef.current?.contains(node) === true
-        }))
-        return <textarea ref={fieldRef} data-testid="structured-composer" />
-      })
-    }),
+    nativeChatComposer: () => createStructuredSessionComposerMock(mocks),
     nativeChatEmptyState: () => ({ NativeChatEmptyState: () => null }),
     nativeChatApprovalCard: () => ({
       NativeChatApprovalCard: (props: NativeChatApprovalCardProps) => {
@@ -297,9 +366,12 @@ export function createStructuredSessionMocks() {
   const resetStructuredSessionMocks = (): void => {
     mocks.call.mockReset()
     mocks.launchLifecycle = null
+    mocks.ownerWorktreeId = 'wt-1'
+    mocks.fileLinkContext = DEFAULT_FILE_LINK_CONTEXT
     mocks.launchFailure = null
     mocks.launchResumes = false
     mocks.retryLaunch.mockReset()
+    mocks.lifecycleLookup.mockReset()
     mocks.controllerProps = null
     mocks.mode = 'static'
     mocks.status = 'ready'
@@ -322,6 +394,8 @@ export function createStructuredSessionMocks() {
     mocks.isWorking = false
     mocks.turnId = null
     mocks.canStop = null
+    mocks.stopPressed = false
+    mocks.sendsQueue = false
     mocks.supportsBackgroundTaskStop = false
     mocks.supportsBackgroundTaskStopAll = true
     mocks.stopBackgroundTask.mockReset()
@@ -332,6 +406,11 @@ export function createStructuredSessionMocks() {
     mocks.loadingOlder = false
     mocks.olderHistoryGeneration = 0
     mocks.loadOlder.mockReset()
+    Object.assign(mocks, { queuedResumable: false, queueSendsNext: false })
+    mocks.queuedResume.mockReset()
+    mocks.revealLatest.mockReset()
+    mocks.queuedSteerNewest.mockReset()
+    mocks.queuedSteerNewest.mockReturnValue(false)
   }
 
   return { mocks, moduleFactories, resetStructuredSessionMocks }

@@ -6,6 +6,7 @@ import zh from '@/i18n/locales/zh.json'
 import {
   AGENT_SESSION_ATTACHMENT_PROBLEM_REASONS,
   AGENT_SESSION_FAILURE_KINDS,
+  readWholeAgentSessionFailureFact,
   type AgentSessionFailureFact
 } from '../../../../shared/agent-session-failure'
 import {
@@ -45,7 +46,8 @@ const VALUES = {
   command: 'compact',
   detail: 'Image type .bmp',
   limit: '20',
-  size: '5'
+  size: '5',
+  option: '--remote'
 }
 
 function factsFor(kind: AgentSessionFailureFact['kind']): AgentSessionFailureFact[] {
@@ -221,6 +223,22 @@ describe('desktop words for a failure fact', () => {
     )
   })
 
+  it('uses the host sentence if the argument detail is newer than this reader', () => {
+    const sentence = 'Codex could not start. Edit saved Arguments in Settings > Agents.'
+    expect(
+      agentSessionWriteNoticeText(
+        structuredAgentSessionRejectionParts(
+          sentence,
+          'send',
+          readWholeAgentSessionFailureFact({
+            kind: 'startFailed',
+            argumentProblem: { agent: 'Codex', option: '--remote', problem: 'futureProblem' }
+          })
+        )
+      )
+    ).toBe(sentence)
+  })
+
   it('shows a host sentence with no fact beside it as written', async () => {
     await i18n.changeLanguage('fr')
     expect(
@@ -232,7 +250,7 @@ describe('desktop words for a failure fact', () => {
 
   it('keeps Japanese-only characters out of the Chinese words', () => {
     const chat = zh.components['native-chat']
-    for (const words of [...Object.values(chat.failureWords), chat.state.error.keepsTrying]) {
+    for (const words of Object.values(chat.failureWords)) {
       expect(words).not.toMatch(JAPANESE_ONLY)
     }
   })

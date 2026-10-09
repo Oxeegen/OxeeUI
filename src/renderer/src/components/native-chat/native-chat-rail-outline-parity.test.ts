@@ -9,6 +9,7 @@ import type {
   AgentJournalSubmission
 } from '../../../../shared/agent-session-journal-types'
 import { agentJournalSubmissionKey } from '../../../../shared/agent-session-journal-item-key'
+import { DISPATCH_REJECTED_CANCELLED } from '../../../../shared/structured-agent-session-dispatch-rejection'
 import type { NativeChatMessage } from '../../../../shared/native-chat-types'
 import { buildNativeChatRailItems } from './native-chat-message-rail-items'
 import { createNativeChatMessageListProjection } from './native-chat-message-list-projection'
@@ -93,9 +94,14 @@ function loadedRailItems(items: AgentJournalRenderItem[], submissions: AgentJour
 }
 
 describe('conversation outline parity with the loaded rail', () => {
+  // Except a rejected message: the desktop draws it in place and ticks it once loaded, while the
+  // host's outline, which older clients read too, leaves it out.
   it('lists exactly the user messages the transcript gives a rail tick, with the same ids and previews', () => {
     const outline = projectAgentSessionConversationOutline(JOURNAL, [REJECTED])
-    const loaded = loadedRailItems(JOURNAL, [REJECTED])
+    const rejectedId = agentJournalSubmissionKey(REJECTED.clientMessageId)
+    const loadedWithRejected = loadedRailItems(JOURNAL, [REJECTED])
+    expect(loadedWithRejected.filter((item) => item.id === rejectedId)).toHaveLength(1)
+    const loaded = loadedWithRejected.filter((item) => item.id !== rejectedId)
 
     expect(outline.map((entry) => entry.itemId)).toEqual(loaded.map((item) => item.id))
     expect(
@@ -114,6 +120,35 @@ describe('conversation outline parity with the loaded rail', () => {
       'item-11',
       'item-12'
     ])
+  })
+
+  // The host serves this outline to clients of every version, so it lists what it always listed.
+  it('leaves out a send a Stop took back, which the transcript still draws', () => {
+    const stopped: AgentJournalSubmission = {
+      ...REJECTED,
+      clientMessageId: 'client-stopped',
+      reason: DISPATCH_REJECTED_CANCELLED
+    }
+    const journal = [
+      ...JOURNAL,
+      user(13, [{ type: 'text', text: 'never ran' }], agentJournalSubmissionKey('client-stopped'))
+    ]
+    const outline = projectAgentSessionConversationOutline(journal, [REJECTED, stopped])
+    // The rejected message is the desktop's own in-place row, as above.
+    const rejectedId = agentJournalSubmissionKey(REJECTED.clientMessageId)
+    const loaded = loadedRailItems(journal, [REJECTED, stopped]).filter(
+      (item) => item.id !== rejectedId
+    )
+
+    expect(outline.map((entry) => entry.itemId)).toEqual(loaded.map((item) => item.id))
+    expect(outline.map((entry) => entry.itemId)).not.toContain(
+      agentJournalSubmissionKey('client-stopped')
+    )
+    expect(
+      projectStructuredAgentSessionMessages(journal, [], [REJECTED, stopped]).map(
+        (message) => message.id
+      )
+    ).toContain(agentJournalSubmissionKey('client-stopped'))
   })
 
   it('carries each entry its creation sequence and image count', () => {

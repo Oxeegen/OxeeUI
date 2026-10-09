@@ -101,11 +101,12 @@ function statusFeed(): StructuredAgentSessionStatusFeed {
       [
         STATUS_SESSION,
         {
+          // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the status feed reads only cursor(), lastActivityAt(), stopMarks and snapshot() of a journal.
           journal: {
-            isReadOnly: false,
             cursor: () => ({ epoch: 'epoch-status', sequence: 2 }),
             lastActivityAt: () => 2,
-            snapshot: () => ({ items: STATUS_ITEMS })
+            stopMarks: { latest: () => null, revision: () => 0 },
+            snapshot: () => ({ items: STATUS_ITEMS, submissions: [] })
           } as unknown as AgentSessionJournal,
           params: {
             location: {
@@ -207,6 +208,7 @@ export function hostStub(): StructuredAgentSessionHost {
     subscribeStatus: vi.fn((subscriber: StructuredAgentSessionStatusSubscriber) =>
       statusFeed().subscribe(subscriber)
     ),
+    subscribeTurnCompletions: vi.fn(() => () => undefined),
     unsubscribe: vi.fn()
   })
   // Not a call: the logger the host hands a runtime caller that reports for it.
@@ -280,6 +282,21 @@ export async function call(
     throw new Error(`no reply for ${method}`)
   }
   return first
+}
+
+/** For a stream that opens with nothing to say: every reply it sent, possibly none. */
+export async function openStream(
+  method: string,
+  params: unknown,
+  client: Parameters<typeof call>[2]
+): Promise<RpcResponse[]> {
+  const replies: RpcResponse[] = []
+  await dispatcher().dispatchStreaming(
+    request(method, params),
+    (raw) => replies.push(JSON.parse(raw) as RpcResponse),
+    client
+  )
+  return replies
 }
 
 export const STRUCTURED_CLIENT = {

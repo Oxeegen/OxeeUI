@@ -10,11 +10,14 @@ import { nativeChatProviderFrameSummary } from '../../../../shared/native-chat-p
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import {
   getLocalImageCacheKey,
+  getLocalImageSrcCacheKey,
   useLocalImageSrc,
-  releaseLocalImageSrc
+  releaseLocalImageSrcByKey
 } from '@/components/editor/useLocalImageSrc'
 import type { RuntimeFileOperationArgs } from '@/runtime/runtime-file-client'
+import { copyableNativeChatImageSrc, keepPreviewOpenForChatMenu } from './native-chat-image-copy'
 import { isNativeChatPastedImagePath } from './native-chat-image-paste'
+import { chatImageAccess } from '@/lib/local-file-access'
 
 type VisibilityListener = (isVisible: boolean) => void
 
@@ -70,6 +73,29 @@ function transcriptImageIdentity(
   }`
 }
 
+// Why one access kind for every role: a turn's role says who sent it, not who chose the path, and these
+// load on scroll with no click, so main only serves local image files by their real type.
+const TRANSCRIPT_IMAGE_ACCESS = chatImageAccess()
+
+// Why the cache key, not the context object: the owner hook rebuilds an equal context on
+// unrelated store updates, and releasing on each one revoked the URL the <img> was showing.
+function transcriptImageReleaseKey(
+  source: string | undefined,
+  filePath: string,
+  runtimeContext: RuntimeFileOperationArgs | null | undefined
+): string | null {
+  if (!runtimeContext) {
+    return null
+  }
+  return getLocalImageSrcCacheKey(
+    source,
+    filePath,
+    runtimeContext.connectionId,
+    runtimeContext,
+    TRANSCRIPT_IMAGE_ACCESS
+  )
+}
+
 function TranscriptImagePreview({
   block,
   runtimeContext
@@ -90,9 +116,11 @@ function TranscriptImagePreview({
     leaseActive && !external && runtimeContext !== undefined ? source : undefined,
     filePath,
     runtimeContext?.connectionId,
-    runtimeContext
+    runtimeContext,
+    TRANSCRIPT_IMAGE_ACCESS
   )
   const displaySrc = external && leaseActive ? source : localSrc
+  const copySrc = copyableNativeChatImageSrc(displaySrc)
   const label =
     block.alt?.trim() ||
     (block.path && isNativeChatPastedImagePath(block.path)
@@ -103,7 +131,7 @@ function TranscriptImagePreview({
   const viewImageLabel = translate('components.native-chat.composer.viewAttachment', 'View image')
   const fallback = (
     <div
-      className="flex max-w-full items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground"
+      className="flex max-w-full items-center gap-1.5 rounded-md border border-border bg-chat-canvas px-2 py-1 text-xs text-muted-foreground"
       title={label}
     >
       <ImageIcon className="size-3.5 shrink-0" />
@@ -118,16 +146,16 @@ function TranscriptImagePreview({
     }
     return observeTranscriptVisibility(element, setNear)
   }, [])
+  const releaseKey = transcriptImageReleaseKey(source, filePath, runtimeContext)
   useEffect(() => {
-    const context = runtimeContext
-    if (!source || external || context === undefined || context === null) {
+    if (!releaseKey) {
       return
     }
     if (!leaseActive) {
-      releaseLocalImageSrc(source, filePath, context.connectionId, context)
+      releaseLocalImageSrcByKey(releaseKey)
     }
-    return () => releaseLocalImageSrc(source, filePath, context.connectionId, context)
-  }, [external, filePath, leaseActive, runtimeContext, source])
+    return () => releaseLocalImageSrcByKey(releaseKey)
+  }, [leaseActive, releaseKey])
 
   const showPreview =
     leaseActive &&
@@ -145,8 +173,9 @@ function TranscriptImagePreview({
         type="button"
         aria-label={`${viewImageLabel}: ${label}`}
         title={label}
+        data-native-chat-copy-image-src={copySrc}
         onClick={() => setOpen(true)}
-        className="flex size-full items-center justify-center overflow-hidden rounded-md border border-border bg-background transition-colors hover:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex size-full items-center justify-center overflow-hidden rounded-md border border-border bg-chat-canvas transition-colors hover:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <img
           src={displaySrc}
@@ -157,7 +186,10 @@ function TranscriptImagePreview({
         />
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="flex max-h-[90vh] max-w-[90vw] flex-col gap-3 border-border bg-background p-3 sm:max-w-4xl">
+        <DialogContent
+          onInteractOutside={keepPreviewOpenForChatMenu}
+          className="flex max-h-[90vh] max-w-[90vw] flex-col sm:max-w-4xl"
+        >
           <DialogTitle className="truncate text-sm">{label}</DialogTitle>
           <DialogDescription className="sr-only">
             {translate('components.native-chat.composer.imagePreview', 'Full-size image preview')}
@@ -167,6 +199,7 @@ function TranscriptImagePreview({
               <img
                 src={displaySrc}
                 alt={label}
+                data-native-chat-copy-image-src={copySrc}
                 onError={() => setDialogErrorSrc(displaySrc)}
                 className="max-h-[75vh] max-w-full object-contain"
               />
@@ -212,7 +245,7 @@ export function NativeChatImageAttachments({
           return (
             <div
               key={`${imageKeyBase}-${occurrence}`}
-              className="flex max-w-full items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground"
+              className="flex max-w-full items-center gap-1.5 rounded-md border border-border bg-chat-canvas px-2 py-1 text-xs text-muted-foreground"
               title={label}
             >
               <ImageIcon className="size-3.5 shrink-0" />
@@ -265,7 +298,7 @@ export function NativeChatAgentControls({
           'Scroll this message to top'
         )}
         title={translate('components.native-chat.scrollMessageToTop', 'Scroll this message to top')}
-        className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex size-6 shrink-0 items-center justify-center rounded-md text-chat-foreground-faint transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <ArrowUp className="size-3.5" />
       </button>
@@ -300,7 +333,10 @@ export function ProviderFrameRow({
           </span>
         ) : null}
       </summary>
-      <pre className="scrollbar-sleek mt-1 max-h-64 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-muted p-2 font-mono text-xs text-foreground">
+      <pre
+        data-native-chat-code-content
+        className="scrollbar-sleek mt-1 max-h-64 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-muted p-2 font-mono text-xs text-foreground"
+      >
         {frame.payload.head}
         {frame.payload.truncated ? '\n…' : ''}
       </pre>
