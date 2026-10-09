@@ -15,6 +15,7 @@ import {
   publishAgentStateRules
 } from './agent-state-rules-bundle.mjs'
 import { agentStateRulesTag } from './release-tag-patterns.mjs'
+import { MAIN_RELEASE_REPO } from '../../src/shared/release-channel.ts'
 
 const REPO = 'stablyai/orca'
 const NEXT = agentStateRulesTag(1, 'next')
@@ -39,8 +40,11 @@ describe('agent state rules bundle build', () => {
 
   it('publishes to the exact URL the app fetches', () => {
     for (const channel of ['next', 'stable']) {
+      // Why MAIN_RELEASE_REPO and not REPO: the app fetches from this product's own
+      // releases. The publishing workflow is upstream's and is guarded off here, so
+      // this fork runs its bundled rules and the download finds nothing (a warning).
       expect(agentStateRulesDownloadUrl(channel)).toBe(
-        `https://github.com/${REPO}/releases/download/${agentStateRulesTag(AGENT_STATE_RULES_ENGINE_VERSION, channel)}/${AGENT_STATE_RULES_ASSET}`
+        `https://github.com/${MAIN_RELEASE_REPO}/releases/download/${agentStateRulesTag(AGENT_STATE_RULES_ENGINE_VERSION, channel)}/${AGENT_STATE_RULES_ASSET}`
       )
     }
   })

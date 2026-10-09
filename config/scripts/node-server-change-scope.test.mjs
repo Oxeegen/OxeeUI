@@ -14,6 +14,9 @@ import { NODE_RUNTIME_PIN } from '../../src/shared/node-runtime-pin.ts'
 import { runProcessSync } from './script-child-process.mjs'
 import { NODE_SERVER_RUNNERS } from './node-server-qualification.mjs'
 
+// Why toContain for job `if`s: this fork prefixes every job `if` with a repository
+// guard, so exact matches would assert the guard away. Step conditions stay exact.
+
 const temporaryDirs = []
 afterEach(() => {
   for (const root of temporaryDirs.splice(0)) {
@@ -230,7 +233,7 @@ it('keeps every platform job and runs them when detection is skipped or fails', 
     readFileSync(new URL('../../.github/workflows/node-server-tests.yml', import.meta.url), 'utf8')
   )
   expect(workflow.on).toHaveProperty('workflow_dispatch')
-  expect(workflow.jobs.changes.if).toBe(
+  expect(workflow.jobs.changes.if).toContain(
     "github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft != true)"
   )
   expect(workflow.jobs.changes.steps[0].with['fetch-depth']).toBe(2)

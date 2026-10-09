@@ -20,7 +20,8 @@ function evaluate(expression, context) {
     expression
       .replace(/^\$\{\{\s*|\s*\}\}$/g, '')
       .replaceAll('.cross-version-wire', '["cross-version-wire"]'),
-    context
+    // Why: job `if`s carry this fork's repository guard; evaluate them as upstream runs them.
+    { ...context, github: { repository: 'stablyai/orca', ...context.github } }
   )
 }
 
@@ -135,7 +136,8 @@ it.each([
 it('keeps the mobile-only bundle job in the first wave', () => {
   const mobile = workflow.jobs.mobile_web_app
   expect(mobile.needs).toEqual(['code_paths'])
-  expect(mobile.if).toBe("needs.code_paths.outputs.mobile_web_app == 'true'")
+  // Why toContain: this fork prefixes every job `if` with a repository guard.
+  expect(mobile.if).toContain("needs.code_paths.outputs.mobile_web_app == 'true'")
   expect(classifyPrJobs(['mobile/src/App.tsx'])).toMatchObject({
     test: false,
     mobile_web_app: true

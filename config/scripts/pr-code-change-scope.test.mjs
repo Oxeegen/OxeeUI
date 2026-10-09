@@ -616,7 +616,9 @@ describe('PR Checks skip wiring', () => {
 
   it('keeps the root and README guards on docs-only PRs without another runner', () => {
     const detector = prWorkflow.jobs.code_paths
-    expect(detector.if).toBeUndefined()
+    // Why the guard and not undefined: this fork prefixes every job `if` with a
+    // repository guard, so an unconditional job carries exactly that guard.
+    expect(detector.if).toBe("github.repository == 'stablyai/orca'")
     expect(detector.needs).toBeUndefined()
     for (const name of ['Reject new root-level files and folders', 'Check README local links']) {
       const step = detector.steps.find((candidate) => candidate.name === name)

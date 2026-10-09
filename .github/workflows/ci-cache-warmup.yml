@@ -60,6 +60,7 @@ concurrency:
 
 jobs:
   warm:
+    if: github.repository == 'stablyai/orca'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -100,6 +101,7 @@ jobs:
         run: pnpm run typecheck
 
   warm-linux-arm:
+    if: github.repository == 'stablyai/orca'
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 10
     env:
@@ -120,6 +122,7 @@ jobs:
         run: node config/scripts/ensure-native-runtime.mjs --check-only
 
   warm-windows:
+    if: github.repository == 'stablyai/orca'
     strategy:
       fail-fast: false
       matrix:
@@ -140,6 +143,7 @@ jobs:
         run: node config/scripts/ensure-native-runtime.mjs --check-only
 
   warm-linux-package-fixtures:
+    if: github.repository == 'stablyai/orca'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:

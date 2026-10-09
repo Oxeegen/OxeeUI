@@ -120,7 +120,7 @@ jobs:
   # Windows runner compiles the addon that launches one outside sshd's job.
   relay-windows-process-tree:
     needs: preflight
-    if: needs.preflight.outputs.should_build == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.preflight.outputs.should_build == 'true')
     permissions:
       contents: read
     uses: ./.github/workflows/relay-windows-process-tree.yml
@@ -131,7 +131,7 @@ jobs:
     needs:
       - preflight
       - relay-windows-process-tree
-    if: needs.preflight.outputs.should_build == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.preflight.outputs.should_build == 'true')
     outputs:
       tag: ${{ steps.release.outputs.tag }}
       version: ${{ steps.hourly.outputs.version }}
@@ -507,7 +507,7 @@ jobs:
     needs: build-hourly-mac
     # Only once the mac release is actually live: there is no release to upload
     # into otherwise, and the Windows workflow refuses to create one.
-    if: needs.build-hourly-mac.outputs.published == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.build-hourly-mac.outputs.published == 'true')
     uses: ./.github/workflows/dev-channel-win-build.yml
     secrets: inherit
     with:

@@ -38,7 +38,7 @@ defaults:
 
 jobs:
   prove:
-    if: ${{ vars.ORCA_CLOUD_OPERATIONS_ENABLED == 'true' && (github.ref == 'refs/heads/main') }}
+    if: ${{ github.repository == 'stablyai/orca' && (vars.ORCA_CLOUD_OPERATIONS_ENABLED == 'true' && (github.ref == 'refs/heads/main')) }}
     runs-on: [self-hosted, linux, x64, relay-asia-east2-load]
     timeout-minutes: 75
     environment: staging
@@ -282,7 +282,7 @@ jobs:
           retention-days: 7
 
   recover:
-    if: ${{ always() && github.ref == 'refs/heads/main' }}
+    if: ${{ github.repository == 'stablyai/orca' && (always() && github.ref == 'refs/heads/main') }}
     needs: prove
     runs-on: blacksmith-2vcpu-ubuntu-2204
     timeout-minutes: 15

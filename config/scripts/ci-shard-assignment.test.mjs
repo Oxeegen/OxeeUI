@@ -89,8 +89,10 @@ describe('timing-weighted shard selection', () => {
       expect(project.test.exclude).toContain(measurementFile)
     }
     const ordinaryNode = ordinary.find((project) => project.test.name !== 'bun')
+    // Why the brand folder: config/vitest.config.ts prepends this fork's brand tests to
+    // UNIT_INCLUDE for the Node project, leaving upstream's sharding list itself untouched.
     expect(ordinaryNode.test.include).toEqual(
-      process.versions.bun ? NODE_RUNTIME_INCLUDE : UNIT_INCLUDE
+      process.versions.bun ? NODE_RUNTIME_INCLUDE : ['brand/**/*.test.ts', ...UNIT_INCLUDE]
     )
     const ordinaryBun = ordinary.find((project) => project.test.name === 'bun')
     if (process.versions.bun) {

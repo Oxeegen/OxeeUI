@@ -32,7 +32,7 @@ defaults:
 
 jobs:
   publish:
-    if: ${{ vars.ORCA_CLOUD_OPERATIONS_ENABLED == 'true' }}
+    if: ${{ github.repository == 'stablyai/orca' && (vars.ORCA_CLOUD_OPERATIONS_ENABLED == 'true') }}
     runs-on: blacksmith-2vcpu-ubuntu-2204
     environment: production
     env:

@@ -73,7 +73,7 @@ defaults:
 
 jobs:
   single_cell:
-    if: ${{ vars.ORCA_CLOUD_OPERATIONS_ENABLED == 'true' && (inputs.mode != 'wave-apply' && inputs.mode != 'wave-resume') }}
+    if: ${{ github.repository == 'stablyai/orca' && (vars.ORCA_CLOUD_OPERATIONS_ENABLED == 'true' && (inputs.mode != 'wave-apply' && inputs.mode != 'wave-resume')) }}
     uses: ./.github/workflows/cloud-deploy-relay-production-capacity-job.yml
     with:
       mode: ${{ inputs.mode }}
@@ -88,7 +88,7 @@ jobs:
     secrets: inherit
 
   resume_cell:
-    if: ${{ vars.ORCA_CLOUD_OPERATIONS_ENABLED == 'true' && (inputs.mode == 'wave-resume' && github.ref == 'refs/heads/main') }}
+    if: ${{ github.repository == 'stablyai/orca' && (vars.ORCA_CLOUD_OPERATIONS_ENABLED == 'true' && (inputs.mode == 'wave-resume' && github.ref == 'refs/heads/main')) }}
     uses: ./.github/workflows/cloud-deploy-relay-production-capacity-job.yml
     with:
       mode: apply
@@ -103,7 +103,7 @@ jobs:
     secrets: inherit
 
   wave_gate:
-    if: ${{ vars.ORCA_CLOUD_OPERATIONS_ENABLED == 'true' && (inputs.mode == 'wave-apply' && github.ref == 'refs/heads/main') }}
+    if: ${{ github.repository == 'stablyai/orca' && (vars.ORCA_CLOUD_OPERATIONS_ENABLED == 'true' && (inputs.mode == 'wave-apply' && github.ref == 'refs/heads/main')) }}
     runs-on: blacksmith-2vcpu-ubuntu-2204
     timeout-minutes: 30
     environment: production
@@ -259,6 +259,7 @@ jobs:
           if-no-files-found: error
 
   wave_cell_1:
+    if: github.repository == 'stablyai/orca'
     needs: wave_gate
     uses: ./.github/workflows/cloud-deploy-relay-production-capacity-job.yml
     with:
@@ -274,6 +275,7 @@ jobs:
     secrets: inherit
 
   wave_cell_2:
+    if: github.repository == 'stablyai/orca'
     needs: [wave_gate, wave_cell_1]
     uses: ./.github/workflows/cloud-deploy-relay-production-capacity-job.yml
     with:
@@ -289,7 +291,7 @@ jobs:
     secrets: inherit
 
   wave_cell_3:
-    if: ${{ needs.wave_cell_2.result == 'success' && fromJSON(needs.wave_gate.outputs.cells)[2] != null }}
+    if: ${{ github.repository == 'stablyai/orca' && (needs.wave_cell_2.result == 'success' && fromJSON(needs.wave_gate.outputs.cells)[2] != null) }}
     needs: [wave_gate, wave_cell_2]
     uses: ./.github/workflows/cloud-deploy-relay-production-capacity-job.yml
     with:
@@ -305,7 +307,7 @@ jobs:
     secrets: inherit
 
   wave_cell_4:
-    if: ${{ needs.wave_cell_3.result == 'success' && fromJSON(needs.wave_gate.outputs.cells)[3] != null }}
+    if: ${{ github.repository == 'stablyai/orca' && (needs.wave_cell_3.result == 'success' && fromJSON(needs.wave_gate.outputs.cells)[3] != null) }}
     needs: [wave_gate, wave_cell_3]
     uses: ./.github/workflows/cloud-deploy-relay-production-capacity-job.yml
     with:
@@ -322,7 +324,7 @@ jobs:
 
   # Every wave job re-enters the run's lease with release: 'false'; only this job frees it.
   release_lease:
-    if: always()
+    if: github.repository == 'stablyai/orca' && (always())
     needs:
       - single_cell
       - resume_cell

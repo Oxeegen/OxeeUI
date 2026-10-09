@@ -39,7 +39,11 @@ describe('real WSL terminal lane', () => {
 
   it('runs the reusable lane at the immutable PR head', () => {
     const pr = parse(read('.github/workflows/pr.yml'))
-    expect(pr.jobs.windows_wsl.if).toBe("needs.code_paths.outputs.wsl_source_changed == 'true'")
+    // Why toContain rather than toBe: this fork prefixes every job `if` with a
+    // repository guard, so an exact match would assert the guard away.
+    expect(pr.jobs.windows_wsl.if).toContain(
+      "needs.code_paths.outputs.wsl_source_changed == 'true'"
+    )
     expect(pr.jobs.windows_wsl.with.ref).toBe('${{ github.event.pull_request.head.sha }}')
     const detector = pr.jobs['code_paths'].steps.find(
       (step) => step.name === 'Filter changed E2E specs'

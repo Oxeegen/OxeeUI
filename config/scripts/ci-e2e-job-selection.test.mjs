@@ -13,6 +13,9 @@ import {
 } from './ci-e2e-job-selection.mjs'
 import { selectPrE2eSpecs } from './pr-e2e-source-routing.mjs'
 
+// Why toContain for job `if`s: this fork prefixes every job `if` with a repository
+// guard, so exact matches would assert the guard away. Step conditions stay exact.
+
 const workflow = parse(readFileSync('.github/workflows/e2e.yml', 'utf8'))
 const prWorkflow = parse(readFileSync('.github/workflows/pr.yml', 'utf8'))
 const classify = (specs, ssh = 'false') => classifyE2eJobs(JSON.stringify(specs), ssh)
@@ -83,11 +86,11 @@ it('applies allocation hints only to PRs and retains other callers and full refe
     })
   }
   for (const name of ['build', 'prepare-native-cache']) {
-    expect(workflow.jobs[name].if).toBe(
+    expect(workflow.jobs[name].if).toContain(
       "inputs.test_files == '' || github.event_name != 'pull_request' || inputs.needs_build"
     )
   }
-  expect(workflow.jobs.e2e.if).toBe("inputs.test_files == ''")
+  expect(workflow.jobs.e2e.if).toContain("inputs.test_files == ''")
   const changed = workflow.jobs['changed-e2e']
   expect(changed.if).toContain("github.event_name != 'pull_request' || inputs.run_changed_e2e")
   const command = changed.steps.find((step) => step.name === 'Run changed E2E specs').run

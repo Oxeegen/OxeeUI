@@ -18,6 +18,9 @@ import {
   IME_ENGAGEMENT_RECEIPT_ENV
 } from './terminal-ime-engagement-receipt.mjs'
 
+// Why toContain for job `if`s: this fork prefixes every job `if` with a repository
+// guard, so exact matches would assert the guard away. Step conditions stay exact.
+
 const projectDir = resolve(import.meta.dirname, '../..')
 const prWorkflow = parseYaml(readFileSync(join(projectDir, '.github/workflows/pr.yml'), 'utf8'))
 const e2eWorkflow = parseYaml(readFileSync(join(projectDir, '.github/workflows/e2e.yml'), 'utf8'))
@@ -155,8 +158,8 @@ describe('PR E2E gate contract', () => {
   })
 
   it('uses one runner for changed specs and keeps full runs sharded', () => {
-    expect(e2eWorkflow.jobs.e2e.if).toBe("inputs.test_files == ''")
-    expect(e2eWorkflow.jobs['changed-e2e'].if).toBe(
+    expect(e2eWorkflow.jobs.e2e.if).toContain("inputs.test_files == ''")
+    expect(e2eWorkflow.jobs['changed-e2e'].if).toContain(
       "inputs.test_files != '' && (github.event_name != 'pull_request' || inputs.run_changed_e2e)"
     )
     expect(e2eWorkflow.jobs['changed-e2e'].strategy).toBeUndefined()
@@ -578,7 +581,7 @@ describe('PR E2E gate contract', () => {
       './.github/workflows/terminal-ime-e2e.yml'
     )
     expect(prWorkflow.jobs.terminal_ime_native.needs).toBe('code_paths')
-    expect(prWorkflow.jobs.terminal_ime_native.if).toBe(
+    expect(prWorkflow.jobs.terminal_ime_native.if).toContain(
       "needs.code_paths.outputs.native_ime_source_changed == 'true'"
     )
     expect(prWorkflow.jobs.code_paths.outputs.native_ime_source_changed).toBe(

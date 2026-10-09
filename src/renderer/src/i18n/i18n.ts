@@ -12,6 +12,7 @@ import { DEFAULT_LOCALE, resolveUiLocale } from './supported-languages'
 import type { SupportedUiLocale } from '../../../shared/ui-locale'
 import { isPluginUiLanguage, type UiLanguage } from '../../../shared/ui-language'
 import type { PluginLanguagePackRegistration } from '../../../shared/plugins/plugin-language-pack-artifact'
+import { BRAND_POST_PROCESS, brandNamePostProcessor } from '@brand/i18n/rebrand'
 
 export const i18n: I18nInstance = i18next.createInstance()
 
@@ -52,6 +53,7 @@ const lazyLocaleBackend: BackendModule = {
 
 void i18n
   .use(lazyLocaleBackend)
+  .use(brandNamePostProcessor)
   .use(initReactI18next)
   .init({
     fallbackLng: DEFAULT_LOCALE,
@@ -74,6 +76,7 @@ void i18n
         translation: enRuntimeRequired
       }
     },
+    postProcess: BRAND_POST_PROCESS,
     interpolation: {
       escapeValue: false
     },

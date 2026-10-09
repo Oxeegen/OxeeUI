@@ -5,6 +5,14 @@ import { parse } from 'yaml'
 import { classifyPrJobs } from './pr-code-change-scope.mjs'
 
 const workflow = parse(readFileSync('.github/workflows/pr.yml', 'utf8'))
+
+// Why: job `if`s here carry this fork's repository guard, so they are evaluated
+// as they run in upstream's repository.
+const evaluateAsUpstream = (source, context) =>
+  runInNewContext(source, {
+    ...context,
+    github: { repository: 'stablyai/orca', ...context.github }
+  })
 const preflight = workflow.jobs.preflight
 const steps = preflight.steps
 const compiler = steps.find((step) => step.run === 'pnpm run typecheck')
@@ -51,7 +59,7 @@ it('requires physical preflight success before publishing shards and admitting c
     expect(workflow.jobs[job].needs).toEqual(['code_paths', 'preflight'])
   }
   for (const result of ['success', 'failure', 'cancelled', 'skipped']) {
-    const admitted = runInNewContext(workflow.jobs.test.if, {
+    const admitted = evaluateAsUpstream(workflow.jobs.test.if, {
       cancelled: () => false,
       needs: { code_paths: { outputs: { test: 'true' } }, preflight: { result } }
     })
@@ -128,7 +136,7 @@ it.each([
 ])('admits advisory E2E only after eligible preflight: $name', (scenario) => {
   const [static_analysis, typecheck] = scenario.phases ?? ['true', 'true']
   expect(workflow.jobs.e2e.needs).toEqual(['code_paths', 'preflight'])
-  const admitted = runInNewContext(workflow.jobs.e2e.if, {
+  const admitted = evaluateAsUpstream(workflow.jobs.e2e.if, {
     cancelled: () => scenario.cancelled ?? false,
     needs: {
       code_paths: {
@@ -159,7 +167,7 @@ it.each(['true', 'false'])(
     const outputs = Object.fromEntries(
       ['static_analysis', 'typecheck', 'e2e_should_run'].map((name) => [
         name,
-        String(runInNewContext(workflow.jobs.code_paths.outputs[name].slice(3, -2), context))
+        String(evaluateAsUpstream(workflow.jobs.code_paths.outputs[name].slice(3, -2), context))
       ])
     )
     expect(outputs).toEqual({
@@ -168,8 +176,8 @@ it.each(['true', 'false'])(
       e2e_should_run: 'true'
     })
     const needs = { code_paths: { result: 'success', outputs }, preflight: { result: 'skipped' } }
-    expect(runInNewContext(preflight.if, { needs })).toBe(reused !== 'true')
-    expect(runInNewContext(workflow.jobs.e2e.if, { needs, cancelled: () => false })).toBe(
+    expect(evaluateAsUpstream(preflight.if, { needs })).toBe(reused !== 'true')
+    expect(evaluateAsUpstream(workflow.jobs.e2e.if, { needs, cancelled: () => false })).toBe(
       reused === 'true'
     )
     expect(workflow.jobs.verify.needs).not.toContain('e2e')
@@ -265,10 +273,10 @@ it.each([
       outputs: Object.fromEntries(Object.entries(scope).map(([key, value]) => [key, String(value)]))
     }
   }
-  expect(runInNewContext(preflight.if, { needs })).toBe(
+  expect(evaluateAsUpstream(preflight.if, { needs })).toBe(
     expected.static_analysis || expected.typecheck
   )
-  expect(runInNewContext(compiler.if, { needs })).toBe(expected.typecheck)
+  expect(evaluateAsUpstream(compiler.if, { needs })).toBe(expected.typecheck)
   expect(scope.test).toBe(expected.typecheck)
 })
 

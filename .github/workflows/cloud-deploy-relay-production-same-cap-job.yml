@@ -27,7 +27,7 @@ defaults:
 
 jobs:
   rollout:
-    if: ${{ github.ref == 'refs/heads/main' }}
+    if: ${{ github.repository == 'stablyai/orca' && (github.ref == 'refs/heads/main') }}
     runs-on: blacksmith-2vcpu-ubuntu-2204
     # The pre-drain sample adds 3-8 min (20 at most); a timeout cancels the job and skips the failsafe.
     # A 1200000 drain step alone may take 50 min.

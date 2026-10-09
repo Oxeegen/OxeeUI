@@ -24,6 +24,7 @@ jobs:
   # Per-job outputs also skip git-compat/xterm/packaging/shell when those
   # inputs are unchanged; empty diffs fail closed and run everything.
   code_paths:
+    if: github.repository == 'stablyai/orca'
     name: detect changes and check repository guards
     # Reuse one lightweight checkout for detection and the always-required guards.
     runs-on: ubuntu-slim
@@ -157,7 +158,7 @@ jobs:
   preflight:
     name: static analysis and typecheck
     needs: [code_paths]
-    if: needs.code_paths.outputs.static_analysis == 'true' || needs.code_paths.outputs.typecheck == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.code_paths.outputs.static_analysis == 'true' || needs.code_paths.outputs.typecheck == 'true')
     # Why ARM: measured 128s against 172s on ubuntu-latest, with every compute step faster --
     # type-aware 24s->15s, anti-slop 28->19s, localization extraction 67->46s, the orcad smoke
     # 39->14s. Both lint engines ship linux-arm64 and the Bun target follows process.arch, so
@@ -454,10 +455,12 @@ jobs:
     name: Git compatibility
     needs: [code_paths, preflight]
     if: >-
+      github.repository == 'stablyai/orca' && (
       !cancelled() &&
       needs.code_paths.result == 'success' &&
       needs.code_paths.outputs.git_compatibility == 'true' &&
       needs.preflight.result == 'success'
+      )
     runs-on: ubuntu-latest
 
     steps:
@@ -527,10 +530,12 @@ jobs:
     name: Codex index-heal contract
     needs: [code_paths, preflight]
     if: >-
+      github.repository == 'stablyai/orca' && (
       !cancelled() &&
       needs.code_paths.result == 'success' &&
       needs.code_paths.outputs.codex_index_heal_contract == 'true' &&
       needs.preflight.result == 'success'
+      )
     # Why ARM: @openai/codex ships @openai/codex-linux-arm64.
     runs-on: ubuntu-24.04-arm
     env:
@@ -626,10 +631,12 @@ jobs:
     name: xterm patch sync
     needs: [code_paths, preflight]
     if: >-
+      github.repository == 'stablyai/orca' && (
       !cancelled() &&
       needs.code_paths.result == 'success' &&
       needs.code_paths.outputs.xterm_patch_sync == 'true' &&
       needs.preflight.result == 'success'
+      )
     # Why ARM: the patch check rebuilds 4 packages x 2 builds and byte-compares against the
     # checked-in bundles. Those were generated on Linux x64 and reproduce byte-for-byte on
     # darwin-arm64, so the output is neither host-arch nor host-OS dependent.
@@ -659,10 +666,12 @@ jobs:
     name: shell contracts
     needs: [code_paths, preflight]
     if: >-
+      github.repository == 'stablyai/orca' && (
       !cancelled() &&
       needs.code_paths.result == 'success' &&
       needs.code_paths.outputs.shell_contracts == 'true' &&
       needs.preflight.result == 'success'
+      )
     # Why ARM: fish 4.x is published for noble/arm64 and zsh is in the arm64 archive.
     runs-on: ubuntu-24.04-arm
     # Why: this job's cost is almost entirely package download, and a stalled mirror has
@@ -794,9 +803,11 @@ jobs:
     needs: [code_paths, preflight]
     # Cancellation and failed prerequisites stop the expensive matrix.
     if: >-
+      github.repository == 'stablyai/orca' && (
       !cancelled() &&
       needs.code_paths.outputs.test == 'true' &&
       needs.preflight.result == 'success'
+      )
     uses: ./.github/workflows/unit-tests.yml
     with:
       node_versions: '["24"]'
@@ -808,7 +819,7 @@ jobs:
   # after the last shard. Deliberately absent from verify's needs for the same reason.
   unit_selection_evidence:
     needs: [test]
-    if: ${{ !cancelled() && (needs.test.result == 'success' || needs.test.result == 'failure') }}
+    if: ${{ github.repository == 'stablyai/orca' && (!cancelled() && (needs.test.result == 'success' || needs.test.result == 'failure')) }}
     uses: ./.github/workflows/unit-selection-evidence.yml
 
   # Why a separate job: the test needs a real Chrome, and the sharded `test` matrix
@@ -817,10 +828,12 @@ jobs:
     name: orcad browser provider
     needs: [code_paths, preflight]
     if: >-
+      github.repository == 'stablyai/orca' && (
       !cancelled() &&
       needs.code_paths.result == 'success' &&
       needs.code_paths.outputs.orcad_browser == 'true' &&
       needs.preflight.result == 'success'
+      )
     runs-on: ubuntu-latest
 
     steps:
@@ -859,7 +872,7 @@ jobs:
   mobile_web_app:
     name: mobile web app bundle
     needs: [code_paths]
-    if: needs.code_paths.outputs.mobile_web_app == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.code_paths.outputs.mobile_web_app == 'true')
     runs-on: ubuntu-latest
 
     steps:
@@ -935,10 +948,12 @@ jobs:
     name: cross-version wire compatibility
     needs: [code_paths, preflight]
     if: >-
+      github.repository == 'stablyai/orca' && (
       !cancelled() &&
       needs.code_paths.result == 'success' &&
       needs.code_paths.outputs.cross-version-wire == 'true' &&
       needs.preflight.result == 'success'
+      )
     # Why ARM: source-only: tagged checkout plus in-process vitest, no docker or browser.
     runs-on: ubuntu-24.04-arm
 
@@ -983,10 +998,12 @@ jobs:
     name: managed hooks on Node 18
     needs: [code_paths, preflight]
     if: >-
+      github.repository == 'stablyai/orca' && (
       !cancelled() &&
       needs.code_paths.result == 'success' &&
       needs.code_paths.outputs.managed_hook_node18 == 'true' &&
       needs.preflight.result == 'success'
+      )
     # Why ARM: Node 18 publishes linux-arm64; the per-platform runtime files are read as data.
     runs-on: ubuntu-24.04-arm
 
@@ -1012,7 +1029,7 @@ jobs:
   package:
     name: package
     needs: [code_paths, preflight]
-    if: needs.code_paths.outputs.package == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.code_paths.outputs.package == 'true')
     runs-on: ubuntu-latest
     # Let the serial Docker gates reach their own deadlines and report cleanup failures.
     timeout-minutes: 90
@@ -1178,7 +1195,7 @@ jobs:
   package_windows:
     name: package (windows)
     needs: [code_paths, preflight]
-    if: needs.code_paths.outputs.package_windows == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.code_paths.outputs.package_windows == 'true')
     runs-on: windows-2022
     timeout-minutes: 30
 
@@ -1347,6 +1364,7 @@ jobs:
     name: e2e
     needs: [code_paths, preflight]
     if: >-
+      github.repository == 'stablyai/orca' && (
       !cancelled() &&
       needs.code_paths.result == 'success' &&
       needs.code_paths.outputs.e2e_should_run == 'true' &&
@@ -1357,6 +1375,7 @@ jobs:
           needs.code_paths.outputs.static_analysis == 'false' &&
           needs.code_paths.outputs.typecheck == 'false'
         )
+      )
       )
     # Why: reusable e2e.yml only checkouts, builds, and uploads artifacts.
     permissions:
@@ -1380,7 +1399,7 @@ jobs:
   terminal_ime_native:
     name: real IME
     needs: code_paths
-    if: needs.code_paths.outputs.native_ime_source_changed == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.code_paths.outputs.native_ime_source_changed == 'true')
     # Why: the reusable workflow only checks out, builds, and uploads artifacts.
     permissions:
       contents: read
@@ -1389,7 +1408,7 @@ jobs:
   windows_wsl:
     name: real WSL terminal
     needs: code_paths
-    if: needs.code_paths.outputs.wsl_source_changed == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.code_paths.outputs.wsl_source_changed == 'true')
     permissions:
       contents: read
     uses: ./.github/workflows/windows-wsl-e2e.yml
@@ -1397,7 +1416,7 @@ jobs:
       ref: ${{ github.event.pull_request.head.sha }}
 
   verify:
-    if: ${{ !cancelled() }}
+    if: ${{ github.repository == 'stablyai/orca' && (!cancelled()) }}
     needs:
       - code_paths
       - preflight

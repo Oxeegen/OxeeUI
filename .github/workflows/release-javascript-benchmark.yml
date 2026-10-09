@@ -20,6 +20,7 @@ env:
 
 jobs:
   bundle:
+    if: github.repository == 'stablyai/orca'
     uses: ./.github/workflows/release-javascript.yml
     with:
       ref: ${{ github.sha }}
@@ -27,6 +28,7 @@ jobs:
       ORCA_POSTHOG_WRITE_KEY: ci-build-comparison
 
   measure:
+    if: github.repository == 'stablyai/orca'
     needs: bundle
     name: ${{ matrix.mode }} ${{ matrix.host.platform }} ${{ matrix.host.arch }}
     runs-on: ${{ matrix.host.os }}
@@ -87,6 +89,7 @@ jobs:
           retention-days: 7
 
   comparison:
+    if: github.repository == 'stablyai/orca'
     needs: [bundle, measure]
     runs-on: ubuntu-slim
     permissions:

@@ -5,6 +5,9 @@ import { describe, expect, it } from 'vitest'
 import { UNIT_EXCLUDE } from './ci-unit-files.mjs'
 import { MOBILE_WEB_APP_DEPENDENCIES_REQUIRED_ENV } from './mobile-web-app-bundle-dependencies.mjs'
 
+// Why toContain for job `if`s: this fork prefixes every job `if` with a repository
+// guard, so exact matches would assert the guard away. Step conditions stay exact.
+
 const workflow = parse(readFileSync('.github/workflows/pr.yml', 'utf8'))
 const prTestLocWorkflow = parse(readFileSync('.github/workflows/pr-test-loc.yml', 'utf8'))
 const releasePolicyWorkflow = parse(readFileSync('.github/workflows/release-policy.yml', 'utf8'))
@@ -67,7 +70,7 @@ describe('PR workflow parallelism', () => {
     expect(workflow.concurrency['cancel-in-progress']).toBe(true)
     expect(workflow.jobs.test.if).toContain('!cancelled()')
     expect(workflow.jobs.test.if).not.toContain('always()')
-    expect(workflow.jobs.verify.if).toBe('${{ !cancelled() }}')
+    expect(workflow.jobs.verify.if).toContain('!cancelled()')
   })
 
   it('grants the PR workflow read-only repository access', () => {
@@ -527,6 +530,8 @@ describe('PR workflow parallelism', () => {
     ]) {
       expect(
         runInNewContext(evidence.if.slice(3, -2), {
+          // Why: job `if`s carry this fork's repository guard; evaluate them as upstream runs them.
+          github: { repository: 'stablyai/orca' },
           cancelled: () => cancelled,
           needs: { test: { result } }
         })

@@ -22,7 +22,7 @@ env:
   ORCA_BACKGROUND_LAUNCH: '1'
 jobs:
   seed:
-    if: github.ref == 'refs/heads/main'
+    if: github.repository == 'stablyai/orca' && (github.ref == 'refs/heads/main')
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 10
     steps:
