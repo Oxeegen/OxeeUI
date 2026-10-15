@@ -24,6 +24,7 @@ import {
 } from './claude-agent-sdk-user-message-queue'
 import type { ClaudeStructuredSdkOptions } from './claude-structured-launch-resolution'
 import { providerStderrForDisplay } from '../provider-process/provider-spawn-failure-report'
+import { withMissingProviderExecutable } from '../provider-process/provider-executable-missing'
 
 export { ClaudeControlRequestError }
 
@@ -75,6 +76,8 @@ export type ClaudeStreamJsonConnectionHandlers = {
   /** The root process exited, reported once. `expected`: a close had begun, so it is that close's
    *  end, even one that ran out of its own escalation first and came back unproven. */
   onExit?: (error: Error, exit?: { expected: boolean }) => void
+  /** Any stdout or stderr chunk from the child. */
+  onOutput?: () => void
 }
 
 /**
@@ -94,6 +97,8 @@ export type ClaudeStreamJsonConnection = ClaudeControlSurface & {
   readonly closed: boolean
   /** What the ladder has observed so far; read after a `close()` that returned false. */
   readonly exitVerdict: ClaudeChildExitVerdict
+  /** The CLI's executable was not found; a start that failed for it says so. */
+  readonly executableMissing?: boolean
   pauseReading?: () => void
   resumeReading?: () => void
   send: (message: Record<string, unknown>, beforeDispatch?: () => Promise<void>) => Promise<void>
@@ -129,7 +134,7 @@ export async function openClaudeStreamJsonConnection(
   queryImpl?: typeof ClaudeAgentSdk.query
 ): Promise<ClaudeStreamJsonConnection> {
   const { query } = await loadClaudeAgentSdk()
-  const spawner = createClaudeCodeProcessSpawn(spawnImpl)
+  const spawner = createClaudeCodeProcessSpawn(spawnImpl, process.platform, handlers.onOutput)
   const inbox = createClaudeUserMessageQueue()
   const session = (queryImpl ?? query)({
     prompt: inbox.messages,
@@ -209,7 +214,10 @@ export async function openClaudeStreamJsonConnection(
 
   const handleUnexpectedEnd = (cause?: Error): void => {
     resumeReading()
-    terminalError ??= exitError(managed.stderrTail(), exitStatus, cause)
+    if (!terminalError) {
+      const error = exitError(managed.stderrTail(), exitStatus, cause)
+      terminalError = managed.executableMissing ? withMissingProviderExecutable(error) : error
+    }
     inbox.fail(terminalError)
     if (!closing && !faultReported) {
       faultReported = true
@@ -345,6 +353,9 @@ export async function openClaudeStreamJsonConnection(
     },
     get closed() {
       return closing || managed.rootVerdict === 'exited' || terminalError !== null
+    },
+    get executableMissing() {
+      return managed.executableMissing
     },
     get exitVerdict() {
       return {

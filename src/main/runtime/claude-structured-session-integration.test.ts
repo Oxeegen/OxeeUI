@@ -227,7 +227,7 @@ beforeEach(async () => {
   hookServer = new AgentHookServer()
   const runtime = {
     getRuntimeId: () => 'runtime-1',
-    getClientSettings: () => ({ experimentalStructuredNativeChat: true }),
+    getClientSettings: () => ({ experimentalNativeChat: true }),
     getStructuredAgentSessionCreateSupport: async () => ({ supported: true }),
     resolveStructuredAgentSessionCreateIntent: async (input: { envelope: unknown }) => ({
       ...ensureParams(1),
@@ -252,8 +252,9 @@ beforeEach(async () => {
         resolveLaunchArgs: () => [],
         resolveClaudeAuthPolicy: () => claudeAuthPolicy,
         openClaudeConnection: claude.openConnection,
-        claudeThinkingDisplay: {
-          argsFor: async () => ({ 'thinking-display': 'summarized' }),
+        claudeCliFlags: {
+          supports: async (flag) => flag.option === '--thinking-display',
+          prewarm: () => {},
           observeExit: () => {}
         },
         // Production's sink wiring onto a real hook server, whose records a Stop reaches.
@@ -428,8 +429,8 @@ describe('a structured Claude session over agentSession.*', () => {
     // The adapter typed the refusal, so the row names the situation rather than quoting Orca.
     expect(guidance?.body).toMatchObject({
       kind: 'status',
-      text: 'Claude is not signed in for the selected account. Sign in, then send your message again.',
-      failure: { kind: 'notSignedIn' }
+      text: "Claude isn't signed in. Run `claude auth login`, or choose an account in Claude Accounts settings.",
+      failure: { kind: 'notSignedIn', account: 'system' }
     })
     expect(leaseOf(SESSION)).toMatchObject({ claimStatus: 'released', handoffStage: null })
     // A failed start is not auto-resumed into the same failure.
