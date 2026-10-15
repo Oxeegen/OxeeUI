@@ -23,6 +23,7 @@ env:
 
 jobs:
   bundle:
+    if: github.repository == 'stablyai/orca'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     outputs:

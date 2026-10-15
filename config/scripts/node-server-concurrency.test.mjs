@@ -3,11 +3,17 @@ import { runInNewContext } from 'node:vm'
 import { expect, it } from 'vitest'
 import { parse } from 'yaml'
 
+// Why toContain for job `if`s: this fork prefixes every job `if` with a repository
+// guard, so exact matches would assert the guard away. Step conditions stay exact.
+
 const workflow = parse(readFileSync('.github/workflows/node-server-tests.yml', 'utf8'))
 
 function context(event, runId, inputs = {}) {
   return {
     github: {
+      // Why: the job `if`s here carry this fork's repository guard, so they are
+      // evaluated as they run in upstream's repository.
+      repository: 'stablyai/orca',
       event_name: event,
       run_id: runId,
       ref: 'refs/heads/main',

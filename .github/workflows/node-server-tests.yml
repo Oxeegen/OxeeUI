@@ -73,8 +73,10 @@ concurrency:
 jobs:
   changes:
     if: >-
+      github.repository == 'stablyai/orca' && (
       github.event_name == 'push' ||
       (github.event_name == 'pull_request' && github.event.pull_request.draft != true)
+      )
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -142,8 +144,10 @@ jobs:
     # A draft carries no platform verdict; readiness re-triggers this workflow. Spelled against
     # the event name so the push and schedule paths do not rest on a null property comparison.
     if: >-
-      ${{ !cancelled() && needs.changes.outputs.should_run != 'false' &&
-      (github.event_name != 'pull_request' || github.event.pull_request.draft != true) }}
+      ${{ github.repository == 'stablyai/orca' && (
+       !cancelled() && needs.changes.outputs.should_run != 'false' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.draft != true) 
+      ) }}
     strategy:
       fail-fast: false
       matrix:
@@ -258,9 +262,11 @@ jobs:
       cancel-in-progress: ${{ github.event_name == 'push' && !inputs.build_template && inputs.ref == '' }}
     # A failed smoke already blocks qualification; missing scope still selects every platform.
     if: >-
-      ${{ !cancelled() && needs.persistence.result == 'success' &&
+      ${{ github.repository == 'stablyai/orca' && (
+       !cancelled() && needs.persistence.result == 'success' &&
       needs.changes.outputs.should_run != 'false' &&
-      needs.changes.outputs.qualification != 'false' }}
+      needs.changes.outputs.qualification != 'false' 
+      ) }}
     strategy:
       fail-fast: false
       matrix:
@@ -326,9 +332,11 @@ jobs:
       cancel-in-progress: ${{ github.event_name == 'push' && !inputs.build_template && inputs.ref == '' }}
     # A failed smoke already blocks qualification; missing scope still selects every platform.
     if: >-
-      ${{ !cancelled() && needs.persistence.result == 'success' &&
+      ${{ github.repository == 'stablyai/orca' && (
+       !cancelled() && needs.persistence.result == 'success' &&
       needs.changes.outputs.should_run != 'false' &&
-      needs.changes.outputs.qualification != 'false' }}
+      needs.changes.outputs.qualification != 'false' 
+      ) }}
     runs-on: ubuntu-22.04
     timeout-minutes: 20
     env:
@@ -381,9 +389,11 @@ jobs:
       cancel-in-progress: ${{ github.event_name == 'push' && !inputs.build_template && inputs.ref == '' }}
     # A failed smoke already blocks qualification; missing scope still selects every platform.
     if: >-
-      ${{ !cancelled() && needs.persistence.result == 'success' &&
+      ${{ github.repository == 'stablyai/orca' && (
+       !cancelled() && needs.persistence.result == 'success' &&
       needs.changes.outputs.should_run != 'false' &&
-      needs.changes.outputs.qualification != 'false' }}
+      needs.changes.outputs.qualification != 'false' 
+      ) }}
     strategy:
       fail-fast: false
       matrix:
@@ -437,9 +447,11 @@ jobs:
   desktop_template:
     needs: [persistence, linux_glibc_floor, linux_glibc217_compat, linux_musl]
     if: >-
-      ${{ !cancelled() && inputs.build_template &&
+      ${{ github.repository == 'stablyai/orca' && (
+       !cancelled() && inputs.build_template &&
       needs.persistence.result == 'success' && needs.linux_glibc_floor.result == 'success' &&
-      needs.linux_glibc217_compat.result == 'success' && needs.linux_musl.result == 'success' }}
+      needs.linux_glibc217_compat.result == 'success' && needs.linux_musl.result == 'success' 
+      ) }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

@@ -90,7 +90,7 @@ defaults:
 
 jobs:
   operate:
-    if: ${{ vars.ORCA_CLOUD_OPERATIONS_ENABLED == 'true' }}
+    if: ${{ github.repository == 'stablyai/orca' && (vars.ORCA_CLOUD_OPERATIONS_ENABLED == 'true') }}
     uses: ./.github/workflows/cloud-operate-relay-production-rehome-job.yml
     with:
       mode: ${{ inputs.mode }}

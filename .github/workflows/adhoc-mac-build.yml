@@ -133,6 +133,7 @@ jobs:
   # Why the unvetted ref is safe here: this job holds no secrets, and the mac job
   # vets the same ref before it downloads anything, so fork code never gets signed.
   relay-windows-process-tree:
+    if: github.repository == 'stablyai/orca'
     needs: resolve-ref
     permissions:
       contents: read
@@ -142,6 +143,7 @@ jobs:
 
   # Why: a branch cut before the orcad template landed has none to build or ship.
   orcad-template-support:
+    if: github.repository == 'stablyai/orca'
     needs: resolve-ref
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -175,7 +177,7 @@ jobs:
   # relay job, and the mac job vets the ref before anything is signed.
   orcad-template:
     needs: [resolve-ref, orcad-template-support]
-    if: needs.orcad-template-support.outputs.ships == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.orcad-template-support.outputs.ships == 'true')
     permissions:
       contents: read
     uses: ./.github/workflows/node-server-tests.yml
@@ -615,7 +617,7 @@ jobs:
     needs: build-adhoc-mac
     # Only once the mac release is actually live: there is no release to upload
     # into otherwise, and the Windows workflow refuses to create one.
-    if: needs.build-adhoc-mac.outputs.published == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.build-adhoc-mac.outputs.published == 'true')
     uses: ./.github/workflows/dev-channel-win-build.yml
     secrets: inherit
     with:

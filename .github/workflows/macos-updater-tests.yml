@@ -24,6 +24,7 @@ concurrency:
 
 jobs:
   updater:
+    if: github.repository == 'stablyai/orca'
     runs-on: macos-15
     timeout-minutes: 20
     steps:

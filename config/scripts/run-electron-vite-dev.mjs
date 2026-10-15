@@ -25,6 +25,7 @@ import {
 } from './dev-electron-bundle-cache.mjs'
 import { copyPrivateTree } from './space-sharing-copy.mjs'
 import {
+  BRAND_PRODUCT_NAME,
   DEV_BUNDLE_ID,
   getDevBundlePlistPatches,
   getDevHelperPlistPatches
@@ -76,7 +77,7 @@ function formatDevInstanceLabel(branch, worktreeName) {
 }
 
 function createDockTitle(branch, label) {
-  return `Orca: ${branch || label || 'dev'}`
+  return `${BRAND_PRODUCT_NAME}: ${branch || label || 'dev'}`
 }
 
 function seedDevInstanceIdentityEnv() {
@@ -175,7 +176,7 @@ function prepareMacDevElectronApp() {
     electronVersion = JSON.parse(readFileSync(electronPackagePath, 'utf8')).version ?? null
   } catch {}
 
-  const title = process.env.ORCA_DEV_DOCK_TITLE || 'Orca: dev'
+  const title = process.env.ORCA_DEV_DOCK_TITLE || `${BRAND_PRODUCT_NAME}: dev`
   const identityKey = process.env.ORCA_DEV_INSTANCE_KEY || repoRoot
   // v11: stop patching the branch title into Info.plist so every dev bundle signs to one cdhash.
   // A stale copy only emits extra fields the parser ignores, so narrowing its schema needs no bump.

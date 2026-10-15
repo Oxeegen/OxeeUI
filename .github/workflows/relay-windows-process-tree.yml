@@ -17,6 +17,7 @@ permissions:
 
 jobs:
   build:
+    if: github.repository == 'stablyai/orca'
     # Why windows-2022: windows-latest moved to VS 2026 before node-gyp could detect
     # it. GitHub-hosted, so release-cut's SignPath provenance rule still holds.
     runs-on: windows-2022

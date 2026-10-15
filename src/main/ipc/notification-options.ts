@@ -1,3 +1,4 @@
+import { BRAND } from '@brand/config/brand'
 import type { NotificationDispatchRequest } from '../../shared/notification-settings-types'
 
 type NotificationStatusTranslator = (key: string, fallback: string) => string
@@ -42,8 +43,10 @@ export function buildNotificationOptions(
 
   if (args.source === 'test') {
     return {
-      title: 'Orca notifications are on',
-      body: 'This is a test notification from Orca.'
+      // Why BRAND: a literal never passes through the i18n rebrand, so the OS
+      // notification centre showed upstream's name on the test button.
+      title: `${BRAND.productName} notifications are on`,
+      body: `This is a test notification from ${BRAND.productName}.`
     }
   }
 

@@ -19,7 +19,7 @@ defaults:
 
 jobs:
   requeue:
-    if: ${{ vars.ORCA_CLOUD_OPERATIONS_ENABLED == 'true' && (github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.conclusion == 'cancelled') }}
+    if: ${{ github.repository == 'stablyai/orca' && (vars.ORCA_CLOUD_OPERATIONS_ENABLED == 'true' && (github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.conclusion == 'cancelled')) }}
     runs-on: blacksmith-2vcpu-ubuntu-2204
     timeout-minutes: 5
     steps:
