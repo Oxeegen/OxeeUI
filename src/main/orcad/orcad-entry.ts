@@ -277,7 +277,8 @@ async function startOrcadRuntime(
       forget: (subject) => agentHookServer.dropStructuredStatus(subject),
       publishChildWork: (subject, evidence, provider) =>
         agentHookServer.ingestStructuredChildWork(subject, evidence, provider),
-      readChildWork: (subject) => agentHookServer.getStructuredChildWorkViews(subject)
+      readChildWork: (subject) => agentHookServer.getStructuredChildWorkViews(subject),
+      readChildWorkRecords: (subject) => agentHookServer.getStructuredChildWork(subject)
     },
     checkHookAgentPresence: (paneKey) => agentHookServer.checkAgentPresence(paneKey),
     reconcileAgentStatusForEndedProcess: (paneKeys) =>
@@ -340,6 +341,8 @@ async function startOrcadRuntime(
   await runtime.refreshRestoredOrchestrationAuthority()
   await runtime.reconcileLegacyWorkerTerminals()
 
+  // Runs after RPC stops (cleanups run reversed); later records save synchronously until exit.
+  registerCleanup(() => runtime.closeNotificationDismissals())
   // A retry armed during recovery would otherwise write after the final profile flush.
   registerCleanup(() => runtime.stopLegacyWorkerTerminalRecovery())
 

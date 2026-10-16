@@ -10,6 +10,7 @@ import { normalizeTerminalCustomThemes } from '../../../shared/terminal-custom-t
 import { projectSourceControlAiToLegacyCommitMessageAi } from '../../../shared/source-control-ai'
 import { normalizeUiLanguage } from '../../../shared/ui-language'
 import { normalizeNativeChatShellEnvironmentVariables } from '../../../shared/native-chat-shell-environment'
+import { loadedChatPermissionSetting } from '../../../shared/agent-chat-permission-mode'
 import {
   savedChatUiWithTerminalDefaultView,
   stripRetiredGlobalSettings
@@ -135,6 +136,15 @@ export function normalizeLoadedGlobalSettings(
     nativeChatInheritShellEnvironment: parsed.settings?.nativeChatInheritShellEnvironment !== false,
     nativeChatShellEnvironmentVariables: normalizeNativeChatShellEnvironmentVariables(
       parsed.settings?.nativeChatShellEnvironmentVariables
+    ),
+    // Why: the next settings save stores the seed; until then a reload derives the same one.
+    nativeChatPermissionMode: loadedChatPermissionSetting(
+      parsed.settings?.nativeChatPermissionMode,
+      {
+        ...migratedAgentYoloDefaults,
+        terminalWindowsShell: parsed.settings?.terminalWindowsShell
+      },
+      process.platform
     ),
     defaultTaskSource: taskProviderSettings.defaultTaskSource,
     visibleTaskProviders: taskProviderSettings.visibleTaskProviders,

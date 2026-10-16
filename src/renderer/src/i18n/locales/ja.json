@@ -16,6 +16,8 @@
   },
   "settings": {
     "chat": {
+      "permissionsTitle": "新しいチャットの権限",
+      "permissionsDescription": "新しいチャットにのみ適用されます。ターミナルで開くAgentには、設定 → Agent → Agentの権限が適用されます。",
       "description": "チャットの外観と名前の付け方を選びます。",
       "names": {
         "title": "チャット名",
@@ -3743,7 +3745,6 @@
             "54e8d6bb2d": "Fable",
             "d79c3362c4": "5時間",
             "a79c64f87e": "Fable",
-            "8295903d17": "切り替え後に古い会話を続ける前に、ライブ Claude ターミナルを再起動します。",
             "c98ea88392": "他のアカウントはありません",
             "9332ba8684": "切り替え先",
             "d450654fa2": "Claude アカウント",
@@ -6498,7 +6499,6 @@
         "AccountsPane": {
           "c2d2751587": "アカウントの削除",
           "dbb9626ed1": "キャンセル",
-          "854ebbcc45": "Orca は、この保存されたアカウントの管理対象 Claude 認証を削除します。現在アクティブな場合、Orca はシステムのデフォルトの Claude ログインに戻ります。",
           "63843e37e2": "Claude アカウントを削除しますか?",
           "380a7736cc": "このアカウントを削除すると、管理対象の Codex ホームと、その中に保存されているすべての Codex セッション履歴および MCP ログインが完全に削除されます。この操作は元に戻せません。アカウントが現在アクティブな場合、Orca はシステムのデフォルトの Codex ログインに戻ります。",
           "0d47394635": "Codex アカウントを削除しますか?",
@@ -6546,12 +6546,10 @@
           "3fe7862418": "{{value0}} の管理対象 Claude アカウントはありません。ここで追加するまで、Orca はその環境のシステムデフォルトの Claude ログインを使用します。",
           "3455cf43fa": "Claude のログイン。",
           "fcc4093fc1": "現在の {{value0}} Codex ログインを使用します。",
-          "79e484c3b2": "共有 Claude 認証ファイル用のオプションのアカウントスイッチャー。",
           "8bbfd74556": "Claude アカウント",
           "72b36ea174": "任意。Orca は通常の Claude ログインを使用できます。チャットセッションを移さずにすばやく切り替えたい場合にのみ、アカウントを追加してください。",
           "26ef4b55be": "Claude",
           "2743cdc0af": "Claude アカウントの更新に失敗しました。",
-          "b15ce90870": "{{value0}} -> {{value1}}。古いセッションを続行する前に、ライブ Claude ターミナルを再起動します。",
           "f921d32606": "Claude アカウントが更新されました。",
           "5bf8764953": "Codex アカウントの更新に失敗しました。",
           "9baf45d071": "このデバイス",
@@ -11113,7 +11111,7 @@
           "sourceControlAiDefaults": "レシピ、プロンプト、ホスト型レビューの既定値は、このクライアントで共有されます。モデルの選択と検出は、Agent が実行されるホストの範囲に限定されます。",
           "projectOnThisHost": "このホスト上のプロジェクト",
           "repositorySourceControlAi": "これらの上書き設定はこのプロジェクトのセットアップに適用され、変更するまではクライアントのソース管理 AI 既定値を継承します。",
-          "agentLaunchDefaults": "既定の Agent、コマンドの上書き、CLI 引数、起動時の環境変数はクライアントの設定です。SSH やリモートサーバーでの起動時には、実行時にホストの利用可否を確認します。",
+          "agentLaunchDefaults": "既定のAgent、コマンドの上書き、CLI 引数、起動環境は選択したホストに保存されます。",
           "clientDefaultProjectScopes": "クライアントの既定値とプロジェクトのスコープ",
           "terminalQuickCommands": "コマンドはこのクライアントに保存され、全体またはプロジェクトのセットアップにスコープを設定して、選択したターミナルのコンテキストで実行されます。",
           "hostOverride": "ホストごとの上書き",
@@ -13660,7 +13658,8 @@
             "resumeInChatTranscriptMissing": "この会話の履歴を読み込めなかったため、チャットで再開できません。",
             "resumeInChatFailed": "新規チャットでこのセッションを再開できませんでした。",
             "resumeInNewCliUnavailable": "このセッションは CLI で開けません。",
-            "resumeInNewCliHostTooOld": "このチャットを新しい CLI で再開するには、チャットを実行しているホストの Orca を更新してください。"
+            "resumeInNewCliHostTooOld": "このチャットを新しい CLI で再開するには、チャットを実行しているホストの Orca を更新してください。",
+            "folderWorkspaceUnavailable": "フォルダーワークスペースは利用できなくなりました。"
           },
           "AiVaultPanelControls": {
             "scanningSessions": "セッションをスキャンしています",
@@ -13762,7 +13761,9 @@
             "copied": "コピーしました",
             "copy": "コピー",
             "noFirstPromptAvailable": "最初のプロンプトはありません",
-            "loadingFirstPrompt": "最初のプロンプトを読み込み中…"
+            "loadingFirstPrompt": "最初のプロンプトを読み込み中…",
+            "folder": "フォルダー",
+            "resumeInFolder": "フォルダーで再開"
           },
           "AiVaultSessionRow": {
             "resumeAgentSession": "{{value0}} セッションを再開",
@@ -13858,7 +13859,12 @@
             "noRecordedWorktree": "このセッションに記録されたワークツリーはありません。",
             "archivedJumpUnavailable": "このセッションはアーカイブされたワークツリーにあります。",
             "noActiveWorktreeMatch": "このセッションに一致するアクティブなワークツリーはありません。",
-            "noActiveWorktreeTarget": "利用可能なアクティブなワークツリーはありません。"
+            "noActiveWorktreeTarget": "利用可能なアクティブなワークツリーはありません。",
+            "activeFolder": "フォルダー",
+            "archivedFolder": "アーカイブされたフォルダー",
+            "archivedFolderJumpUnavailable": "このセッションはアーカイブされたフォルダーにあります。",
+            "currentFolder": "現在のフォルダー",
+            "jumpToFolder": "フォルダーにジャンプ"
           },
           "AiVaultSessionSubagents": {
             "subagentsCount": "サブ Agent ({{value0}})",
@@ -14902,7 +14908,6 @@
                 "d90d2e1f6d": "セッションと毎週の使用状況を追跡します。",
                 "8919321417": "Codex のサインインに失敗しました。",
                 "c7b90c140b": "Codex アカウントが追加されました。",
-                "4e71d72912": "Claude のサインインに失敗しました。",
                 "9ddeb558f9": "Claude アカウントが追加されました。",
                 "29d0653961": "サインイン",
                 "945865332e": "サインインする",
@@ -17569,7 +17574,8 @@
         "expandNode": "{{value0}} を展開します",
         "selectMachine": "{{value0}} のチャットをすべて選択",
         "sshHost": "SSH",
-        "done": "完了"
+        "done": "完了",
+        "resultListLabel": "今回再開したチャット"
       },
       "linear-issue-attribute-filter-coverage-notice": {
         "statusPartialTeamCoverage": "{{value0}}/{{value1}} チームステータスをフィルタリングしています。残りのチームからの問題は含まれません。",
@@ -17671,7 +17677,11 @@
         "resumedTitleOne": "1 件中 {{value0}} 件のチャットを再開しました",
         "resumingTitleOne": "1 件のチャットを再開中",
         "resumingTitle": "{{value0}} 件のチャットを再開中",
-        "description": "各チャットは全コンテキストとともに復元され、中断した箇所を確認するよう依頼されます。このダイアログは閉じても構いません。進行状況はステータスバーで確認できます。"
+        "description": "各チャットは全コンテキストとともに復元され、中断した箇所を確認するよう依頼されます。このダイアログは閉じても構いません。進行状況はステータスバーで確認できます。",
+        "finished": "これらのチャットは Orca が終了したときに作業中でした。Orca は各チャットを停止した時点から、すべてのコンテキストとともに復元し、続行する前に何をしていたかを確認するよう Agent に依頼しました。あなた自身のプロンプトは再送信されていません。",
+        "finishedUpdate": "これらのチャットは Orca がアップデートをインストールしたときに作業中でした。Orca は各チャットを停止した時点から、すべてのコンテキストとともに復元し、続行する前に何をしていたかを確認するよう Agent に依頼しました。あなた自身のプロンプトは再送信されていません。",
+        "finishedPartial": "これらのチャットは Orca が終了したときに作業中でした。Orca が再開したチャットは停止した時点から、すべてのコンテキストとともに復元され、続行する前に何をしていたかを確認するよう依頼されました。あなた自身のプロンプトは再送信されていません。対応が必要なチャットや再開できるチャットは、この一覧で確認してください。",
+        "finishedPartialUpdate": "これらのチャットは Orca がアップデートをインストールしたときに作業中でした。Orca が再開したチャットは停止した時点から、すべてのコンテキストとともに復元され、続行する前に何をしていたかを確認するよう依頼されました。あなた自身のプロンプトは再送信されていません。対応が必要なチャットや再開できるチャットは、この一覧で確認してください。"
       },
       "NativeChatResumeRunStatusIcon": {
         "waitingForReply": "返信を待っています",
@@ -17691,6 +17701,11 @@
         "attention": "要対応",
         "running": "経過 {{value0}}",
         "filter": "表示するチャット"
+      },
+      "NativeChatResumeAutoNote": {
+        "resuming": "再起動後に自動で再開しています。",
+        "resumed": "再起動後に自動で再開しました。",
+        "changeInSettings": "設定で変更"
       }
     },
     "i18n": {
@@ -17832,6 +17847,7 @@
         "couldNotStart": "{{agent}} を起動できませんでした。",
         "editSavedArguments": "設定 > Agent > 引数で編集してください。",
         "couldNotRestart": "{{agent}} を再起動できませんでした。",
+        "codexCliTooOld": "Codex {{installedVersion}} はチャットには古すぎます。{{minimumVersion}} 以降に更新してください。",
         "notSignedIn": "{{agent}} にサインインしていません。",
         "claudeSystemNotSignedIn": "Claude にサインインしていません。`{{loginCommand}}` を実行するか、Claude アカウント設定でアカウントを選択してください。",
         "claudeManagedNotSignedIn": "この Claude アカウントにサインインしていません。設定の Claude アカウントで再度サインインしてください。",
@@ -17847,6 +17863,8 @@
         "managedAccountUnsupported": "WSL に Claude アカウントが追加されている間、Claude チャットには Windows の Claude アカウントが必要です。",
         "launchFolderMissing": "このチャットが実行されていたフォルダーは存在しなくなりました。このチャットを続けるには、フォルダーを復元してください。",
         "historyInOtherAccount": "このチャットの履歴は別の Claude アカウントにあります。続けるには、そのアカウントに切り替えてください。",
+        "claudeAccountFolderMissing": "選択した Claude アカウントのフォルダーが見つかりません。もう一度サインインするか、別のアカウントを選択してください。",
+        "claudeAccountSetupFailed": "選択した Claude アカウントを設定できませんでした。もう一度試すか、別のアカウントを選択してください。",
         "agentCommandNotRunnable": "[設定] → [Agent] にある {{agent}} の [コマンド] には、Orca が見つけられるプログラムのパスまたは名前を、引数や変数なしで指定する必要があります。変更するか、[リセット] してください。",
         "chooseClaudeAccount": "Claude アカウントの設定で選択または追加してください。",
         "chooseClaudeAccountThenRunCommand": "Claude アカウントの設定で選択または追加してから、/{{command}} をもう一度実行してください。",
@@ -18012,6 +18030,7 @@
         "model": "モデル",
         "effort": "推論レベル",
         "fastMode": "高速モード",
+        "speed": "速度",
         "thinking": "思考",
         "options": "オプション",
         "sessionOptions": "セッションオプション",
@@ -18032,7 +18051,8 @@
           "high": "高",
           "xhigh": "最高",
           "max": "最大",
-          "ultra": "ウルトラ"
+          "ultra": "ウルトラ",
+          "standard": "標準"
         },
         "noCommandsOrSkills": "一致するコマンドやスキルがありません",
         "commands": "コマンド",
@@ -18063,6 +18083,19 @@
         "attachmentOwnerChanged": "このワークスペースは接続中にホストを変更しました。ファイルを再度ドロップしてください。",
         "attachmentUnreadable": "ドロップされたファイルを読み取れませんでした。",
         "tooManyAttachments": "一度に添付できるファイルは {{value0}} 個以下です。",
+        "permissions": "権限",
+        "permissionAsk": "承認を求める",
+        "permissionAskDescription": "設定で許可されていない編集やコマンドの前に確認します",
+        "permissionAskCodexDescription": "このワークスペース内でファイルを編集しコマンドを実行します。それ以外の操作の前に確認します",
+        "permissionAskSharedDescription": "まだ許可されていない編集やコマンドの前に確認します",
+        "permissionAcceptEdits": "編集を許可",
+        "permissionAcceptEditsDescription": "ファイルの編集とファイル操作コマンドを承認し、それ以外は確認します",
+        "permissionAuto": "代わりに承認",
+        "permissionAutoDescription": "承認リクエストを代わりに審査します",
+        "permissionFullAccess": "フルアクセス",
+        "permissionFullAccessDescription": "編集やコマンドの前に確認しません",
+        "permissionFullAccessCodexDescription": "確認しません。任意のファイルを編集し、ネットワークを使用できます",
+        "permissionFullAccessSharedDescription": "編集やコマンドの前に確認しません",
         "pasteFailed": "貼り付けに失敗しました。",
         "commandAttachmentsUnsupported": "チャットセッションのコマンドを使う前に添付ファイルを削除してください。"
       },
@@ -18183,8 +18216,11 @@
       },
       "transcriptLabel": "会話",
       "toggle": {
-        "showTerminal": "ターミナルを表示",
-        "showChat": "チャットビューを表示"
+        "showTerminal": "ターミナルを表示"
+      },
+      "resumeInNewChat": {
+        "notSavedYet": "{{agent}} はまだこの会話を保存していません。応答してから再度お試しください。",
+        "cannotResume": "この {{agent}} の会話はネイティブチャットで再開できません。"
       },
       "state": {
         "loading": {
@@ -18285,6 +18321,7 @@
         "orcaStopUpdate": "この応答の途中で、{{machine}} の Orca がアップデートのため再起動しました。",
         "orcaStopQuit": "この応答の途中で、{{machine}} の Orca が終了しました。",
         "orcaStopCrash": "この応答の途中で、{{machine}} の Orca が予期せず停止しました。",
+        "orcaStopRemote": "この応答の途中で、{{machine}} の Orca が停止しました。",
         "orcaStopCanContinue": "この会話で続行できます。"
       },
       "providerFrame": {
@@ -18489,8 +18526,7 @@
       },
       "visualUnavailable": "ビジュアライゼーションを利用できません",
       "visualLoading": "ビジュアライゼーションを読み込み中",
-      "visualOpenInSidebar": "サイドバーで開く",
-      "visualClose": "ビジュアライゼーションを閉じる"
+      "visualOpenInNewTab": "新しいタブで開く"
     },
     "tab": {
       "bar": {
@@ -19118,9 +19154,6 @@
     "nativeChatUpgrade": {
       "eyebrow": "新機能",
       "title": "ネイティブチャットを刷新",
-      "chatModeNote": "新しい Agent タブは、これまでどおりターミナルで開きます。",
-      "chatModeLabel": "チャットモードをオンにする",
-      "chatModeHint": "新しい Agent タブをチャットで開きます。",
       "intro": "対応 Agent の新しいチャットはアップグレード版のチャットビューで開きます。チャットと CLI の切り替えは右サイドバーの{{panel}}から:",
       "resumeInNativeChat": "{{action}}: 対応する CLI の会話をネイティブチャットで開きます。",
       "resumeInCli": "{{action}}: Claude/Codex のチャットを新しい CLI セッションに複製します。元のチャットは残ります。",
@@ -19447,9 +19480,6 @@
       "oldTerminalDialogRisk": "サーバーを共有する Codex セッションが同時に終了する可能性があり、Agent のステータスが間違っている可能性があります。",
       "oldTerminalDialogCause": "古いターミナルは依然として Codex サーバーを共有しています。新規ターミナルを開いて、別のサーバーで Codex を実行します。",
       "fix": "修理",
-      "openNewTerminal": "新規ターミナルを開く",
-      "dontShowAgain": "二度と表示しないでください",
-      "dismiss": "閉じる",
       "dialogTitle": "各 Codex タブに独自のサーバーを与える",
       "dialogDescription": "ターミナルで直接開始された Codex セッションは、1 つのバックグラウンドサーバーを共有します。 Orca は、開始する Codex セッションを個別に保持します。セッションがサーバーを共有している場合、1 つを閉じると他のセッションも終了し、Agent のステータスが不正になる可能性があります。",
       "copy": "コピー",
@@ -19460,7 +19490,6 @@
       "step2Title": "稼働中の共有サーバーを停止します",
       "undo": "元に戻すには、codex features enable daemon_auto_start を実行します。",
       "step2Warning": "サーバーを共有している開いている Codex セッションをすべて閉じます。",
-      "learnMore": "詳しく見る",
       "turnOff": "消す",
       "turningOff": "オフにしています…",
       "turnedOff": "オフになっています",
@@ -19476,6 +19505,12 @@
     },
     "paneMove": {
       "failed": "ペインを新規タブに移動できませんでした。"
+    },
+    "paneTopBanner": {
+      "openNewTerminal": "新規ターミナルを開く",
+      "learnMore": "詳しく見る",
+      "dontShowAgain": "二度と表示しないでください",
+      "dismiss": "閉じる"
     }
   },
   "fileSearch": {
@@ -19554,5 +19589,16 @@
   },
   "projectField": {
     "updateFailed": "プロジェクトフィールドを更新できませんでした"
-  }
+  },
+  "settings.agents.environmentName": "環境変数名",
+  "settings.agents.environmentValue": "{{name}} の値",
+  "settings.agents.savedEnvironment": "保存済みの値 · 置き換えるには入力",
+  "settings.agents.newEnvironment": "値",
+  "settings.agents.removeEnvironment": "削除",
+  "settings.agents.loadingHost": "Agent設定を読み込み中…",
+  "settings.agents.updateHost": "Agentの起動設定を編集するには、このサーバーを更新してください。",
+  "settings.agents.readFailed": "Agent設定を読み込めませんでした。ホストへの接続を確認して再試行してください。",
+  "settings.agents.saveFailed": "Agent設定を保存できませんでした。ホストへの接続を確認して再試行してください。",
+  "settings.agents.hostDefaults": "選択したホストで起動する新しいAgentの既定値。",
+  "settings.agents.save": "保存"
 }

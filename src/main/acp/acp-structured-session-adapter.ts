@@ -40,9 +40,8 @@ import {
   ACP_STOP_GRACE_MS,
   type AcpStructuredSessionAdapterDeps
 } from './acp-structured-session-adapter-deps'
-import { writeAcpSessionOption } from './acp-structured-options'
+import { readAcpLiveOptions, writeAcpSessionOption } from './acp-structured-options'
 import { readAcpRecoveryHistory } from './acp-recovery-history'
-import { withLiveCatalogListing } from '../native-chat/agent-model-catalog/agent-model-catalog-store'
 import { stopAcpChildren, acpChildStopCapabilities } from './acp-structured-child-stop'
 
 export class AcpStructuredSessionAdapter implements StructuredAgentSessionAdapter {
@@ -105,7 +104,8 @@ export class AcpStructuredSessionAdapter implements StructuredAgentSessionAdapte
         throw new Error('closed while starting')
       }
       this.sessions.set(sessionId, session)
-      return acquisition
+      // Its saved picks restored: what it runs now is what its start resolved.
+      return { ...acquisition, catalogListing: session.options.startListing() }
     } catch (error) {
       const { connection } = attempt
       if (connection && error instanceof AcpConnectionClosedError) {
@@ -225,10 +225,8 @@ export class AcpStructuredSessionAdapter implements StructuredAgentSessionAdapte
     return session.options.reported()
   }
 
-  readOptions = async (input: { sessionId: string; fence: number }) => {
-    const { options } = this.live(input.sessionId)
-    return withLiveCatalogListing(options.read(), options.configuredDefault())
-  }
+  readOptions = async (input: { sessionId: string; fence: number }) =>
+    readAcpLiveOptions(this.live(input.sessionId))
 
   readOptionRestoreFailures = (sessionId: string): readonly string[] =>
     this.sessions.get(sessionId)?.restoreSkipped ?? []
@@ -237,7 +235,7 @@ export class AcpStructuredSessionAdapter implements StructuredAgentSessionAdapte
 
   stopBackgroundTasks: NonNullable<StructuredAgentSessionAdapter['stopBackgroundTasks']> = (
     input
-  ) => stopAcpChildren(this.live(input.sessionId), input.fence, input.taskIds, () => this.now())
+  ) => stopAcpChildren(this.live(input.sessionId), input.fence, input.taskIds, input.acknowledge)
 
   backgroundTaskStops: NonNullable<StructuredAgentSessionAdapter['backgroundTaskStops']> = (
     sessionId

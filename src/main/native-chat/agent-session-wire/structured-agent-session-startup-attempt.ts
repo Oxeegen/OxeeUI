@@ -14,6 +14,7 @@ import { randomUUID } from 'node:crypto'
 import type { AgentSessionJournalIdentity } from '../../../shared/agent-session-journal-types'
 import type { AgentSessionRecord } from '../../../shared/agent-session-record'
 import type { StructuredAgentSessionEventSink } from './structured-agent-session-event-sink'
+import type { AgentChatPermissionMode } from '../../../shared/agent-chat-permission-mode'
 import type { StructuredAgentSessionProviderChildIdentity } from './structured-agent-session-host-types'
 import { sameProviderChild } from './structured-agent-session-provider-child'
 import {
@@ -26,6 +27,7 @@ export function mintStructuredAgentSessionStartupAttempt(input: {
   record: AgentSessionRecord
   identity: AgentSessionJournalIdentity
   spawnToken: string
+  permissionMode?: AgentChatPermissionMode
   events?: StructuredAgentSessionEventSink
   signal?: AbortSignal
   optionRevision: () => number
@@ -42,6 +44,7 @@ export function mintStructuredAgentSessionStartupAttempt(input: {
       ...(record.launchDirectory === undefined ? {} : { launchDirectory: record.launchDirectory })
     },
     ...(record.options ? { options: record.options } : {}),
+    ...(input.permissionMode ? { permissionMode: input.permissionMode } : {}),
     ...(input.events ? { events: input.events } : {}),
     ...(input.signal ? { signal: input.signal } : {}),
     optionRevision: input.optionRevision

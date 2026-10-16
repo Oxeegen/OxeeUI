@@ -1,10 +1,10 @@
+import { createAcpStructuredLaunchResolver } from './structured-agent-launch-composition.test-support'
 import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { agentSessionRecordFixture } from '../../shared/agent-session-record.test-fixture'
 import { acpLaunchSpecFor } from '../acp/acp-launch-specs'
-import { createAcpStructuredLaunchResolver } from '../acp/acp-structured-launch-resolution'
 import { structuredAgentSupportsLaunch } from './structured-agent-launch-support'
 
 const { probeAgentCliVersion, loginShell } = vi.hoisted(() => {
@@ -97,7 +97,8 @@ describe('structuredAgentSupportsLaunch', () => {
             provider: 'opencode',
             providerHandleChain: [],
             accountHome: { kind: 'opencode', locator: { kind: 'unmanaged' } }
-          })
+          }),
+          pinLaunchDirectory: vi.fn()
         },
         readJournal: () => null,
         resolveWorkspacePath: async () => '/repo/worktree',

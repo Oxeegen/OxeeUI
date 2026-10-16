@@ -73,6 +73,24 @@ beforeEach(async () => {
     journalDatabase: openTestJournalHostDatabase(root),
     claimKeyId: 'key-1',
     mintSpawnToken: () => 'spawn-1',
+    // One live background task, which the background Stops below reach.
+    statusSink: {
+      publish: () => {},
+      forget: () => {},
+      readChildWork: () => [
+        {
+          id: 'child-task-1',
+          providerId: 'task-1',
+          kind: 'agent',
+          state: 'working',
+          membership: 'live',
+          firstObservedAt: 1,
+          observedAt: 1,
+          stoppable: true,
+          invocation: { invocationId: 'spawn-task-1', generation: 1 }
+        }
+      ]
+    },
     now: () => NOW
   })
   expect(await host.attach(CALLER, hostTestAttachParams(null))).toMatchObject({ ok: true })

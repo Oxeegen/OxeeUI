@@ -18,6 +18,7 @@ import { captureStructuredWorkerArchive } from '../rpc/methods/orchestration-str
 import type { WorkerStructuredJournalArchive } from './structured-worker-journal-archive'
 import { structuredWorkerAgent } from '../structured-worker-authority'
 import type { StructuredWorkerIdentity } from '../structured-worker-identity'
+import { readWorkerTerminalArchive } from './worker-terminal-archive-read'
 
 // Bound the durable copy of raw terminal output; the tail end is the evidence that matters.
 const TERMINAL_ARCHIVE_MAX_CHARS = 262_144
@@ -146,7 +147,7 @@ export async function captureWorkerOutputArchive(args: {
   }
   let terminal
   try {
-    terminal = await args.runtime.readTerminal(args.terminalHandle, {})
+    terminal = await readWorkerTerminalArchive(args.runtime, args.terminalHandle)
   } catch (error) {
     throw new OrchestrationError(
       'archive_failed',
@@ -174,9 +175,10 @@ export async function captureWorkerOutputArchive(args: {
       warnings: empty
         ? [
             ...redacted.warnings,
+            ...terminal.warnings,
             'The live terminal buffer was empty at release; structured transcript output was unavailable.'
           ]
-        : redacted.warnings,
+        : [...redacted.warnings, ...terminal.warnings],
       fallbackReason: transcriptFallbackReason,
       clipping: [
         'terminal_fallback',

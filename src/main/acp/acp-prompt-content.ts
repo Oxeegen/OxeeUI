@@ -23,6 +23,7 @@ import type { AcpLaunchSpec } from './acp-launch-specs'
 import { resolveAcpPeerOptions } from './acp-peer-limits'
 import { acpAgentName } from './acp-structured-acquire'
 import type { AcpStructuredConnection } from './acp-structured-connection'
+import { acpSessionAcceptsImages } from './acp-structured-options'
 import type { ContentBlock } from './generated/acp-protocol.generated'
 
 const ACP_IMAGE_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
@@ -136,7 +137,7 @@ export async function acpPromptBlocks(
 }
 
 /** The prompt for `body` to `session`'s agent, or Orca's refusal of it in words that name the
- *  agent. Images go only where the agent's row offers them and its start advertised them. */
+ *  agent. Images go only where `acpSessionAcceptsImages` allows them. */
 export async function acpDispatchPrompt(
   body: AgentJournalMessageItem,
   session: {
@@ -145,10 +146,7 @@ export async function acpDispatchPrompt(
   }
 ): Promise<ContentBlock[] | AgentJournalDispatchRejection> {
   try {
-    const advertised =
-      session.spec.imagePrompts === true &&
-      (await session.connection.initialize()).agentCapabilities?.promptCapabilities?.image === true
-    return await acpPromptBlocks(body, advertised)
+    return await acpPromptBlocks(body, await acpSessionAcceptsImages(session))
   } catch (error) {
     if (error instanceof AcpPromptContentError) {
       return agentSessionFailureWords(error.failure, {

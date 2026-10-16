@@ -22,7 +22,8 @@ import type {
 import { structuredAgentSessionConversationFence } from './structured-agent-session-provider-child'
 import { structuredAgentSessionFailureWordsContext } from './structured-agent-session-send-preparation'
 import { recoverStructuredRewind } from './structured-rewind-recovery'
-import { retireSignedOutStructuredAgentSessionChild } from './structured-agent-session-signed-out-child'
+import { retireOutgrownStructuredAgentSessionChild } from './structured-agent-session-outgrown-child'
+import { structuredAgentSessionLaunchPermission } from './structured-agent-session-launch-permission'
 
 export type StructuredAgentSessionConversationDelivery = {
   loop: StructuredAgentSessionDeliveryLoop
@@ -57,8 +58,8 @@ export function createStructuredAgentSessionConversationDelivery(input: {
     sessionId: string,
     startedFor: string
   ) => Promise<StructuredAgentSessionResumeOutcome>
-  /** Stops a child that reported it is not signed in, so the start after it reads a new login. */
-  stopSignedOutAgent: (sessionId: string) => Promise<void>
+  /** Stops a child the chat outgrew, so the start after it reads a new login or permission mode. */
+  stopOutgrownAgent: (sessionId: string) => Promise<void>
   clientDelivery: Pick<
     StructuredAgentSessionClientDelivery,
     'publishRestored' | 'readChildWork' | 'readStopping' | 'publishStatus'
@@ -76,7 +77,7 @@ export function createStructuredAgentSessionConversationDelivery(input: {
       const session = input.clientDelivery.readStopping(sessionId)
         ? undefined
         : sessions.get(sessionId)
-      await retireSignedOutStructuredAgentSessionChild(sessionId, session, {
+      await retireOutgrownStructuredAgentSessionChild(sessionId, session, {
         work: {
           childWork: () => input.clientDelivery.readChildWork(sessionId),
           hasOpenDispatch: () => {
@@ -86,7 +87,11 @@ export function createStructuredAgentSessionConversationDelivery(input: {
           providerHoldsDispatch: () => deps.adapter.holdsDispatch?.(sessionId) === true
         },
         startUnavailable: () => deps.adapter.startUnavailable?.(sessionId),
-        stopAgent: input.stopSignedOutAgent,
+        launchPermission: async () => {
+          const record = deps.store.getRecord(sessionId)
+          return record ? structuredAgentSessionLaunchPermission(deps, record) : null
+        },
+        stopAgent: input.stopOutgrownAgent,
         logger: deps.logger
       })
       return input.ensureProviderChild(sessionId, startedFor)

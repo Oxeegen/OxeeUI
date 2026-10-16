@@ -41,6 +41,7 @@ import {
 } from './structured-agent-session-runtime'
 import { createStructuredAgentSessionLogger } from '../native-chat/agent-session-wire/structured-agent-session-logger'
 import { createCoordinatorMailObservationClock } from './structured-chat-coordinator-observation-clock.test-fixture'
+import { scriptedCodexTransport } from './scripted-codex-transport.test-fixture'
 
 // The turns a send or Stop is waiting on to open, so a test knows the wait began.
 const openWaits = vi.hoisted(() => {
@@ -277,11 +278,10 @@ beforeEach(async () => {
     claimKeyId: 'key-1',
     resolveWorkspacePath: async () => root,
     resolveLaunchArgs: () => [],
-    resolveClaudeAuthPolicy: () => ({ stripAuthEnv: true }),
+    resolveClaudeAuthPolicy: () => ({ account: 'managed' }),
     resolveCodexCommand: () => 'codex',
     resolveEnvironment: async () => ({ PATH: process.env.PATH }),
-    openCodexConnection: openConnection,
-    readProcessStartTime: async () => 1_700_000_000_000
+    ...scriptedCodexTransport(openConnection)
   })
   const attachParams = hostTestAttachParams(null, { providerHandle: undefined })
   attachParams.envelope.clientOperationId = operationId()

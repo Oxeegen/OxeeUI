@@ -40,6 +40,7 @@ import {
   ensureStructuredAgentSessionHost,
   stopStructuredAgentSessionRuntime
 } from './structured-agent-session-runtime'
+import { scriptedCodexTransport } from './scripted-codex-transport.test-fixture'
 
 const CALLER = { callerKey: 'codex-stopped-send-resume-test' }
 const MODEL = {
@@ -174,11 +175,10 @@ async function startHost(): Promise<void> {
     claimKeyId: 'key-1',
     resolveWorkspacePath: async () => root,
     resolveLaunchArgs: () => [],
-    resolveClaudeAuthPolicy: () => ({ stripAuthEnv: true }),
+    resolveClaudeAuthPolicy: () => ({ account: 'managed' }),
     resolveCodexCommand: () => 'codex',
     resolveEnvironment: async () => ({ PATH: process.env.PATH }),
-    openCodexConnection: openConnection,
-    readProcessStartTime: async () => 1_700_000_000_000
+    ...scriptedCodexTransport(openConnection)
   })
 }
 

@@ -77,17 +77,17 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 vi.mock('./TabSessionSurfaceSwitchMenuItems', () => ({
   TabSessionSurfaceSwitchMenuItems: ({
     tab,
-    structuredSessionId,
+    nativeChat,
     leadingSeparator
   }: {
     tab: { id: string }
-    structuredSessionId?: string
+    nativeChat?: { sessionId: string }
     leadingSeparator: boolean
   }) => (
     <div
       data-testid="session-surface-switch"
       data-tab-id={tab.id}
-      data-structured-session-id={structuredSessionId ?? ''}
+      data-structured-session-id={nativeChat?.sessionId ?? ''}
       data-leading-separator={String(leadingSeparator)}
     />
   )
@@ -116,16 +116,7 @@ function renderMenu(overrides: Partial<ComponentProps<typeof SortableTabContextM
   act(() => {
     root.render(
       <SortableTabContextMenu
-        tab={{
-          id: 'term-1',
-          ptyId: null,
-          worktreeId: 'wt-1',
-          title: 'bash',
-          customTitle: null,
-          color: null,
-          sortOrder: 0,
-          createdAt: 0
-        }}
+        tab={{ id: 'term-1', worktreeId: 'wt-1', color: null }}
         unifiedTabId="tab-1"
         groupId="group-1"
         isActive
@@ -268,7 +259,7 @@ describe('SortableTabContextMenu', () => {
   })
 
   it('offers the session-history chat/CLI move right above Pin Tab', () => {
-    const { container } = renderMenu({ structuredSessionId: 'orca-chat-1' })
+    const { container } = renderMenu({ nativeChat: { sessionId: 'orca-chat-1', agent: 'codex' } })
     const marker = getSurfaceSwitchMarker(container)
 
     expect(marker.getAttribute('data-tab-id')).toBe('term-1')

@@ -8,6 +8,7 @@ import {
   type StructuredAgentSessionTurnVerdict
 } from '../native-chat/agent-session-wire/structured-agent-session-stale-turn-verdict'
 import type { AcpLaunchSpec } from './acp-launch-specs'
+import type { AcpChildStops } from './acp-dialects/acp-dialect'
 import type { AcpSessionEvent } from './acp-session-runtime'
 import type { AcpStructuredConnection } from './acp-structured-connection'
 import type { AcpStructuredLane } from './acp-structured-lane'
@@ -20,7 +21,7 @@ export type AcpStructuredSession = {
   fence: number
   acquisitionGeneration: string
   spec: AcpLaunchSpec
-  subagentStopSupported?: boolean
+  childStops?: AcpChildStops
   /** The agent's process and its protocol, one owner. */
   connection: AcpStructuredConnection
   lane: AcpStructuredLane
@@ -87,7 +88,8 @@ export function asReattachHistory(params: unknown): unknown {
 export function closeAcpSessionJournal(
   session: AcpStructuredSession,
   reason: string,
-  verdict: StructuredAgentSessionTurnVerdict = UNVERIFIABLE_TURN_VERDICT
+  verdict: StructuredAgentSessionTurnVerdict = UNVERIFIABLE_TURN_VERDICT,
+  endedAt: number = Date.now()
 ): void {
   if (session.journalClosed !== null) {
     return
@@ -95,7 +97,7 @@ export function closeAcpSessionJournal(
   session.journalClosed = reason
   session.prompts.clear()
   session.turns.end(reason)
-  session.lane.apply([{ type: 'session.ended', verdict }])
+  session.lane.apply([{ type: 'session.ended', verdict, endedAt }])
   session.lane.flush()
   session.lane.dispose()
   session.unbindReadingControl?.()
@@ -128,7 +130,8 @@ export function endAcpStructuredSession(
     reason,
     session.closeRequested
       ? UNVERIFIABLE_TURN_VERDICT
-      : { state: 'interrupted', completedAt: observedAt }
+      : { state: 'interrupted', completedAt: observedAt },
+    observedAt
   )
   const detail = stderr ? providerDiagnostic(stderr, 'person') : undefined
   onEvent?.({

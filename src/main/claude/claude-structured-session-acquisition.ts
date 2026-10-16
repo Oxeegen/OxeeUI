@@ -1,10 +1,7 @@
-import {
-  AgentSessionPreSpawnError,
-  type AgentSessionAcquisition,
-  type StructuredAgentSessionAcquireInput
+import type {
+  AgentSessionAcquisition,
+  StructuredAgentSessionAcquireInput
 } from '../native-chat/agent-session-wire/structured-agent-session-adapter'
-import { CLAUDE_AUTH_SWITCH_IN_PROGRESS_MESSAGE } from '../claude-accounts/environment'
-import { isClaudeAuthSwitchInProgress } from '../claude-accounts/live-pty-gate'
 import { openClaudeStreamJsonConnection } from './claude-stream-json-connection'
 import { buildClaudePermissionCallbacks } from './claude-structured-inbound-control'
 import { resolveClaudeReplayTurn } from './claude-replay-turn-resolution'
@@ -17,7 +14,7 @@ import {
   readClaudeInit
 } from './claude-structured-init-proof'
 import { claudeConfigDirEnvPatch } from './claude-config-dir-pin'
-import { CLAUDE_SPAWN_TOKEN_ENV, claudeProcessIdentity } from './claude-structured-owner-identity'
+import { claudeProcessIdentity } from './claude-structured-owner-identity'
 import { ClaudePromptRegistry } from './claude-structured-prompt-replies'
 import { adoptClaudeStructuredSpawnOptions } from './claude-structured-spawn-options'
 import { observeClaudeFastModeFacts } from './claude-structured-session-options'
@@ -61,13 +58,6 @@ export async function acquireClaudeSession({
   exits: Map<string, ClaudeSessionExit>
   callbacks: ClaudeAcquireCallbacks
 }): Promise<AgentSessionAcquisition> {
-  // A managed-account switch is mid-swap of the pinned credential home; refuse here,
-  // before this acquisition cancels the previous attempt and closes the live session.
-  if (isClaudeAuthSwitchInProgress()) {
-    throw new AgentSessionPreSpawnError(new Error(CLAUDE_AUTH_SWITCH_IN_PROGRESS_MESSAGE), {
-      reason: 'accountSwitchInProgress'
-    })
-  }
   const sessionId = input.identity.sessionId
   const prompts = new ClaudePromptRegistry()
   const { previous, attempt } = acquisitions.start(sessionId, prompts)
@@ -179,7 +169,6 @@ export async function acquireClaudeSession({
           cwd: launch.cwd,
           env: {
             ...launch.env,
-            [CLAUDE_SPAWN_TOKEN_ENV]: input.spawnToken,
             // Compared against what the child would otherwise inherit, so the record's
             // account home still wins over a diverging overlay without a needless pin.
             // (`process` is shadowed by a local later in this function, so it is not named here.)
@@ -187,7 +176,8 @@ export async function acquireClaudeSession({
               launch.claudeConfigDir,
               launch.env ? { env: launch.env } : {}
             )
-          }
+          },
+          ...(launch.envToDelete ? { envToDelete: launch.envToDelete } : {})
         },
         {
           onMessage,

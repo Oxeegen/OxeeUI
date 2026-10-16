@@ -14,12 +14,15 @@ import {
 } from './structured-agent-session-rpc.test-fixture'
 
 let directory: string
+let hostController: RuntimeMobileNotificationController | undefined
 beforeEach(() => {
   installStructuredHostStub()
   directory = mkdtempSync(join(tmpdir(), 'orca-attention-ack-'))
 })
-afterEach(() => {
+afterEach(async () => {
   clearStructuredHostStub()
+  await hostController?.closeDismissals()
+  hostController = undefined
   rmSync(directory, { recursive: true, force: true })
 })
 
@@ -35,6 +38,7 @@ const scope = (executionHostId: HostId): StructuredAttentionOrigin['scope'] => (
 function hostWithDeliveries() {
   const controller = new RuntimeMobileNotificationController()
   controller.configureDismissalStore(directory)
+  hostController = controller
   const dismissed: string[] = []
   controller.onDispatched((event) => {
     if (event.type === 'dismiss') {

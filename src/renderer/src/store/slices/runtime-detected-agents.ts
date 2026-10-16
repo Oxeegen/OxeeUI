@@ -2,6 +2,7 @@ import type { StateCreator } from 'zustand'
 import type { AppState } from '../types'
 import type { TuiAgent } from '../../../../shared/tui-agent'
 import { callRuntimeRpc, RuntimeRpcCallError } from '@/runtime/runtime-rpc-client'
+import { captureRuntimeEnvironmentRequestRevision } from '@/runtime/runtime-environment-revision'
 
 // Why: remote runtime hosts are not SSH connections, but their launch surfaces
 // (tab bar, quick launch, Settings → Agents under an Active Server) still have
@@ -120,9 +121,15 @@ export const createRuntimeDetectedAgentsSlice: StateCreator<
       isRefreshingRuntimeAgents: { ...s.isRefreshingRuntimeAgents, [environmentId]: true }
     }))
 
+    // Why: captured before the refresh, so a re-pair before the fallback cannot retarget it.
+    const fence = {
+      expectedEnvironmentPairingRevision: captureRuntimeEnvironmentRequestRevision(environmentId)
+    }
     const pending = callRuntimeRpc<{ agents: TuiAgent[] }>(
       { kind: 'environment', environmentId },
-      'preflight.refreshAgents'
+      'preflight.refreshAgents',
+      undefined,
+      fence
     )
       .then((result) => result.agents)
       .catch((error) => {
@@ -133,7 +140,9 @@ export const createRuntimeDetectedAgentsSlice: StateCreator<
         // runtime failures doubles remote work without any chance of recovery.
         return callRuntimeRpc<TuiAgent[]>(
           { kind: 'environment', environmentId },
-          'preflight.detectAgents'
+          'preflight.detectAgents',
+          undefined,
+          fence
         )
       })
       .then((ids) => {

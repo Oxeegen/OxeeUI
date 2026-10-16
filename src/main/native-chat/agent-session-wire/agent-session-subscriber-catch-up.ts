@@ -12,8 +12,13 @@ import {
 import { sameJournalCursor } from '../agent-session-journal/journal-cursor'
 import type { AgentSessionJournal } from '../agent-session-journal/journal-store'
 import { emptyAgentSessionBatch } from './agent-session-empty-batch'
-import { createAgentSessionCatchUpReader } from './agent-session-history-page'
 import {
+  createAgentSessionCatchUpReader,
+  readAgentSessionHydrationPage
+} from './agent-session-history-page'
+import { subscriberHistoryReader } from './agent-session-bounded-frames'
+import {
+  subscriberCommandsChanged,
   subscriberQueuedMessagesChanged,
   type SubscriberFieldHooks
 } from './agent-session-subscriber-frame-fields'
@@ -54,7 +59,8 @@ export function deliverToSubscriber(
     emitCaughtUp(port, subscriber, emitCheckpoint, shared)
     return
   }
-  const readPage = createAgentSessionCatchUpReader(journal)
+  const reader = subscriberHistoryReader(subscriber)
+  const readPage = createAgentSessionCatchUpReader(journal, reader)
   while (true) {
     const result = readPage({
       sessionId: subscriber.sessionId,
@@ -79,6 +85,21 @@ export function deliverToSubscriber(
     const advanced = page.window.nextCursor.sequence > subscriber.cursor.sequence
     if (!advanced) {
       emitCaughtUp(port, subscriber, emitCheckpoint, shared)
+      return
+    }
+    // A phone's app ends a stream that outruns its unacked window, so a gap of more than one page
+    // arrives as the newest page instead; older rows load on scroll.
+    if (page.hasNewer && subscriber.boundedFrames) {
+      const tail = readAgentSessionHydrationPage(journal, subscriber.fence, reader)
+      port.emit(subscriber, {
+        type: 'snapshot',
+        sessionId: subscriber.sessionId,
+        page: tail,
+        fence: subscriber.fence,
+        hostNow,
+        activity: port.activity(subscriber.sessionId)
+      })
+      subscriber.cursor = tail.liveCursor ?? tail.window.nextCursor
       return
     }
     port.emit(
@@ -116,9 +137,7 @@ function emitCaughtUp(
     activity?: AgentSessionTurnActivity | null
   }
 ): void {
-  const commandsChanged =
-    port.hooks.readCommands !== undefined &&
-    (port.hooks.readCommands(subscriber.sessionId) ?? null) !== subscriber.commands
+  const commandsChanged = subscriberCommandsChanged(port.hooks, subscriber)
   const queuedChanged = subscriberQueuedMessagesChanged(port.hooks, subscriber)
   if (emitCheckpoint || shared.activity !== undefined || commandsChanged || queuedChanged) {
     port.emit(subscriber, {

@@ -7,6 +7,7 @@
 // its success commits with the row that accepts it, and a row still pending is
 // one that wrote nothing.
 
+import type { AgentChildWorkEvidence } from '../../../shared/agent-status-child-work-evidence'
 import type { AgentJournalMessageItem } from '../../../shared/agent-session-journal-types'
 import {
   AGENT_MESSAGE_SOURCE,
@@ -25,6 +26,7 @@ import type {
 } from '../../../shared/agent-session-wire'
 import type { AgentSessionConversationCommandResult } from '../../../shared/agent-session-conversation-command'
 import { DISPATCH_DOUBT_SUBMISSION_MISSING } from '../agent-session-journal/journal-dispatch-doubt-reasons'
+import type { StructuredAgentSessionBackgroundStopInput } from './structured-agent-session-background-stop'
 import {
   agentSessionMessagePayload,
   agentSessionSendBodyFingerprint
@@ -234,6 +236,8 @@ export function cancelPlan(params: {
   prompt?: { itemId: string; expectedRevision: number }
   /** The session's child records, which name the tasks a background Stop reaches. */
   childWork?: () => readonly AgentChildWorkView[] | undefined
+  acknowledgeStops?: (evidence: AgentChildWorkEvidence[]) => void
+  unlisted?: StructuredAgentSessionBackgroundStopInput['unlisted']
 }): MutationPlan<AgentSessionCancelResult> {
   return {
     method: 'agentSession.cancel',
@@ -254,7 +258,9 @@ export function cancelPlan(params: {
         ...(params.scope ? { scope: params.scope } : {}),
         ...(params.taskId ? { taskId: params.taskId } : {}),
         ...(params.prompt ? { prompt: params.prompt } : {}),
-        ...(params.childWork ? { childWork: params.childWork } : {})
+        ...(params.childWork ? { childWork: params.childWork } : {}),
+        ...(params.acknowledgeStops ? { acknowledgeStops: params.acknowledgeStops } : {}),
+        ...(params.unlisted ? { unlisted: params.unlisted } : {})
       }),
     // Interrupting twice would kill a turn the client never asked to stop, so a
     // replay reports the turn as already handled.

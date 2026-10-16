@@ -2,11 +2,6 @@
 // speaks protocol extensions). Nothing outside `acp-dialects/` branches on an agent's name.
 
 import { join } from 'node:path'
-import {
-  ORCA_SCRUB_SAFE_LAUNCH_ENV,
-  ORCA_SCRUB_SAFE_PANE_ENV
-} from '../../shared/agent-hook-scrub-safe-env'
-import { AGENT_HOOK_RUNTIME_ENV_KEYS } from '../ipc/pty/host-env/spawn-env-keys'
 import type { AcpDialect } from './acp-dialects/acp-dialect'
 import { GROK_ACP_DIALECT } from './acp-dialects/grok-dialect'
 import { OMP_ACP_DIALECT } from './acp-dialects/omp-dialect'
@@ -32,6 +27,10 @@ import {
   loadOpenCodeVisualsSkill,
   type AcpVisualsSkillLoader
 } from './acp-visuals-skill'
+import type { StructuredAgentSessionHistory } from '../native-chat/structured-agent-cli-conversations'
+import { GROK_SESSION_HISTORY } from '../grok/grok-session-history'
+import { OPENCODE_SESSION_HISTORY } from '../opencode/opencode-session-history'
+import { OMP_SESSION_HISTORY } from '../omp/omp-session-history'
 
 /** How an agent lists its models without a session: from its `initialize` answer (plus extension
  *  requests), from a listing command, or not at all. Never `authenticate` or `session/new`. */
@@ -92,6 +91,8 @@ export type AcpLaunchSpec = {
   modelDiscovery: AcpModelDiscovery
   /** How a launch loads the inline-visuals skill; absent, the agent's chats have no visuals. */
   visualsSkill?: AcpVisualsSkillLoader
+  /** How the agent's chats own the Session History rows their conversations list as. */
+  sessionHistory: StructuredAgentSessionHistory
 }
 
 const GROK_LAUNCH_SPEC: AcpLaunchSpec = {
@@ -124,7 +125,8 @@ const GROK_LAUNCH_SPEC: AcpLaunchSpec = {
     listingNamesConfiguredModel: false
   },
   visualsSkill: loadGrokVisualsSkill,
-  compaction: true
+  compaction: true,
+  sessionHistory: GROK_SESSION_HISTORY
 }
 
 // `opencode acp` on 1.x serves in-process; on 2.x it starts a private `opencode serve --stdio` child
@@ -162,7 +164,8 @@ const OPENCODE_LAUNCH_SPEC: AcpLaunchSpec = {
     listingNamesConfiguredModel: false
   },
   visualsSkill: loadOpenCodeVisualsSkill,
-  compaction: true
+  compaction: true,
+  sessionHistory: OPENCODE_SESSION_HISTORY
 }
 
 // OMP serves ACP through `omp acp`; its environment reaches it as the user set it.
@@ -189,7 +192,8 @@ const OMP_LAUNCH_SPEC: AcpLaunchSpec = {
     reason: 'omp has no session-free listing that matches what its chats offer'
   },
   visualsSkill: loadOmpVisualsSkill,
-  compaction: true
+  compaction: true,
+  sessionHistory: OMP_SESSION_HISTORY
 }
 
 export const ACP_LAUNCH_SPECS: readonly AcpLaunchSpec[] = [
@@ -201,17 +205,3 @@ export const ACP_LAUNCH_SPECS: readonly AcpLaunchSpec[] = [
 export function acpLaunchSpecFor(agent: string): AcpLaunchSpec | null {
   return ACP_LAUNCH_SPECS.find((spec) => spec.agent === agent) ?? null
 }
-
-/**
- * A pane's identity in the inherited environment would let the agent's own Orca status hooks
- * report for this session too; the structured session is its one status producer.
- */
-export const ACP_CHILD_ENV_TO_DELETE: readonly string[] = [
-  'ORCA_PANE_KEY',
-  'ORCA_TAB_ID',
-  'ORCA_WORKTREE_ID',
-  'ORCA_AGENT_LAUNCH_TOKEN',
-  ORCA_SCRUB_SAFE_PANE_ENV,
-  ORCA_SCRUB_SAFE_LAUNCH_ENV,
-  ...AGENT_HOOK_RUNTIME_ENV_KEYS
-]

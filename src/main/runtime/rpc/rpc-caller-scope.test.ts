@@ -84,6 +84,8 @@ describe('every RPC method declares a known permission', () => {
     expect(permissionOf('computer.permissionsStatus')).toBe('workspace')
     expect(permissionOf('accounts.selectClaude')).toBe('accounts-admin')
     expect(permissionOf('settings.update')).toBe('settings-write')
+    expect(permissionOf('settings.getAgentLaunch')).toBe('workspace')
+    expect(permissionOf('settings.mutateAgentLaunch')).toBe('settings-write')
     expect(permissionOf('skills.install')).toBe('skills-admin')
     expect(permissionOf('skills.share')).toBe('skills-admin')
     expect(permissionOf('pairing.provisionRelay')).toBe('pairing-admin')

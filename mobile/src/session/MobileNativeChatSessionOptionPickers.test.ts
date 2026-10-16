@@ -181,6 +181,12 @@ describe('MobileNativeChatSessionOptionPickers', () => {
     expect(labels).toContain('Sonnet 5 High')
   })
 
+  it('lets the pill shrink so a long label never pushes the composer buttons off the row', () => {
+    mount([MODEL_DESCRIPTOR, EFFORT_DESCRIPTOR])
+    // Style-level only: the test renderer runs no layout.
+    expect(renderer!.root.findAllByType('View')[0]!.props.style).toMatchObject({ flexShrink: 1 })
+  })
+
   it('opens the model sheet and applies a picked model', async () => {
     mount([MODEL_DESCRIPTOR, EFFORT_DESCRIPTOR])
     await act(async () => pill('Model').props.onPress())
@@ -284,4 +290,35 @@ describe('MobileNativeChatSessionOptionPickers', () => {
     mount([MODEL_DESCRIPTOR, EFFORT_DESCRIPTOR], true)
     expect(pill('Model').props).toMatchObject({ disabled: true })
   })
+
+  it('shows the permission pill before any model pill, and closes at once on a pick', async () => {
+    mount([PERMISSION_DESCRIPTOR], true)
+    expect(pill('Permissions').props).toMatchObject({
+      accessibilityLabel: 'Permissions, Ask for approval',
+      disabled: false
+    })
+    // A write that waits behind a starting agent never holds the sheet open.
+    setOption.mockImplementation(() => new Promise(() => {}))
+    await act(async () => pill('Permissions').props.onPress())
+    await act(async () => rowByText('Full access').props.onPress())
+    expect(setOption).toHaveBeenCalledWith('permissionMode', 'full-access')
+    expect(renderer!.root.findAllByType('BottomDrawer')).toEqual([])
+  })
 })
+
+const PERMISSION_DESCRIPTOR: SessionOptionDescriptor = {
+  id: 'permissionMode',
+  label: 'Permissions',
+  category: 'mode',
+  kind: {
+    type: 'select',
+    currentValue: 'ask',
+    choices: [
+      { value: 'ask', label: 'Ask for approval' },
+      { value: 'full-access', label: 'Full access' }
+    ]
+  },
+  valueSource: 'applied',
+  transport: 'agent-session',
+  settable: true
+}

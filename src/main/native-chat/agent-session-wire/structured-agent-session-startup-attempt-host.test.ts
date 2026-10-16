@@ -91,7 +91,7 @@ async function startHost(): Promise<void> {
       ...(readAcquisitionOptions ? { readAcquisitionOptions } : {})
     },
     modelCatalog: {
-      read: vi.fn(),
+      read: vi.fn(async () => ({ origin: 'unknown' as const })),
       recordLiveListing: vi.fn(),
       prewarm: vi.fn(async () => {}),
       stop: vi.fn(),
@@ -624,4 +624,25 @@ describe('the attempt an acquire runs under', () => {
       host.collaboratorsForTests().runtimeState.optionRevisions.current(SESSION)
     )
   })
+})
+
+describe('a chat after startup permission backfill', () => {
+  it.each(['ask', 'full-access'] as const)(
+    'keeps %s before and after the first start, regardless of later Arguments',
+    async (mode) => {
+      await host.close(SESSION, 'evict')
+      await store.backfillChatPermissionModes(() => mode === 'full-access')
+      expect((await host.readOptions(SESSION)).current.permissionMode).toBe(mode)
+      await store.backfillChatPermissionModes(() => mode === 'ask')
+      await restartWith(publishFirst)
+      await heldBehindStart('hello')
+      expect(acquire.mock.calls.at(-1)![0].permissionMode).toBe(mode)
+      await host.handleAdapterEvent(startedEvent())
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      await host.flushStreamedEvents(SESSION)
+      expect(store.getRecord(SESSION)?.permissionMode).toBe(mode)
+      await store.backfillChatPermissionModes(() => mode === 'ask')
+      expect(store.getRecord(SESSION)?.permissionMode).toBe(mode)
+    }
+  )
 })

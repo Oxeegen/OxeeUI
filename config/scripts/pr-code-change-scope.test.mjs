@@ -296,7 +296,7 @@ describe('per-job path classification', () => {
     )
     for (const file of [
       'src/main/runtime/structured-session-login-shell-test-harness.ts',
-      'src/main/runtime/structured-session-child-identity-env.ts'
+      'src/main/runtime/structured-session-child-env.ts'
     ]) {
       expectClassification([file], {
         shell_contracts: true,

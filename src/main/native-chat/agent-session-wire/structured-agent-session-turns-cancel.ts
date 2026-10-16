@@ -1,12 +1,11 @@
-import { agentChildWorkStopTargets } from '../../../shared/agent-child-work-stop-targets'
 import { agentSessionFailureFact } from '../../../shared/agent-session-failure'
-import type { AgentChildWorkView } from '../../../shared/agent-status-child-work-view'
 import { agentSessionFailureWords } from '../../../shared/agent-session-failure-words'
 import type {
   AgentJournalStatusItem,
   AgentJournalSubmission
 } from '../../../shared/agent-session-journal-types'
 import type { AgentSessionCancelResult } from '../../../shared/agent-session-wire'
+import { refuseUnclassified } from '../../../shared/agent-session-wire-refusals'
 import { latestJournalDispatchObservation } from '../agent-session-journal/journal-dispatch-observation'
 import type { AgentSessionCancelOutcome } from './structured-agent-session-adapter'
 import {
@@ -31,6 +30,10 @@ import { structuredAgentSessionFailedStopMark } from './structured-agent-session
 import { sendStopCanTakeBack } from './structured-agent-session-unopened-send-withdrawal'
 import { settleTakenStop } from './structured-agent-session-taken-stop-settle'
 import type { AgentSessionTurnContext, TurnOutcome } from './structured-agent-session-turns'
+import {
+  stopStructuredAgentSessionBackgroundWork,
+  type StructuredAgentSessionBackgroundStopInput
+} from './structured-agent-session-background-stop'
 
 /** Whether the fold reads working. Every write has landed by its call's return, so a Stop reads it
  *  without waiting on the write queue. */
@@ -122,12 +125,11 @@ export async function performCancel(
   }
 }
 
-type PerformCancelInput = {
+type PerformCancelInput = StructuredAgentSessionBackgroundStopInput & {
   clientOperationId: string
   /** Absent: whatever the conversation has in flight; present: only while that turn is current. */
   turnId?: string
   scope?: 'background-tasks'
-  taskId?: string
   prompt?: { itemId: string; expectedRevision: number }
   /** Ends the provider child, for a running command the provider did not take the Stop on, or a
    *  turn whose interrupt failed. */
@@ -143,8 +145,6 @@ type PerformCancelInput = {
   /** Whether the host's withdrawal of queued messages for this Stop withdrew any; awaited only
    *  after the interrupt. */
   withdrewQueued?: Promise<boolean>
-  /** The session's child records: a background Stop reaches the tasks they offer a stop. */
-  childWork?: () => readonly AgentChildWorkView[] | undefined
   /** The latest Stop event is this press's own, or the in-force one it repeats: its settle binds. */
   opensSettle?: true
 }
@@ -194,19 +194,29 @@ async function cancelAndNote(
   let stoppedTurn: string | undefined
   try {
     const dispatchStatus = latestJournalDispatchObservation(ctx.journal, ctx.fence)
+    const background =
+      input.scope && !stoppedBefore
+        ? await stopStructuredAgentSessionBackgroundWork(
+            ctx,
+            input,
+            () => ctx.journal.activeTurnId() === null && !isMainAgentWorking(ctx)
+          )
+        : undefined
+    // A background Stop writes no row, so a task the agent shows still running after it goes back
+    // to the client that pressed it.
+    if (background?.stillRunning) {
+      return {
+        ok: false,
+        refusal: refuseUnclassified(
+          'agent_session_operation_invalid',
+          'a background task still runs after its stop'
+        )
+      }
+    }
     const outcome: AgentSessionCancelOutcome = stoppedBefore
       ? { cancelled: false }
       : input.scope
-        ? {
-            cancelled:
-              (
-                await ctx.adapter.stopBackgroundTasks?.({
-                  sessionId: ctx.sessionId,
-                  fence: ctx.fence,
-                  taskIds: agentChildWorkStopTargets(input.childWork?.(), input.taskId)
-                })
-              )?.cancelled === true
-          }
+        ? { cancelled: background?.cancelled === true }
         : await ctx.adapter.cancelTurn({
             sessionId: ctx.sessionId,
             ...(input.turnId !== undefined ? { turnId: input.turnId } : {}),
@@ -237,6 +247,16 @@ async function cancelAndNote(
   } catch (error) {
     if (input.prompt) {
       throw error
+    }
+    // A timeout or lost contact proves nothing about the task: unconfirmed, never "not stopped".
+    if (input.scope) {
+      return {
+        ok: false,
+        refusal: refuseUnclassified(
+          'agent_session_operation_unknown',
+          `background task stop unconfirmed: ${error instanceof Error ? error.message : String(error)}`
+        )
+      }
     }
     interruptFailed = true
     // The adapter's error is Orca's; the row says only that the stop is unconfirmed.

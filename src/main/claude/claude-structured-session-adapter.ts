@@ -197,8 +197,7 @@ export class ClaudeStructuredSessionAdapter implements StructuredAgentSessionAda
       ...input,
       sessions: this.sessions,
       session: this.session(input.sessionId),
-      timeoutMs: this.deps.requestTimeoutMs,
-      publishChildWork: (session) => this.publishChildWork(input.sessionId, session)
+      timeoutMs: this.deps.requestTimeoutMs
     })
   /** The tracker's own roster, for the tests that compare it with the host's child records. No
    *  production code reads it: what runs, what a Stop reaches and what blocks a command are all

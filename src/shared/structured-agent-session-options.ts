@@ -1,8 +1,5 @@
-import type {
-  AgentSessionOptionCatalog,
-  CatalogModel,
-  CatalogOption
-} from './agent-session-option-catalog'
+import type { AgentSessionOptionCatalog, CatalogModel } from './agent-session-option-catalog'
+import { discoveredModel } from './structured-agent-session-discovered-model'
 import {
   buildNativeChatSessionOptionSnapshot,
   resolveEffectiveNativeChatModelId,
@@ -15,7 +12,12 @@ import {
   setTrackedSessionOption,
   type NativeChatSessionOptionRecord
 } from './native-chat-session-option-state'
-import { STRUCTURED_LAUNCH_SEED_OPTION_IDS } from './native-chat-session-option-defaults'
+import {
+  STRUCTURED_LAUNCH_OPTION_IDS,
+  STRUCTURED_LAUNCH_SEED_OPTION_IDS
+} from './native-chat-session-option-defaults'
+import { AGENT_CHAT_PERMISSION_MODE_OPTION_ID } from './agent-chat-permission-mode'
+import { structuredAgentSessionPermissionDescriptor } from './structured-agent-session-permission-option'
 import type { SessionOptionDescriptor, SessionOptionValue } from './native-chat-session-options'
 import type {
   AgentSessionModelCatalogResult,
@@ -25,51 +27,6 @@ import {
   decodeStructuredAgentSessionOptionValue,
   encodeStructuredAgentSessionOptionValue
 } from './structured-agent-session-option-codec'
-
-function effortOption(model: AgentSessionOptionsResult['models'][number]): CatalogOption | null {
-  if (model.efforts.length <= 1) {
-    return null
-  }
-  return {
-    id: 'effort',
-    label: 'Reasoning effort',
-    category: 'thought_level',
-    kind: {
-      type: 'select',
-      choices: model.efforts,
-      defaultValue: model.defaultEffort ?? model.efforts[0]!.value,
-      ...(model.defaultEffort ? { defaultIsCliDefault: true as const } : {})
-    },
-    apply: { midSession: { kind: 'command', build: (value) => `/effort ${String(value)}` } }
-  }
-}
-
-function fastModeOption(): CatalogOption {
-  return {
-    id: 'fastMode',
-    label: 'Fast mode',
-    category: 'mode',
-    kind: { type: 'boolean', defaultValue: false },
-    apply: {}
-  }
-}
-
-function discoveredModel(
-  model: AgentSessionOptionsResult['models'][number],
-  sessionSupportsFastMode: boolean
-): CatalogModel {
-  const effort = effortOption(model)
-  return {
-    id: model.id,
-    label: model.label,
-    ...(model.description ? { description: model.description } : {}),
-    ...(model.isDefault ? { isDefault: true } : {}),
-    options: [
-      ...(effort ? [effort] : []),
-      ...(sessionSupportsFastMode && model.supportsFastMode === true ? [fastModeOption()] : [])
-    ]
-  }
-}
 
 export function structuredAgentSessionOptionCatalog(
   seed: AgentSessionOptionCatalog,
@@ -95,6 +52,8 @@ export type StructuredAgentSessionOptionState = {
    *  same list once the host said it has none, usable but naming nothing the host may replace. */
   catalogSource: 'seed' | 'builtin' | 'host' | 'live' | null
   record: NativeChatSessionOptionRecord
+  /** The permission mode the host or launch last stated; null shows no picker. */
+  permissionMode: string | null
   pendingId: string | null
 }
 
@@ -108,6 +67,7 @@ export function createStructuredAgentSessionOptionState(
     catalog: seedCatalog ?? null,
     catalogSource: seedCatalog ? 'seed' : null,
     record: createNativeChatSessionOptionRecord(agent),
+    permissionMode: null,
     pendingId: null
   }
 }
@@ -170,19 +130,24 @@ export function applyStructuredAgentSessionOptions(
   if (result.current.fastMode === undefined) {
     clearTrackedSessionOption(state.record, result.current.model ?? null, 'fastMode')
   }
+  if (result.current.serviceTier === undefined) {
+    clearTrackedSessionOption(state.record, result.current.model ?? null, 'serviceTier')
+  }
   applyNativeChatReportedSessionOptions(
     state.record,
     {
       ...(result.current.model ? { model: result.current.model } : {}),
       ...(result.current.effort ? { effort: result.current.effort } : {}),
-      ...(result.current.fastMode !== undefined ? { fastMode: result.current.fastMode } : {})
+      ...(result.current.fastMode !== undefined ? { fastMode: result.current.fastMode } : {}),
+      ...(result.current.serviceTier ? { serviceTier: result.current.serviceTier } : {})
     },
     result.current.confirmed ?? []
   )
   return {
     ...state,
     catalog: structuredAgentSessionOptionCatalog(seed, result),
-    catalogSource: 'live'
+    catalogSource: 'live',
+    permissionMode: result.current.permissionMode ?? null
   }
 }
 
@@ -202,6 +167,12 @@ const PROVIDER_DEFAULT_MODEL_PLACEHOLDER: SessionOptionDescriptor = {
 export function structuredAgentSessionOptionSnapshot(
   state: StructuredAgentSessionOptionState
 ): SessionOptionDescriptor[] {
+  const permission = structuredAgentSessionPermissionDescriptor(state)
+  const options = modelOptionSnapshot(state)
+  return permission ? [...options, permission] : options
+}
+
+function modelOptionSnapshot(state: StructuredAgentSessionOptionState): SessionOptionDescriptor[] {
   if (!state.catalog) {
     return []
   }
@@ -255,6 +226,9 @@ export function commitStructuredAgentSessionOption(
   id: string,
   value: string
 ): StructuredAgentSessionOptionState {
+  if (id === AGENT_CHAT_PERMISSION_MODE_OPTION_ID) {
+    return { ...state, permissionMode: value, pendingId: null }
+  }
   if (!state.catalog) {
     return state
   }
@@ -276,7 +250,7 @@ export function commitStructuredAgentSessionOptionValues(
   values: Readonly<Record<string, string>>
 ): StructuredAgentSessionOptionState {
   let next = state
-  for (const id of STRUCTURED_LAUNCH_SEED_OPTION_IDS) {
+  for (const id of STRUCTURED_LAUNCH_OPTION_IDS) {
     const value = values[id]
     if (value !== undefined) {
       next = commitStructuredAgentSessionOption(next, id, value)

@@ -10,9 +10,12 @@ import type {
   AgentSessionSubscribeEvent
 } from '../../../shared/agent-session-wire'
 import type { QueuePublication } from './structured-agent-session-queued-publication'
+import { boundedFrames } from './agent-session-bounded-frames'
 
 export type SubscriberFieldState = {
   sessionId: string
+  /** Every frame to fit a phone's bridge frame; see `boundedFrames`. */
+  boundedFrames: boolean
   commands?: AgentSessionSlashCommand[] | null
   /** The last queue publication actually SENT. */
   queuePublication?: QueuePublication
@@ -28,8 +31,10 @@ export type SubscriberFieldHooks = {
 }
 
 export type SubscriberFrame = {
-  frame: AgentSessionSubscribeEvent
-  commands: AgentSessionSlashCommand[] | null
+  /** In order: one for most subscribers; for a bounded-frame one, its side lists follow. */
+  frames: AgentSessionSubscribeEvent[]
+  /** Undefined for a bounded-frame subscriber, which is never sent the list. */
+  commands: AgentSessionSlashCommand[] | null | undefined
   attachedQueued: boolean
   queued: QueuePublication | undefined
   /** The attached roster's fingerprint; undefined when the frame carries none. */
@@ -48,7 +53,9 @@ export function buildSubscriberFrame(
   event: AgentSessionSubscribeEvent,
   withholdQueued: boolean
 ): SubscriberFrame {
-  const commands = hooks.readCommands?.(subscriber.sessionId) ?? null
+  const commands = subscriber.boundedFrames
+    ? undefined
+    : (hooks.readCommands?.(subscriber.sessionId) ?? null)
   const includeCommands =
     hooks.readCommands !== undefined &&
     event.type !== 'end' &&
@@ -61,19 +68,24 @@ export function buildSubscriberFrame(
     event.type !== 'end' &&
     (event.type !== 'batch' || queued !== subscriber.queuePublication)
   const backgroundTasks = subscriberBackgroundTasks(hooks, subscriber, event)
+  const sideQueued = attachedQueued ? queued : undefined
   return {
-    frame: {
-      ...event,
-      ...(includeCommands ? { commands: commands ?? null } : {}),
-      ...(attachedQueued && queued
-        ? {
-            queuedMessages: queued.queuedMessages,
-            queuePause: queued.queuePause,
-            nextQueuedMessageId: queued.nextQueuedMessageId
+    frames: subscriber.boundedFrames
+      ? boundedFrames(event, { queued: sideQueued, backgroundTasks })
+      : [
+          {
+            ...event,
+            ...(includeCommands ? { commands: commands ?? null } : {}),
+            ...(sideQueued
+              ? {
+                  queuedMessages: sideQueued.queuedMessages,
+                  queuePause: sideQueued.queuePause,
+                  nextQueuedMessageId: sideQueued.nextQueuedMessageId
+                }
+              : {}),
+            ...(backgroundTasks !== undefined ? { backgroundTasks } : {})
           }
-        : {}),
-      ...(backgroundTasks !== undefined ? { backgroundTasks } : {})
-    },
+        ],
     commands,
     attachedQueued,
     queued,
@@ -99,6 +111,19 @@ function subscriberBackgroundTasks(
   return event.type !== 'batch' || subscriber.backgroundTasks === undefined
     ? hooks.readBackgroundTasks?.(subscriber.sessionId)
     : undefined
+}
+
+/** Whether the `/` list changed since this subscriber was last sent it. A bounded-frame subscriber
+ *  is never sent it: a phone reads it from `agentSession.options`. */
+export function subscriberCommandsChanged(
+  hooks: SubscriberFieldHooks,
+  subscriber: SubscriberFieldState
+): boolean {
+  return (
+    !subscriber.boundedFrames &&
+    hooks.readCommands !== undefined &&
+    (hooks.readCommands(subscriber.sessionId) ?? null) !== subscriber.commands
+  )
 }
 
 /** Whether a caught-up publish with no rows still owes this subscriber a frame:

@@ -24,7 +24,7 @@ export function readStructuredAgentSessionHistoryResult(input: {
   request: AgentSessionHistoryRequest
   scope?: AgentSessionHistoryScope
 }): AgentSessionHistoryResult {
-  const result = readAgentSessionHistory(input.journal, input.request, undefined, input.scope)
+  const result = readAgentSessionHistory(input.journal, input.request, { scope: input.scope })
   const fence = input.record?.lease.runtimeFence
   const providerSession = structuredAgentSessionProviderSessionMetadata(input.record)
   if (fence === undefined) {

@@ -106,6 +106,9 @@ export class StructuredAgentSessionClientDelivery {
   readChildWork = (sessionId: string): AgentChildWorkView[] | undefined =>
     this.statusFeed.readChildWork(sessionId)
 
+  childWorkIncomplete = (sessionId: string): boolean =>
+    this.statusFeed.childWorkIncomplete(sessionId)
+
   publishStatusAndSettlement = (sessionId: string): void => {
     this.statusFeed.publish(sessionId)
     const journal = this.sessions.get(sessionId)?.journal

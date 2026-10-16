@@ -24,8 +24,8 @@ import { createClaudeTurnOpener, type ClaudeTurnSource } from './claude-turn-ope
 
 export type ClaudeOpenTurnDeps = {
   sink: StructuredAgentSessionEventSink
-  /** Settles the superseded turn's children; they get no later event of their own. */
-  settleChildren: (groupKey: string | null) => void
+  /** The superseded turn's spawn calls get no announcement now. */
+  turnSuperseded: () => void
   /** Ends what the ending turn left open, at the instant it ended; no later frame will. */
   endOpenWork: (completedAt: number) => void
   /** A turn opening moves the conversation on. */
@@ -80,10 +80,6 @@ export class ClaudeOpenTurn {
       : AGENT_JOURNAL_THREAD_SCOPE
   }
 
-  get groupKey(): string | null {
-    return this.current ? `${this.current.sessionId}:${this.current.turnId}` : null
-  }
-
   get isOpen(): boolean {
     return this.current !== null
   }
@@ -112,7 +108,7 @@ export class ClaudeOpenTurn {
   open(turn: ClaudeCurrentTurn, observedAt: number): void {
     this.deps.onOpen?.()
     if (this.current) {
-      this.deps.settleChildren(this.groupKey)
+      this.deps.turnSuperseded()
       this.deps.endOpenWork(observedAt)
       this.publish(this.current, {
         state: 'interrupted',
@@ -130,7 +126,7 @@ export class ClaudeOpenTurn {
   beginCommand(turn: ClaudeCurrentTurn): void {
     this.deps.onOpen?.()
     if (this.current) {
-      this.deps.settleChildren(this.groupKey)
+      this.deps.turnSuperseded()
       this.deps.endOpenWork(turn.startedAt)
       this.publish(this.current, {
         state: 'interrupted',

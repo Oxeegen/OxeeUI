@@ -493,8 +493,8 @@ it('ends background work Claude runs when the Stop ends the child', async () => 
       ...background,
       state: 'done',
       membership: 'settled',
-      // Stopped with the chat, as a task's own stop reads: Interrupted, not an unknown ending.
-      outcome: 'cancelled'
+      // Claude accepted no Stop of this task: ending its process is loss of contact.
+      outcome: 'unknown'
     })
   ])
   expect(await agentStatus()).toEqual({

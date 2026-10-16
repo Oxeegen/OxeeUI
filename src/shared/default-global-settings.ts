@@ -139,6 +139,8 @@ export function buildDefaultSettings(args: {
     nativeChatInheritShellEnvironment: true,
     nativeChatShellEnvironmentVariables: [],
     nativeChatSessionOptions: {},
+    // The shipped Claude and Codex arguments carry their bypass flags.
+    nativeChatPermissionMode: 'full-access',
     openInApplications: [...DEFAULT_OPEN_IN_APPLICATIONS],
     rightSidebarOpenByDefault: true,
     showGitIgnoredFiles: true,

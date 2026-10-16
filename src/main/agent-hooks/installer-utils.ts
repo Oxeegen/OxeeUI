@@ -76,6 +76,9 @@ export function createManagedCommandMatcher(
     `agent-hooks/${scriptStem}.ps1`,
     `agent-hooks/${scriptStem}.sh`
   ]
+  // Why: 1.4.225/1.4.226 registered `orca-agent-hook.exe <agent>` on Windows; match it so this
+  // build replaces that entry instead of adding a second hook beside it.
+  const nativeHook = `agent-hooks/orca-agent-hook.exe ${scriptStem.replace(/-hook$/, '')} `
   return (command) => {
     if (!command) {
       return false
@@ -83,7 +86,10 @@ export function createManagedCommandMatcher(
     const decodedCommand = decodePowerShellEncodedCommand(command)
     const searchText = decodedCommand ? `${command}\n${decodedCommand}` : command
     const normalizedCommand = searchText.replaceAll('\\', '/')
-    return needles.some((needle) => normalizedCommand.includes(needle))
+    return (
+      needles.some((needle) => normalizedCommand.includes(needle)) ||
+      normalizedCommand.split('\n').some((line) => `${line} `.includes(nativeHook))
+    )
   }
 }
 

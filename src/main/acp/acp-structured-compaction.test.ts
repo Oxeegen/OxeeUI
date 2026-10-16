@@ -8,7 +8,7 @@ import {
 import { structuredAgentSessionCommandTurn } from '../native-chat/agent-session-wire/structured-agent-session-command-turn'
 import type { StructuredAgentSessionCommandRun } from '../native-chat/agent-session-wire/structured-agent-session-adapter'
 import { StructuredAgentRegistry } from '../native-chat/agent-session-wire/structured-agent-registry'
-import { structuredAgentSessionChildReportedSignedOut } from '../native-chat/agent-session-wire/structured-agent-session-signed-out-child'
+import { structuredAgentSessionChildReportedSignedOut } from '../native-chat/agent-session-wire/structured-agent-session-outgrown-child'
 import { ACP_LAUNCH_SPECS, acpLaunchSpecFor, type AcpLaunchSpec } from './acp-launch-specs'
 import { acpStructuredAgentDefinition } from './acp-structured-agent-definitions'
 import { GrokFixtureReplay } from './acp-structured-fixture-replay.test-support'

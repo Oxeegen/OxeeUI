@@ -39,6 +39,10 @@ jobs:
     permissions:
       contents: write
 
+    outputs:
+      publish_release: ${{ steps.release.outputs.publish_release }}
+      version: ${{ steps.release.outputs.version }}
+
     defaults:
       run:
         working-directory: mobile
@@ -232,3 +236,76 @@ jobs:
               android/app/build/outputs/apk/release/*.apk \
               "${{ steps.apk.outputs.checksum }}"
           fi
+
+  # Why a separate job: the release is already published here, so a failed bump only leaves
+  # the site's APK download on the previous release and must not fail the release run.
+  bump-apk-download:
+    needs: android-build
+    if: github.repository == 'stablyai/orca' && (needs.android-build.outputs.publish_release == 'true')
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      contents: read
+    env:
+      VERSION: ${{ needs.android-build.outputs.version }}
+      SITE_REPO: stablyai/orca-marketing-website
+      BRANCH: bump/android-apk-${{ needs.android-build.outputs.version }}
+    steps:
+      - name: Checkout orca
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: config/scripts
+
+      # Why the buf0-bot app, as in homebrew-bump.yml: GITHUB_TOKEN cannot push to another
+      # repo, and a PR it opened would not run the site's checks.
+      - name: Generate buf0-bot token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: 2590194
+          private-key: ${{ secrets.BUFO_BOT_PRIVATE_KEY }}
+          owner: stablyai
+          repositories: orca-marketing-website
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Checkout marketing site
+        uses: actions/checkout@v6
+        with:
+          repository: stablyai/orca-marketing-website
+          path: site
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Open the version bump PR
+        working-directory: site
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          node ../config/scripts/bump-android-apk-download-version.mjs src/lib/downloadTargets.ts "$VERSION"
+          if git diff --quiet; then
+            echo "The site's main branch already has Android APK $VERSION or newer." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          title="Point the Android APK download at $VERSION"
+          git config user.name "buf0-bot[bot]"
+          git config user.email "252831055+buf0-bot[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git commit -am "$title"
+          # Why --force: a rerun rebuilds the branch on the site's current main.
+          git push --force origin "$BRANCH"
+
+          # Why: a rerun of the same release reuses its open PR instead of opening another.
+          pr="$(gh pr list --repo "$SITE_REPO" --head "$BRANCH" --state open --json url --jq '.[].url')"
+          if [ -z "$pr" ]; then
+            pr="$(gh pr create --repo "$SITE_REPO" --base main --head "$BRANCH" --title "$title" \
+              --body "Opened by the [Android release run]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID) for mobile-android-v$VERSION. Merging points /download/android and every APK link on the site at the new APK.")"
+          fi
+          echo "Android APK download bump: $pr" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Report a failed bump
+        if: failure()
+        run: |
+          echo "::warning::The release is published, but the site's Android APK download was not bumped to $VERSION."
+          printf '### Android APK download not bumped\n\nThe release is published, but /download/android still serves the previous APK. Rerun this job, or set `ANDROID_RELEASE_VERSION` in `src/lib/downloadTargets.ts` of %s to `%s` by hand.\n' "$SITE_REPO" "$VERSION" >> "$GITHUB_STEP_SUMMARY"

@@ -192,6 +192,8 @@ jobs:
           id_token_include_email: true
 
       - uses: google-github-actions/setup-gcloud@v2
+        with:
+          skip_install: true
 
       - uses: ./.github/actions/cloud-sql-rollout-lease
         with:
@@ -345,6 +347,8 @@ jobs:
           service_account: ${{ vars.PRODUCTION_GCP_RELAY_DEPLOY_SERVICE_ACCOUNT }}
 
       - uses: google-github-actions/setup-gcloud@v2
+        with:
+          skip_install: true
 
       - uses: ./.github/actions/cloud-sql-rollout-lease
         with:

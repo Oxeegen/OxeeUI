@@ -73,14 +73,14 @@ describe('host prompt delivery and retirement', () => {
     ['failure', true]
   ] as const)(
     'withdraws the prompt beside %s (announced earlier: %s)',
-    (outcome, announcedEarlier) => {
+    async (outcome, announcedEarlier) => {
       const directory = mkdtempSync(join(tmpdir(), 'orca-prompt-retirement-'))
+      const controller = new RuntimeMobileNotificationController()
       try {
         let items = [USER, turn()]
         let sequence = 1
         const events: MobileNotificationEvent[] = []
         const legacy: AgentSessionTurnCompletionEvent[] = []
-        const controller = new RuntimeMobileNotificationController()
         controller.configureDismissalStore(directory)
         controller.onDispatched((event) => events.push(event))
         const delivery = createStructuredAttentionMobileDelivery({
@@ -164,6 +164,7 @@ describe('host prompt delivery and retirement', () => {
           Number(promptAnnounced) + (outcome === 'failure' ? 1 : 0)
         )
       } finally {
+        await controller.closeDismissals()
         rmSync(directory, { recursive: true, force: true })
       }
     }

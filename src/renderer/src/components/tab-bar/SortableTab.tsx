@@ -2,13 +2,13 @@ import { useCallback, useEffect, useState } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { X, Minimize2, Pin } from 'lucide-react'
 import { stripLeadingAgentTitleDecoration } from '../../../../shared/agent-title-decoration'
-import { useTabAgent } from '@/lib/use-tab-agent'
 import { getAgentLabel } from '@/lib/agent-catalog'
 import { basename } from '@/lib/path'
 import { isImeCompositionKeyDown } from '@/lib/ime-composition-keyboard-event'
 import { Input } from '@/components/ui/input'
 import { TabHoverCard } from './TabHoverCard'
 import type { TerminalTab } from '../../../../shared/terminal-tab-types'
+import type { TerminalAgent } from '../../../../shared/terminal-agent'
 import type { TabDragItemData } from '../tab-group/useTabDragSplit'
 import { useAppStore } from '../../store'
 import {
@@ -33,9 +33,18 @@ import {
   terminalTabHasUnreadActivity
 } from './terminal-tab-activity-status'
 import { CLOSE_ALL_CONTEXT_MENUS_EVENT } from '@/lib/close-all-context-menus'
+import type { NativeChatTabSession } from './tab-session-history-switch'
 
-type SortableTabProps = {
-  tab: TerminalTab
+/** What the strip draws for a terminal or native chat tab; never a source of agent identity. */
+type SortableTabModel = Pick<
+  TerminalTab,
+  'id' | 'worktreeId' | 'title' | 'customTitle' | 'color' | 'shellOverride' | 'launchAgent'
+>
+
+export type SortableTabProps = {
+  tab: SortableTabModel
+  /** The tab's agent, resolved by the caller from its own source of truth (pane signals or the chat's provider). */
+  agent: TerminalAgent | null
   unifiedTabId: string
   groupId: string
   tabCount: number
@@ -63,12 +72,13 @@ type SortableTabProps = {
   /** Toggle the tab between terminal and native chat view. */
   onToggleViewMode?: () => void
   canSplitTerminal?: boolean
-  /** Set only for a native chat tab: the chat session it shows. */
-  structuredSessionId?: string
+  /** Set only for a native chat tab. */
+  nativeChat?: NativeChatTabSession
 }
 
 export default function SortableTab({
   tab,
+  agent: tabAgent,
   unifiedTabId,
   groupId,
   tabCount,
@@ -93,7 +103,7 @@ export default function SortableTab({
   isChatView = false,
   onToggleViewMode,
   canSplitTerminal = true,
-  structuredSessionId
+  nativeChat
 }: SortableTabProps): React.JSX.Element {
   // Why: agent-completion unread exists even with terminal-attention off; collapse both sources to one primitive so unrelated tabs don't re-render.
   const hasUnreadActivity = useAppStore((s) =>
@@ -117,9 +127,6 @@ export default function SortableTab({
 
   // Why: shellOverride is stamped at create time, so changing the default shell later won't repaint existing tabs.
   const shellForIcon = tab.shellOverride
-
-  // Why: use hook status + title evidence so the icon reflects the harness running now, not just the launch command.
-  const tabAgent = useTabAgent(tab)
 
   // Why: with a provider icon shown, strip the agent's own leading glyph so the tab doesn't show two icons for one agent.
   const displayTitle =
@@ -412,7 +419,7 @@ export default function SortableTab({
         isChatView={isChatView}
         onToggleViewMode={onToggleViewMode}
         canSplitTerminal={canSplitTerminal}
-        structuredSessionId={structuredSessionId}
+        nativeChat={nativeChat}
       />
     </>
   )

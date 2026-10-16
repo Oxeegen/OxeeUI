@@ -1,5 +1,4 @@
 import { createCodexProviderActivityReader } from '../native-chat/agent-session-wire/provider-frame-activity'
-import { CODEX_TOKEN_USAGE_METHOD } from './codex-subagent-activity'
 import {
   CODEX_JOURNAL_ADMITTED,
   type CodexJournalTranslationAdmission,
@@ -17,6 +16,10 @@ import { publishCodexTurnLifecycle } from './codex-structured-journal-translatio
 import { codexProviderRetryRowBody, isCodexProviderRetryFrame } from './codex-provider-retry-row'
 import { createCodexThreadItemRouter } from './codex-structured-journal-thread-item-routing'
 import { codexThreadStoppedRunning, readCodexTurnId } from './codex-structured-thread-facts'
+import {
+  observeCodexExecutionFrame,
+  readCodexBackgroundTaskFrame
+} from './codex-background-task-frames'
 import type { CodexStructuredSessionEvent } from './codex-structured-session-adapter'
 
 export type {
@@ -42,7 +45,7 @@ export function createCodexJournalTranslator(
   const {
     activeTurns,
     commands,
-    subagents,
+    executions,
     attributionFor,
     genericFrames,
     items,
@@ -83,9 +86,7 @@ export function createCodexJournalTranslator(
   }
   const routeThreadItem = createCodexThreadItemRouter({
     deps,
-    subagents,
     items,
-    activeTurns,
     turnBoundaries,
     genericFrames
   })
@@ -122,7 +123,7 @@ export function createCodexJournalTranslator(
             primaryThreadId: deps.primaryThreadId?.() ?? null,
             compactions,
             items,
-            executions: subagents.executions
+            executions
           }),
         ...(deps.sessionId !== undefined
           ? {
@@ -140,6 +141,15 @@ export function createCodexJournalTranslator(
       })
     },
     handle: (event) => {
+      const primaryThreadId = deps.primaryThreadId?.() ?? null
+      if (event.type === 'notification' && primaryThreadId !== null) {
+        // Before any row: the rows this frame writes name the child run it starts.
+        observeCodexExecutionFrame(
+          executions,
+          readCodexBackgroundTaskFrame(event, primaryThreadId),
+          primaryThreadId
+        )
+      }
       if (event.type === 'ended') {
         const streamAdmission = flushStreams()
         if (!streamAdmission.accepted) {
@@ -172,11 +182,6 @@ export function createCodexJournalTranslator(
         })
         if (!admission.accepted) {
           return admission
-        }
-        // No event will ever settle a child once the provider is gone.
-        const sweep = subagents.settleSession()
-        if (!sweep.accepted) {
-          return sweep
         }
         readActivity = createCodexProviderActivityReader()
         deps.sink.setActivity?.(null)
@@ -212,10 +217,6 @@ export function createCodexJournalTranslator(
         return genericFrames.appendUnhandled(event.kind, event.payload, event.threadId)
       }
       if (event.method === 'turn/started' || event.method === 'turn/completed') {
-        const childAdmission = subagents.handleTurnEvent(event)
-        if (!childAdmission.accepted) {
-          return childAdmission
-        }
         const admission =
           event.method === 'turn/started'
             ? turnBoundaries.start(event)
@@ -232,14 +233,6 @@ export function createCodexJournalTranslator(
       const goal = goals.handle(event)
       if (goal) {
         return publishActivity(event, goal)
-      }
-      if (event.method === CODEX_TOKEN_USAGE_METHOD) {
-        // Classified `status-chrome`, so the generic-frame path swallows it
-        // before the journal. The roster consumes it as a typed notification.
-        const admission = subagents.handleTokenUsage(event.params)
-        if (admission) {
-          return admission
-        }
       }
       if (event.method === 'item/started' || event.method === 'item/completed') {
         const routed = routeThreadItem(event)
@@ -298,7 +291,6 @@ export function createCodexJournalTranslator(
       items.dispose()
       prompts.dispose()
       genericFrames.dispose()
-      subagents.dispose()
       turnBoundaries.clear()
       compactions.clear()
       goals.dispose()

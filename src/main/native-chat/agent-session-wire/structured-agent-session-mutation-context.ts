@@ -1,6 +1,7 @@
 // The context every client mutation of a session runs with, and the one path each takes: admit the
 // envelope against the lease, then run its plan inside the session's serialize.
 
+import type { AgentChildWorkEvidence } from '../../../shared/agent-status-child-work-evidence'
 import type {
   AgentSessionMutationEnvelope,
   AgentSessionMutationResult
@@ -29,6 +30,9 @@ export type StructuredAgentSessionMutationContext = {
   conversation: (sessionId: string) => Promise<StructuredAgentSessionHostSession>
   /** The session's child records, as the strip reads them; what command admission decides on. */
   readChildWork: (sessionId: string) => AgentChildWorkView[] | undefined
+  publishChildWork: (sessionId: string, evidence: AgentChildWorkEvidence[]) => void
+  /** Some of the session's running child work has no record. */
+  childWorkIncomplete: (sessionId: string) => boolean
   serialize: <T>(sessionId: string, task: () => Promise<T>) => Promise<T>
   /** The session's conversation, opened when closed; inside the caller's serialize. */
   openConversation: (sessionId: string) => Promise<StructuredAgentSessionHostSession | null>

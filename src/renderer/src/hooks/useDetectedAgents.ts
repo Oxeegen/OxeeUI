@@ -73,6 +73,14 @@ export function useDetectedAgents(
       : targetKind === 'runtime' && targetId
         ? `runtime:${targetId}`
         : null
+  // Why: a re-pair clears the record; re-running the effect re-probes for a surface still waiting.
+  const pairingRevision = useAppStore((s) => {
+    if (targetKind !== 'runtime' || !targetId) {
+      return undefined
+    }
+    const environment = s.runtimeEnvironments.find((entry) => entry.id === targetId)
+    return environment ? (environment.pairingRevision ?? environment.createdAt) : undefined
+  })
 
   const detectedIds = useAppStore((s) => {
     if (isUnknown) {
@@ -184,6 +192,7 @@ export function useDetectedAgents(
     targetKind,
     targetId,
     remoteTargetKey,
+    pairingRevision,
     detectedIds,
     localWorktreeId,
     localContextKey

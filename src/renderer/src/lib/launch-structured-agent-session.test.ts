@@ -188,7 +188,7 @@ describe('structured agent session launch', () => {
     try {
       expect(
         createStructuredAgentSessionLaunchIntent('workspace-1', 'codex', 'local').seedOptions
-      ).toEqual({ model: 'gpt-5.5' })
+      ).toEqual({ model: 'gpt-5.5', permissionMode: 'ask' })
       expect(
         createStructuredAgentSessionLaunchIntent('workspace-1', 'codex', 'runtime:server-1')
           .seedOptions
@@ -317,7 +317,7 @@ describe('structured agent session launch', () => {
       })
     try {
       expect(restore('runtime:server-1').seedOptions).toEqual({ model: 'opus' })
-      expect(restore('local').seedOptions).toEqual({ model: 'sonnet' })
+      expect(restore('local').seedOptions).toEqual({ model: 'sonnet', permissionMode: 'ask' })
     } finally {
       useAppStore.setState({ settings })
     }

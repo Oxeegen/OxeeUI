@@ -230,6 +230,37 @@ describe('registerAppHandlers', () => {
     expect(appExitMock).toHaveBeenCalledWith(0)
   })
 
+  it('runs exit-only cleanup after pre-relaunch cleanup on relaunch, never on restart', async () => {
+    let finishExitCleanup!: () => void
+    const onBeforeRelaunch = vi.fn()
+    const onBeforeRelaunchExit = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finishExitCleanup = resolve
+        })
+    )
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: relaunch and restart never read the store.
+    registerAppHandlers({} as never, { onBeforeRelaunch, onBeforeRelaunchExit })
+
+    await handlers.get('app:restart')?.(null)
+    await vi.advanceTimersByTimeAsync(150)
+    expect(onBeforeRelaunchExit).not.toHaveBeenCalled()
+
+    const relaunchPromise = Promise.resolve(handlers.get('app:relaunch')?.(null))
+    await vi.advanceTimersByTimeAsync(0)
+    expect(onBeforeRelaunchExit).toHaveBeenCalledOnce()
+    expect(onBeforeRelaunch.mock.invocationCallOrder.at(-1)).toBeLessThan(
+      onBeforeRelaunchExit.mock.invocationCallOrder[0]
+    )
+    await vi.advanceTimersByTimeAsync(150)
+    expect(appExitMock).not.toHaveBeenCalled()
+
+    finishExitCleanup()
+    await relaunchPromise
+    await vi.advanceTimersByTimeAsync(150)
+    expect(appExitMock).toHaveBeenCalledWith(0)
+  })
+
   it('marks restart as expected shutdown before quitting through the normal pipeline', async () => {
     const onBeforeRelaunch = vi.fn()
     registerAppHandlers({} as never, { onBeforeRelaunch })

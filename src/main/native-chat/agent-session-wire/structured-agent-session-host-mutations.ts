@@ -30,6 +30,7 @@ import {
   sendPreparation,
   structuredAgentSessionSendBlock
 } from './structured-agent-session-send-preparation'
+import { AGENT_CHAT_PERMISSION_MODE_OPTION_ID } from '../../../shared/agent-chat-permission-mode'
 import {
   cancelPlan,
   promptPlan,
@@ -46,7 +47,9 @@ export type { StructuredAgentSessionMutationContext } from './structured-agent-s
 import type { StructuredAgentSessionCaller } from './structured-agent-session-host-types'
 import {
   readStructuredAgentSessionOptions,
-  recordStructuredAgentSessionOptionIntent
+  IN_PROCESS_OPTIONS_READER,
+  recordStructuredAgentSessionOptionIntent,
+  type StructuredAgentSessionOptionsReader
 } from './structured-agent-session-options-read'
 
 export function sendStructuredAgentSessionTurn(
@@ -103,11 +106,25 @@ export function cancelStructuredAgentSessionTurn(
   }
 ): Promise<AgentSessionMutationResult<AgentSessionCancelResult>> {
   if (params.scope) {
+    const { sessionId } = params.envelope
     return mutateStructuredAgentSession(
       context,
       caller,
       params.envelope,
-      cancelPlan({ ...params, childWork: () => context.readChildWork(params.envelope.sessionId) }),
+      cancelPlan({
+        ...params,
+        childWork: () => context.readChildWork(sessionId),
+        acknowledgeStops: (evidence) => context.publishChildWork(sessionId, evidence),
+        // Untargeted, with work no record lists: the idle sweep's stop ends it with the agent.
+        ...(params.taskId === undefined
+          ? {
+              unlisted: {
+                present: () => context.childWorkIncomplete(sessionId),
+                stop: () => context.stopAgent(sessionId, { cause: 'evict', resting: true })
+              }
+            }
+          : {})
+      }),
       openForProviderWrite(context, params.envelope)
     )
   }
@@ -174,10 +191,14 @@ export async function setStructuredAgentSessionOption(
   caller: StructuredAgentSessionCaller,
   params: { envelope: AgentSessionMutationEnvelope; key: string; value: string }
 ): Promise<AgentSessionMutationResult<AgentSessionOptionResult>> {
-  // Outside the queue: a pick made while the provider starts then queues behind what its start persists.
-  await context.deps.adapter.awaitOptionWritable?.(params.envelope.sessionId)
+  // The permission mode is only ever the record's: the next start launches with it.
+  const recordOnly = params.key === AGENT_CHAT_PERMISSION_MODE_OPTION_ID
+  if (!recordOnly) {
+    // Outside the queue: a pick made while the provider starts then queues behind what its start persists.
+    await context.deps.adapter.awaitOptionWritable?.(params.envelope.sessionId)
+  }
   const plan = setOptionPlan(params)
-  const atRest = () => !context.sessions.get(params.envelope.sessionId)?.child
+  const atRest = () => recordOnly || !context.sessions.get(params.envelope.sessionId)?.child
   return mutateStructuredAgentSession(
     context,
     caller,
@@ -244,6 +265,10 @@ export function structuredAgentSessionMutationDelegates(
       caller: StructuredAgentSessionCaller,
       params: Parameters<typeof changeStructuredAgentSessionThreadGoal>[2]
     ) => changeStructuredAgentSessionThreadGoal(context(), caller, params),
-    readOptions: (sessionId: string) => readStructuredAgentSessionOptions(context(), sessionId)
+    // The RPC handler always names its client's reader; only in-process callers omit it.
+    readOptions: (
+      sessionId: string,
+      reader: StructuredAgentSessionOptionsReader = IN_PROCESS_OPTIONS_READER
+    ) => readStructuredAgentSessionOptions(context(), sessionId, reader)
   }
 }

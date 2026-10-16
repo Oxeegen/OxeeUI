@@ -1,6 +1,12 @@
 // The pieces every failure sentence is made of, in English. The host fills them in as they are;
 // desktop translates each piece whole with this as its fallback, so the two never differ.
 
+import {
+  CLAUDE_PROFILE_MISSING_MESSAGE,
+  CLAUDE_PROFILE_SETUP_FAILED_MESSAGE
+} from './claude-profile-routing'
+import type { AgentSessionRefusalReference } from './agent-session-wire-refusals'
+
 /** Sentences a refusal notice shows too, so a chat says them one way. */
 export const TERMINAL_AGENT_HOLDS_CHAT = 'This chat is still open in a terminal agent.'
 export const QUIT_TERMINAL_AGENT = 'Quit that agent to continue the chat here.'
@@ -22,6 +28,8 @@ export const AGENT_SESSION_FAILURE_COPY = {
   sendAgainToTryOnceMore: 'Send your message again to try once more.',
   couldNotStart: "{{agent}} couldn't start.",
   couldNotRestart: "{{agent}} couldn't restart.",
+  codexCliTooOld:
+    'Codex {{installedVersion}} is too old for chats. Update to {{minimumVersion}} or newer.',
   argumentsUnsupportedOption: 'Saved Arguments contain an unsupported option ({{option}}).',
   argumentsMissingValue: 'Saved Arguments need a value for {{option}}.',
   argumentsMultipleValues: 'Saved Arguments give {{option}} more than one value.',
@@ -59,6 +67,8 @@ export const AGENT_SESSION_FAILURE_COPY = {
     'The folder this chat ran in no longer exists. Restore it to continue this chat.',
   historyInOtherAccount:
     "This chat's history is in another Claude account. Switch back to that account to continue it.",
+  claudeAccountFolderMissing: CLAUDE_PROFILE_MISSING_MESSAGE,
+  claudeAccountSetupFailed: CLAUDE_PROFILE_SETUP_FAILED_MESSAGE,
   agentCommandNotRunnable:
     "{{agent}}'s Command in Settings → Agents must be a program path or name Orca can find, with no arguments or variables. Change it or reset it.",
   chooseClaudeAccount: 'Choose or add one in Claude Accounts settings.',
@@ -133,6 +143,8 @@ export type AgentSessionFailureCopyId = keyof typeof AGENT_SESSION_FAILURE_COPY
 
 /** What a piece's `{{name}}` placeholders stand for. */
 export type AgentSessionFailureCopyValues = {
+  installedVersion?: string
+  minimumVersion?: string
   agent?: string
   command?: string
   loginCommand?: string
@@ -150,6 +162,23 @@ export type AgentSessionFailureSay = (
   id: AgentSessionFailureCopyId,
   values?: AgentSessionFailureCopyValues
 ) => string
+
+export function codexInstallationFailureWords(
+  refusal: AgentSessionRefusalReference | undefined,
+  say: AgentSessionFailureSay
+): string | null {
+  const installation =
+    refusal?.code === 'agent_session_operation_invalid'
+      ? refusal.details?.codexInstallation
+      : undefined
+  return installation
+    ? say(installation.installedVersion === null ? 'cliMissing' : 'codexCliTooOld', {
+        agent: 'Codex',
+        installedVersion: installation.installedVersion ?? '',
+        minimumVersion: installation.minimumVersion
+      })
+    : null
+}
 
 /** The host's words, and any surface without translations. */
 export const sayAgentSessionFailureEnglish: AgentSessionFailureSay = (id, values = {}) => {

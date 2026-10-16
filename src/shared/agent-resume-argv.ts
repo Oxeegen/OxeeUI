@@ -78,17 +78,25 @@ export function getAgentResumeArgv(
   }
 }
 
-/** Opens a copy of the conversation under a new id, leaving the original untouched. Only the two
- *  agents native chat can own a conversation for, which is the only case that needs a fork. */
+/** Opens a copy of the conversation under a new id, leaving the original untouched: how a chat's
+ *  conversation continues in the CLI without a second writer. Only CLIs that can copy one. */
+const FORK_ARGV: Partial<
+  Record<ResumableTuiAgent, (providerSession: AgentProviderSessionMetadata) => string[] | null>
+> = {
+  claude: ({ id }) => ['claude', '--resume', id, '--fork-session'],
+  codex: ({ id }) => ['codex', 'fork', id],
+  grok: ({ id }) => ['grok', '--resume', id, '--fork-session'],
+  pi: ({ transcriptPath }) => (transcriptPath ? ['pi', '--fork', transcriptPath] : null)
+}
+
+export function agentForksConversations(agent: string): boolean {
+  return Object.hasOwn(FORK_ARGV, agent)
+}
+
 export function getAgentForkArgv(
   agent: ResumableTuiAgent,
   providerSession: AgentProviderSessionMetadata
 ): string[] | null {
-  if (providerSession.key !== 'session_id') {
-    return null
-  }
-  if (agent === 'claude') {
-    return ['claude', '--resume', providerSession.id, '--fork-session']
-  }
-  return agent === 'codex' ? ['codex', 'fork', providerSession.id] : null
+  const forkArgv = FORK_ARGV[agent]
+  return forkArgv && providerSession.key === 'session_id' ? forkArgv(providerSession) : null
 }

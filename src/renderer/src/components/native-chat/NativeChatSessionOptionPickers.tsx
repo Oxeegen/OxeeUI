@@ -1,6 +1,5 @@
 import { memo, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
-import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { SwitchIndicator } from '@/components/ui/switch'
 import {
@@ -32,9 +31,7 @@ import {
   nativeChatSessionOptionLabel
 } from './native-chat-session-option-labels'
 import type { NativeChatOptionPickerRequest } from './native-chat-composer-types'
-import { agentSessionThrownFailure } from '../../../../shared/agent-session-write-failure'
-import { RuntimeRpcCallError } from '@/runtime/runtime-rpc-result'
-import { agentSessionWriteFailureText } from './agent-session-write-notice-text'
+import { runSessionOptionSurfaceCall } from './native-chat-session-option-surface-call'
 import { NativeChatModelCombobox } from './NativeChatModelCombobox'
 import { useNativeChatPickerFocusReturn } from './native-chat-picker-focus-return'
 import { NativeChatSessionOptionChoiceBody } from './NativeChatSessionOptionChoiceBody'
@@ -190,38 +187,13 @@ function DescriptorMenuRows(props: {
           disabled={!descriptor.settable || pending}
         >
           <NativeChatSessionOptionChoiceBody
-            label={nativeChatSessionChoiceLabel(choice)}
+            label={nativeChatSessionChoiceLabel(choice, descriptor.id)}
             description={choice.description}
           />
         </DropdownMenuRadioItem>
       ))}
     </DropdownMenuRadioGroup>
   )
-}
-
-/** A host's error is words for its log, so it gets the table's; a local surface's error is
- *  already written for the person. */
-function optionUpdateFailureDescription(error: unknown): string {
-  if (error instanceof RuntimeRpcCallError) {
-    return agentSessionWriteFailureText(agentSessionThrownFailure(error, error.code), 'option')
-  }
-  return error instanceof Error ? error.message : String(error)
-}
-
-function runSurfaceCall(
-  pendingKey: string,
-  setPendingId: (id: string | null) => void,
-  call: () => Promise<unknown>
-): void {
-  setPendingId(pendingKey)
-  void call()
-    .catch((error) => {
-      toast.error(
-        translate('components.native-chat.composer.optionUpdateFailed', 'Could not update option'),
-        { description: optionUpdateFailureDescription(error) }
-      )
-    })
-    .finally(() => setPendingId(null))
 }
 
 function NativeChatSessionOptionPickersInner({
@@ -245,10 +217,14 @@ function NativeChatSessionOptionPickersInner({
     : null
 
   const setOption = (descriptor: SessionOptionDescriptor, value: SessionOptionValue): void => {
-    runSurfaceCall(descriptor.id, setPendingId, () => surface.setOption(descriptor.id, value))
+    runSessionOptionSurfaceCall(descriptor.id, setPendingId, () =>
+      surface.setOption(descriptor.id, value)
+    )
   }
   const invokeAction = (descriptor: SessionOptionDescriptor): void => {
-    runSurfaceCall(descriptor.id, setPendingId, () => surface.invokeAction(descriptor.id))
+    runSessionOptionSurfaceCall(descriptor.id, setPendingId, () =>
+      surface.invokeAction(descriptor.id)
+    )
   }
 
   const modelReason = nativeChatSessionOptionDisabledReason(model.disabledReason)

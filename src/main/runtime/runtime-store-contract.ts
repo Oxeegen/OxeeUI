@@ -127,6 +127,7 @@ export type RuntimeStore = {
     hostSettingOverrides?: GlobalSettings['hostSettingOverrides']
     agentSkillSharingEnabled?: GlobalSettings['agentSkillSharingEnabled']
     nativeChatSessionOptions?: GlobalSettings['nativeChatSessionOptions']
+    nativeChatPermissionMode?: GlobalSettings['nativeChatPermissionMode']
     nativeChatInlineVisuals?: GlobalSettings['nativeChatInlineVisuals']
     nativeChatInheritShellEnvironment?: GlobalSettings['nativeChatInheritShellEnvironment']
     nativeChatShellEnvironmentVariables?: GlobalSettings['nativeChatShellEnvironmentVariables']

@@ -1,11 +1,24 @@
 import { describe, expect, it } from 'vitest'
-import { getAgentForkArgv } from './agent-resume-argv'
+import { agentForksConversations, getAgentForkArgv } from './agent-resume-argv'
 import { buildAgentResumeStartupPlan } from './tui-agent-startup'
 
 const SESSION = { key: 'session_id', id: 's1' } as const
 
 describe('agent fork startup', () => {
-  it('forks Claude and Codex and nothing else', () => {
+  it('forks with each CLI that can copy a conversation', () => {
+    expect(getAgentForkArgv('grok', SESSION)).toEqual(['grok', '--resume', 's1', '--fork-session'])
+    expect(getAgentForkArgv('pi', { ...SESSION, transcriptPath: '/s/a.jsonl' })).toEqual([
+      'pi',
+      '--fork',
+      '/s/a.jsonl'
+    ])
+    expect(getAgentForkArgv('pi', SESSION)).toBeNull()
+    expect(getAgentForkArgv('opencode', SESSION)).toBeNull()
+    expect(getAgentForkArgv('omp', SESSION)).toBeNull()
+    expect(agentForksConversations('constructor')).toBe(false)
+  })
+
+  it('forks Claude and Codex', () => {
     expect(getAgentForkArgv('claude', SESSION)).toEqual([
       'claude',
       '--resume',

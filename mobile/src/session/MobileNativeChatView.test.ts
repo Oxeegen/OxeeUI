@@ -6,6 +6,7 @@ import { MobileNativeChatView } from './MobileNativeChatView'
 
 const scrollToEnd = vi.hoisted(() => vi.fn())
 const scrollToOffset = vi.hoisted(() => vi.fn())
+const platform = vi.hoisted(() => ({ OS: 'ios' }))
 
 vi.mock('react-native', async () => {
   const React = await import('react')
@@ -15,6 +16,7 @@ vi.mock('react-native', async () => {
       React.useImperativeHandle(ref, () => ({ scrollToEnd, scrollToOffset }), [])
       return React.createElement('FlatList', props)
     }),
+    Platform: platform,
     Pressable: 'Pressable',
     StyleSheet: { create: (styles: unknown) => styles, hairlineWidth: 1 },
     Text: 'Text',
@@ -593,30 +595,23 @@ describe('MobileNativeChatView', () => {
     expect(scrollToOffset).toHaveBeenLastCalledWith({ animated: false, offset: 1_200 })
   })
 
-  it('keeps a history load detached after its triggering drag settles', async () => {
+  it('resumes following when the drag that paged in history ends at the tail', async () => {
     vi.useFakeTimers()
     try {
+      // A chat shorter than the screen: its top and its tail are the same place.
+      const shortChat = {
+        contentOffset: { y: 0 },
+        contentSize: { height: 400 },
+        layoutMeasurement: { height: 500 }
+      }
       const folded = [assistantTurn('a1', 'Short history')]
       const onLoadEarlier = vi.fn()
       await render({ folded, hasMore: true, onLoadEarlier })
-      scrollToEnd.mockClear()
 
       act(() => {
         list().props.onScrollBeginDrag?.({})
-        list().props.onScroll({
-          nativeEvent: {
-            contentOffset: { y: 0 },
-            contentSize: { height: 400 },
-            layoutMeasurement: { height: 500 }
-          }
-        })
-        list().props.onScrollEndDrag?.({
-          nativeEvent: {
-            contentOffset: { y: 0 },
-            contentSize: { height: 400 },
-            layoutMeasurement: { height: 500 }
-          }
-        })
+        list().props.onScroll({ nativeEvent: shortChat })
+        list().props.onScrollEndDrag?.({ nativeEvent: shortChat })
       })
       await act(async () => {
         vi.advanceTimersByTime(200)
@@ -624,14 +619,128 @@ describe('MobileNativeChatView', () => {
       act(() => list().props.onContentSizeChange(320, 950))
 
       expect(onLoadEarlier).toHaveBeenCalledOnce()
-      expect(scrollToEnd).not.toHaveBeenCalled()
+      expect(scrollToOffset).toHaveBeenLastCalledWith({ animated: false, offset: 950 })
+      expect(
+        renderer!.root.findAll((node) => node.props.accessibilityLabel === 'Scroll to latest')
+      ).toHaveLength(0)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('pages in history only from a scroll the reader made', async () => {
+    const onLoadEarlier = vi.fn()
+    await render({ folded: [assistantTurn('a1', 'Latest')], hasMore: true, onLoadEarlier })
+    const nearTop = {
+      nativeEvent: {
+        contentOffset: { y: 40 },
+        contentSize: { height: 520 },
+        layoutMeasurement: { height: 500 }
+      }
+    }
+
+    // The tail pin of a chat barely taller than the screen reports an offset near the top too.
+    act(() => list().props.onScroll(nearTop))
+    expect(onLoadEarlier).not.toHaveBeenCalled()
+
+    act(() => {
+      list().props.onScrollBeginDrag?.({})
+      list().props.onScroll(nearTop)
+    })
+    expect(onLoadEarlier).toHaveBeenCalledOnce()
+  })
+
+  it('anchors the first visible row, which the header above it is not', async () => {
+    const folded = [assistantTurn('a1', 'History')]
+    await render({ folded, hasMore: true })
+    expect(list().props.maintainVisibleContentPosition).toEqual({ minIndexForVisible: 1 })
+
+    await update({ folded, hasMore: false })
+    expect(list().props.maintainVisibleContentPosition).toEqual({ minIndexForVisible: 0 })
+  })
+
+  describe('on the page, where the list reports no drag or momentum', () => {
+    beforeEach(() => {
+      platform.OS = 'web'
+    })
+
+    afterEach(() => {
+      platform.OS = 'ios'
+    })
+
+    function scrolledTo(y: number, contentHeight: number) {
+      return {
+        nativeEvent: {
+          contentOffset: { y },
+          contentSize: { height: contentHeight },
+          layoutMeasurement: { height: 500 }
+        }
+      }
+    }
+
+    it('stops following when the reader scrolls up, and resumes at the end', async () => {
+      await render({ folded: [assistantTurn('a1', 'Latest')] })
+      act(() => {
+        list().props.onContentSizeChange(320, 1_000)
+        list().props.onScroll(scrolledTo(500, 1_000))
+      })
+      scrollToOffset.mockClear()
+
+      // No drag event arrives on the page: the move up is all there is to go on.
+      act(() => {
+        list().props.onScroll(scrolledTo(300, 1_000))
+        list().props.onContentSizeChange(320, 1_200)
+      })
       expect(scrollToOffset).not.toHaveBeenCalled()
       expect(
         renderer!.root.findAll((node) => node.props.accessibilityLabel === 'Scroll to latest')
       ).toHaveLength(1)
-    } finally {
-      vi.useRealTimers()
-    }
+
+      act(() => {
+        list().props.onScroll(scrolledTo(700, 1_200))
+        list().props.onContentSizeChange(320, 1_400)
+      })
+      expect(scrollToOffset).toHaveBeenLastCalledWith({ animated: false, offset: 1_400 })
+    })
+
+    it('does not take its own pin, landing short of a grown end, for the reader', async () => {
+      await render({ folded: [assistantTurn('a1', 'Latest')] })
+      act(() => {
+        list().props.onContentSizeChange(320, 1_000)
+        list().props.onScroll(scrolledTo(500, 1_000))
+      })
+      scrollToOffset.mockClear()
+
+      // The pin reached the end it was sent to; the reply had grown 400 past it by then.
+      act(() => {
+        list().props.onScroll(scrolledTo(700, 1_600))
+        list().props.onContentSizeChange(320, 1_600)
+      })
+
+      expect(scrollToOffset).toHaveBeenLastCalledWith({ animated: false, offset: 1_600 })
+    })
+
+    it('pins a resized viewport to the measured end, never the list estimate', async () => {
+      await render({ folded: [assistantTurn('a1', 'Latest')] })
+      act(() => list().props.onContentSizeChange(320, 1_000))
+      scrollToEnd.mockClear()
+
+      act(() => list().props.onLayout?.({}))
+
+      expect(scrollToEnd).not.toHaveBeenCalled()
+      expect(scrollToOffset).toHaveBeenLastCalledWith({ animated: false, offset: 1_000 })
+    })
+
+    it('pages in history when the reader scrolls up to the top, not when a pin passes it', async () => {
+      const onLoadEarlier = vi.fn()
+      await render({ folded: [assistantTurn('a1', 'Latest')], hasMore: true, onLoadEarlier })
+
+      act(() => list().props.onScroll(scrolledTo(40, 540)))
+      expect(onLoadEarlier).not.toHaveBeenCalled()
+
+      act(() => list().props.onScroll(scrolledTo(10, 540)))
+      expect(onLoadEarlier).toHaveBeenCalledOnce()
+    })
   })
 
   it('routes an accepted send through the immediate nonanimated tail owner', async () => {

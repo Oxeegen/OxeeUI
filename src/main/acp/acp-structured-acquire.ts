@@ -14,14 +14,9 @@ import {
   type StructuredAgentSessionAcquireInput
 } from '../native-chat/agent-session-wire/structured-agent-session-adapter'
 import { providerTimelineSink } from '../native-chat/agent-session-timeline/provider-timeline-plan'
-import {
-  providerSpawnedProcessIdentity,
-  PROVIDER_SPAWN_TOKEN_ENV
-} from '../provider-process/provider-spawned-process-identity'
-import { structuredSessionChildIdentityEnv } from '../runtime/structured-session-child-identity-env'
+import { providerSpawnedProcessIdentity } from '../provider-process/provider-spawned-process-identity'
 import { AcpAgentError } from './acp-errors'
 import { acpAuthenticationRequired, acpSignInRequiredRefusal } from './acp-turn-failures'
-import { ACP_CHILD_ENV_TO_DELETE } from './acp-launch-specs'
 import {
   ACP_REOPEN_FAILED,
   acpReopenTakeover,
@@ -31,7 +26,7 @@ import type { AcpSessionEvent } from './acp-session-runtime'
 import type { AcpStructuredConnection } from './acp-structured-connection'
 import { ACP_HANDLE_TRANSPORT, acpAgentName } from './acp-structured-agent-definitions'
 import { AcpStructuredLane, acpLaneChildWorkDelivery } from './acp-structured-lane'
-import { probeAcpChildStop } from './acp-structured-child-stop'
+import { NO_ACP_CHILD_STOPS, probeAcpChildStops } from './acp-structured-child-stop'
 import type { AcpStructuredLaunch } from './acp-structured-launch-resolution'
 import { AcpStructuredOptions, restoreAcpSessionOptions } from './acp-structured-options'
 import { AcpStructuredPrompts } from './acp-structured-prompts'
@@ -83,7 +78,7 @@ export async function acquireAcpStructuredSession(input: {
   }
   closedBeforeSpawn()
   const launch: AcpStructuredLaunch = await deps
-    .resolveLaunch({ identity: acquire.identity })
+    .resolveLaunch({ identity: acquire.identity, spawnToken: acquire.spawnToken })
     .catch((error: unknown) => {
       throw new AgentSessionPreSpawnError(error)
     })
@@ -118,11 +113,8 @@ export async function acquireAcpStructuredSession(input: {
       command: launch.command,
       args: launch.args,
       cwd: launch.cwd,
-      env: {
-        ...structuredSessionChildIdentityEnv(sessionId, launch.env),
-        [PROVIDER_SPAWN_TOKEN_ENV]: acquire.spawnToken
-      },
-      envToDelete: [...ACP_CHILD_ENV_TO_DELETE, ...launch.envToDelete]
+      env: launch.env,
+      envToDelete: launch.envToDelete
     },
     {
       clientInfo: { name: 'orca', version: '1' },
@@ -185,7 +177,7 @@ export async function acquireAcpStructuredSession(input: {
     deps.readProcessStartTime
   )
   /** `attaching`: the lane opens inside the attach window, before any frame queued so far. */
-  let subagentStopSupported = false
+  let childStops = NO_ACP_CHILD_STOPS
   const makeLane = (providerSessionId: string, attaching = false): AcpStructuredLane => {
     const lane = new AcpStructuredLane({
       sink,
@@ -196,7 +188,7 @@ export async function acquireAcpStructuredSession(input: {
       providerSessionId,
       dialect: spec.dialect,
       now,
-      canStopSubagents: () => subagentStopSupported,
+      childStops: () => childStops,
       ...acpLaneChildWorkDelivery(deps, sessionId),
       logger: deps.logger ?? createStructuredAgentSessionLogger(),
       onInputAccepted: (clientMessageId) => session?.turns.accept(clientMessageId),
@@ -261,7 +253,7 @@ export async function acquireAcpStructuredSession(input: {
       started = await connection.start({ cwd: launch.cwd, mcpServers: [], ...auth })
       liveLane = makeLane(started.sessionId)
     }
-    subagentStopSupported = await probeAcpChildStop(connection, spec.dialect)
+    childStops = await probeAcpChildStops(connection, spec.dialect)
     options.adoptSession(started.response, started.kind === 'new' ? 'new' : 'loaded')
     liveLane.apply(liveLane.translator.contextModels(started.response.models, now()))
     const restoreSkipped = await restoreAcpSessionOptions(connection, options, acquire.options)
@@ -280,7 +272,7 @@ export async function acquireAcpStructuredSession(input: {
       fence: acquire.fence,
       acquisitionGeneration: generation,
       spec,
-      subagentStopSupported,
+      childStops,
       connection,
       lane: liveLane,
       prompts,

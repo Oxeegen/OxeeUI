@@ -22,7 +22,6 @@ import {
   codexProviderHandleLink,
   codexSpawnedProcessIdentity
 } from './codex-structured-owner-identity'
-import { codexStructuredChildEnvironment } from './codex-structured-child-environment'
 import { openCodexThread } from './codex-structured-thread-open'
 import { withCodexVisualsThreadConfig } from './codex-structured-visuals'
 import {
@@ -31,14 +30,8 @@ import {
 } from './codex-structured-session-close'
 import { restoredCodexSessionOptions } from './codex-structured-session-options'
 import { startBackgroundCodexCatalogRefresh } from './codex-structured-background-catalog'
-import {
-  codexAcquireCatalogAccess,
-  codexAcquireFastModeCatalog
-} from './codex-structured-acquire-catalog'
-import {
-  reconcileCodexFastModeOption,
-  reportedCodexThreadOptions
-} from './codex-structured-fast-mode'
+import { codexAcquireCatalogAccess } from './codex-structured-acquire-catalog'
+import { reportedCodexThreadOptions } from './codex-structured-service-tier'
 import {
   assertCodexConnectionOpen,
   codexSessionLifecycle,
@@ -121,7 +114,11 @@ export async function acquireCodexStructuredSession(input: {
     }
     acquisitions.assertCurrent(sessionId, attempt)
     const launch = await deps
-      .resolveLaunch({ identity: acquireInput.identity })
+      .resolveLaunch({
+        identity: acquireInput.identity,
+        spawnToken: acquireInput.spawnToken,
+        ...(acquireInput.permissionMode ? { permissionMode: acquireInput.permissionMode } : {})
+      })
       .catch((error: unknown) => {
         throw new AgentSessionPreSpawnError(error)
       })
@@ -132,7 +129,8 @@ export async function acquireCodexStructuredSession(input: {
         command: launch.command,
         args: launch.args,
         cwd: launch.cwd,
-        ...codexStructuredChildEnvironment(launch, acquireInput.spawnToken, sessionId)
+        ...(launch.env ? { env: launch.env } : {}),
+        ...(launch.envToDelete ? { envToDelete: launch.envToDelete } : {})
       },
       {
         onNotification: codexAcquisitionNotificationHandler({
@@ -222,11 +220,6 @@ export async function acquireCodexStructuredSession(input: {
     acquisitions.assertCurrent(sessionId, attempt)
     const options = restoredCodexSessionOptions(acquireInput.options)
     const catalogAccess = codexAcquireCatalogAccess(deps, launch)
-    const fastModeCatalog = codexAcquireFastModeCatalog({
-      catalogAccess,
-      opened,
-      restoreNeedsCatalog: options.get('fastMode') === 'true' || options.has('serviceTier')
-    })
     acquisitions.assertCurrent(sessionId, attempt)
     assertCodexConnectionOpen(connection, sessionId)
     acquisitions.deleteIfCurrent(sessionId, attempt)
@@ -255,17 +248,6 @@ export async function acquireCodexStructuredSession(input: {
           reason
         ),
       ...(unbindReadingControl ? { unbindReadingControl } : {})
-    }
-    if (fastModeCatalog) {
-      // The model the next turn sends, as turn/start and the background refresh resolve it.
-      const model = options.get('model') ?? opened.model ?? fastModeCatalog.result.current.model
-      reconcileCodexFastModeOption(session, {
-        fastModeTierByModel: fastModeCatalog.fastModeTierByModel,
-        currentFastMode: true,
-        model,
-        modelFastModeSupport: fastModeCatalog.result.models.find((entry) => entry.id === model)
-          ?.supportsFastMode
-      })
     }
     sessions.set(sessionId, session)
     for (const event of acquisition.drain()) {

@@ -261,6 +261,7 @@ async function renderSortableTab({
   const module = await import('./SortableTab')
   return module.default({
     tab: makeTerminalTab() as never,
+    agent: null,
     unifiedTabId: 'terminal-tab-1',
     groupId: 'group-1',
     tabCount: 1,

@@ -24,6 +24,11 @@ import type { TerminalSnapshot, TerminalModes } from './types'
 import type { TerminalOscLinkRange } from '../../shared/terminal-osc-link-ranges'
 import type { TerminalCursorContext } from '../../shared/terminal-composer-draft'
 import { readTerminalCursorLineContext } from '../../shared/terminal-cursor-line-context'
+import {
+  readHeadlessTerminalRows,
+  readHeadlessTerminalLines,
+  type HeadlessTerminalRow
+} from './headless-terminal-rows'
 
 export type HeadlessEmulatorOptions = {
   cols: number
@@ -300,12 +305,15 @@ export class HeadlessEmulator {
   }
 
   getVisibleLines(): string[] {
-    const buffer = this.terminal.buffer.active
-    const lines: string[] = []
-    for (let row = buffer.viewportY; row < buffer.viewportY + this.terminal.rows; row += 1) {
-      lines.push(buffer.getLine(row)?.translateToString(true) ?? '')
-    }
-    return lines
+    return readHeadlessTerminalLines(this.terminal)
+  }
+
+  getVisibleRows(): HeadlessTerminalRow[] {
+    return readHeadlessTerminalRows(this.terminal)
+  }
+
+  getBufferTailRows(limit: number): HeadlessTerminalRow[] {
+    return readHeadlessTerminalRows(this.terminal, limit)
   }
 
   getVisibleBufferRange(): { start: number; endExclusive: number; totalLength: number } {
@@ -323,13 +331,7 @@ export class HeadlessEmulator {
   }
 
   getBufferTailLines(limit: number): string[] {
-    const buffer = this.terminal.buffer.active
-    const start = Math.max(0, buffer.length - Math.max(0, Math.floor(limit)))
-    const lines: string[] = []
-    for (let row = start; row < buffer.length; row += 1) {
-      lines.push(buffer.getLine(row)?.translateToString(true) ?? '')
-    }
-    return lines
+    return readHeadlessTerminalLines(this.terminal, limit)
   }
 
   getCwd(): string | null {

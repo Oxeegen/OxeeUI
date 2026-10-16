@@ -25,6 +25,7 @@ import { useMobileStructuredSessionHostStopping } from './use-mobile-structured-
 import { useMobileStructuredPromptResponses } from './use-mobile-structured-prompt-responses'
 import type { StructuredAgentSessionHostSupport } from './mobile-structured-agent-session-host-support'
 import { useMobileStructuredAgentOptions } from './use-mobile-structured-agent-options'
+import { useMobileStructuredSessionOptionStamp } from './use-mobile-structured-session-option-stamp'
 import { useMobileStructuredAgentTurnTiming } from './use-mobile-structured-agent-turn-timing'
 import {
   pendingStructuredPromptIdentity,
@@ -91,13 +92,19 @@ export function useMobileStructuredAgentSession(args: {
     onSendError
   })
 
+  const optionStamp = useMobileStructuredSessionOptionStamp({
+    client,
+    sessionId,
+    enabled: enabled && connected && hostSupport?.statusFeed === true
+  })
   const options = useMobileStructuredAgentOptions({
     agent,
     client,
     sessionId,
     enabled,
     fence: state.fence,
-    mutate
+    mutate,
+    optionStamp
   })
   const { conversationCommands, invokeStructuredOption, optionSnapshot, setStructuredOption } =
     options

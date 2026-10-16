@@ -30,6 +30,8 @@ import { readCommandStdout, readKeyboardInputSourceId } from './macos-keyboard-i
 
 type RegisterAppHandlersOptions = {
   onBeforeRelaunch?: () => void | Promise<void>
+  /** Only for app:relaunch, whose app.exit(0) is committed and skips will-quit. */
+  onBeforeRelaunchExit?: () => void | Promise<void>
 }
 
 async function pickFloatingMarkdownDocument(
@@ -151,6 +153,7 @@ export function registerAppHandlers(store: Store, options: RegisterAppHandlersOp
   ipcMain.handle('app:relaunch', async () => {
     // Why: brief delay lets the renderer paint "Restarting…" before the window tears down.
     await runBeforeRelaunchCleanup(options.onBeforeRelaunch)
+    await runBeforeRelaunchCleanup(options.onBeforeRelaunchExit)
     setTimeout(() => {
       // Why: app.exit(0) skips before-quit, so destroy the Windows tray manually to avoid a stale icon.
       destroySystemTray()

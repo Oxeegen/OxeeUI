@@ -7,7 +7,10 @@ import { buildClaudeChildProcessEnv } from './claude-child-process-environment'
 import * as claudeConnection from './claude-stream-json-connection'
 import type { AgentSessionJournalIdentity } from '../../shared/agent-session-journal-types'
 import { resolveSessionFilePath } from '../native-chat/session-file-resolver'
-import { CLAUDE_STRUCTURED_BASE_OPTIONS } from './claude-structured-launch-resolution'
+import {
+  CLAUDE_STRUCTURED_BASE_OPTIONS,
+  claudeStructuredPermissionOptions
+} from './claude-structured-launch-resolution'
 import { readClaudeInit } from './claude-structured-init-proof'
 import {
   realClaudeAuthenticated,
@@ -38,17 +41,25 @@ function realAdapter(
   waitsForStartup = true
 ): ClaudeStructuredSessionAdapter {
   const adapter = new ClaudeStructuredSessionAdapter({
-    resolveLaunch: async () => ({
-      pathToClaudeCodeExecutable: command,
-      options: { ...CLAUDE_STRUCTURED_BASE_OPTIONS, sessionId: providerSessionId },
-      cwd,
-      env,
-      claudeConfigDir,
-      providerSessionId,
-      resumeLeafUuid: null,
-      resumesTranscript: false,
-      continuesChain: false
-    }),
+    resolveLaunch: async ({ permissionMode }) => {
+      const permission = claudeStructuredPermissionOptions(permissionMode ?? 'ask')
+      return {
+        pathToClaudeCodeExecutable: command,
+        options: {
+          ...CLAUDE_STRUCTURED_BASE_OPTIONS,
+          ...permission,
+          extraArgs: { ...CLAUDE_STRUCTURED_BASE_OPTIONS.extraArgs, ...permission.extraArgs },
+          sessionId: providerSessionId
+        },
+        cwd,
+        env,
+        claudeConfigDir,
+        providerSessionId,
+        resumeLeafUuid: null,
+        resumesTranscript: false,
+        continuesChain: false
+      }
+    },
     onEvent: (event) => events.push(event),
     ...(onDispatchSettledLate ? { onDispatchSettledLate } : {}),
     readProcessStartTime: async () => 1,
@@ -399,11 +410,15 @@ describe.skipIf(!realClaudeAvailable)(suiteTitle, () => {
     120_000
   )
 
-  // The contract a chat's first message depends on: saved options ride the launch, and the
-  // message is written as soon as the child is published, before the CLI answers initialize.
-  it.skipIf(!realClaudeAuthenticated)(
-    'runs a message written before initialize answers, under the saved options it was launched with',
-    async () => {
+  // The contract a chat's first message depends on: saved options and the chat's permission mode
+  // ride the launch, and the message is written as soon as the child is published, before the CLI
+  // answers initialize.
+  it.skipIf(!realClaudeAuthenticated).each([
+    ['accept-edits', 'acceptEdits'],
+    ['full-access', 'bypassPermissions']
+  ] as const)(
+    'runs a message written before initialize answers, launched with saved options and %s',
+    async (permissionMode, cliPermissionMode) => {
       const providerSessionId = randomUUID()
       const claudeConfigDir = process.env.CLAUDE_CONFIG_DIR?.trim() || join(homedir(), '.claude')
       const events: ClaudeStructuredSessionEvent[] = []
@@ -424,7 +439,8 @@ describe.skipIf(!realClaudeAvailable)(suiteTitle, () => {
           identity: identity(providerSessionId),
           fence: 1,
           spawnToken: 'real-cli-saved-options',
-          options: { model: 'sonnet', permissionMode: 'plan', effort: 'low' }
+          options: { model: 'sonnet', effort: 'low' },
+          permissionMode
         })
         const dispatched = await adapter.dispatch({
           sessionId: 'real-cli-handshake',
@@ -453,7 +469,7 @@ describe.skipIf(!realClaudeAvailable)(suiteTitle, () => {
         // The turn's own init names what the child was launched with.
         expect(messages().find((m) => m.type === 'system' && m.subtype === 'init')).toMatchObject({
           model: 'claude-sonnet-5',
-          permissionMode: 'plan'
+          permissionMode: cliPermissionMode
         })
       } finally {
         await adapter.closeAll()

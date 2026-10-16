@@ -1,3 +1,4 @@
+import { createClaudeStructuredLaunchResolver } from '../runtime/structured-agent-launch-composition.test-support'
 import { describe, expect, it, vi } from 'vitest'
 import type { AgentSessionJournalIdentity } from '../../shared/agent-session-journal-types'
 import { agentSessionRecordFixture } from '../native-chat/agent-session-record-test-fixture'
@@ -11,7 +12,6 @@ import {
   CLAUDE_PLUGIN_DIR_FLAG,
   type ClaudeCliFlag
 } from './claude-cli-flag-support'
-import { createClaudeStructuredLaunchResolver } from './claude-structured-launch-resolution'
 
 const SESSION_ID = 'orca-session-visuals'
 const VISUALS: NativeChatVisualsLaunch = {
@@ -39,7 +39,7 @@ function launch(options: {
     store: { getRecord: () => record, pinLaunchDirectory: vi.fn() },
     resolveWorkspacePath: async (id) => `/repos/${id}`,
     resolveCommand: () => '/usr/local/bin/claude',
-    resolveAuthPolicy: () => ({ stripAuthEnv: false }),
+    resolveAuthPolicy: () => ({ account: 'system' }),
     resolveLaunchArgs: () => options.launchArgs ?? [],
     resolveEnv: () => options.env ?? {},
     hasTranscript: async () => false,

@@ -32,6 +32,7 @@ import {
 } from './structured-agent-session-provider-child'
 import type { DeferredStructuredAgentSessionEventSink } from './structured-agent-session-event-sink'
 import { noteStructuredAgentSessionProviderStarted } from './structured-agent-session-provider-started'
+import { structuredAgentSessionLaunchPermission } from './structured-agent-session-launch-permission'
 import type { AgentSessionJournal } from '../agent-session-journal/journal-store'
 import { isStructuredAgentSessionStartupExpired } from './structured-agent-session-startup-attempt'
 import type { StructuredAgentSessionStartupAttempt } from './structured-agent-session-startup-attempt-contract'
@@ -198,11 +199,15 @@ async function runAttachUnderAbort(
       now: () => context.now(),
       recordPhase,
       acquireSignal,
+      onStartCatalogListing: (listing) =>
+        context.deps.modelCatalog?.recordLiveListing(sessionId, listing),
       onStartupAttempt: (startup) => {
         attempt.startup = startup
         return startupAttempts.track(sessionId, startup)
       },
       optionRevision: () => context.runtimeState.optionRevisions.current(sessionId),
+      launchPermissionMode: async (record) =>
+        (await structuredAgentSessionLaunchPermission(context.deps, record)) ?? undefined,
       ...(options.onAcquisitionFailed ? { onAcquisitionFailed: options.onAcquisitionFailed } : {}),
       openConversation: async (record) => {
         const conversation = await context.openConversation(record.sessionId, {
@@ -220,6 +225,10 @@ async function runAttachUnderAbort(
         const fence = structuredAgentSessionConversationFence(context.deps.store, sessionId)
         const current = context.sessions.get(sessionId)?.child ?? null
         const startedFor = acquiredOwner ? options.startedFor : current?.startedFor
+        // A re-attach to a live child keeps the mode that child was launched with.
+        const permissionMode = acquiredOwner
+          ? attempt.startup?.permissionMode
+          : current?.permissionMode
         // A re-attach to a live child keeps the sink that child already writes through.
         const eventSink = acquiredOwner
           ? attemptSink
@@ -232,6 +241,7 @@ async function runAttachUnderAbort(
             fence,
             acquisitionGeneration,
             deathEvidence: priorDeathEvidence,
+            replaced: context.deps.store.replacedRuntime(sessionId),
             failureTextContext: structuredAgentSessionFailureWordsContext(priorRecord)
           })
         }
@@ -245,7 +255,8 @@ async function runAttachUnderAbort(
             fence,
             // A re-attach to a live child keeps what that child already proved, and its cause.
             phase: acquiredOwner ? providerChildPhase : (current?.phase ?? 'ready'),
-            ...(startedFor === undefined ? {} : { startedFor })
+            ...(startedFor === undefined ? {} : { startedFor }),
+            ...(permissionMode === undefined ? {} : { permissionMode })
           }
         }
         await recoverStructuredRewind(

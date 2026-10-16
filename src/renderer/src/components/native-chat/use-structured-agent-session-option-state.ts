@@ -47,6 +47,8 @@ export function useStructuredAgentSessionOptionState(args: {
   seedsModel: boolean
   providerVisible: boolean
   providerStarting: boolean
+  /** The option values the host's status carries: a pick made on another device moves it. */
+  hostOptionStamp: string
   readsBeforeStart: boolean
   turnId: string | null
   unloadedTurnRevisions: number | undefined
@@ -54,6 +56,7 @@ export function useStructuredAgentSessionOptionState(args: {
   const {
     agent,
     fence,
+    hostOptionStamp,
     identity,
     newLaunch,
     optionCatalog,
@@ -71,6 +74,7 @@ export function useStructuredAgentSessionOptionState(args: {
     commands: readonly AgentSessionConversationCommand[]
     threadGoal: AgentSessionOptionsResult['threadGoal']
     contextUsage: AgentSessionOptionsResult['contextUsage']
+    acceptsImages: boolean | undefined
     rewind: AgentSessionRewindSupport
     /** The fence the read answered for; rewind support is only that runtime's. */
     fence: number | null
@@ -115,10 +119,12 @@ export function useStructuredAgentSessionOptionState(args: {
       ...(launch.worktree ? { worktree: launch.worktree } : {})
     })
     // A host answer is the account's, not the fence's: keep it rather than blank the default.
-    const next =
+    const kept =
       sameSession && (previous.catalogSource === 'host' || previous.catalogSource === 'builtin')
         ? { ...seeded, catalog: previous.catalog, catalogSource: previous.catalogSource }
         : seeded
+    // The chat's own, which a restart for a new mode keeps: the picker never blanks between them.
+    const next = sameSession ? { ...kept, permissionMode: previous.permissionMode } : kept
     optionMutationGeneration.current += 1
     pendingOptionRef.current = null
     optionStateRef.current = next
@@ -147,6 +153,7 @@ export function useStructuredAgentSessionOptionState(args: {
           commands: result.conversationCommands ?? [],
           threadGoal: result.threadGoal,
           contextUsage: result.contextUsage,
+          acceptsImages: result.acceptsImages,
           // A host that predates rewind does not name it.
           rewind: result.rewind ?? { supported: false, reason: 'unsupported' },
           fence
@@ -167,6 +174,8 @@ export function useStructuredAgentSessionOptionState(args: {
   }, [
     fence,
     optionCatalog,
+    // Another device's pick moves it.
+    hostOptionStamp,
     providerStarting,
     providerVisible,
     readsBeforeStart,
@@ -186,8 +195,12 @@ export function useStructuredAgentSessionOptionState(args: {
     }
   }, [contextRefresh])
 
+  // An options answer made before the account's listing landed listed none of it.
+  const rereadOptions = useCallback(() => optionsReadRef.current?.run(), [])
+
   return {
     conversationSupport,
+    rereadOptions,
     optionState,
     optionStateRef,
     activeOptionRecordRef,

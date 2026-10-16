@@ -86,6 +86,7 @@ export type NativeChatComposerFieldProps = {
   contextUsage?: NativeChatContextUsageSummary | null
   sessionOptionsPickerRequest?: NativeChatOptionPickerRequest | null
   goalMode?: NativeChatComposerGoalMode
+  agent?: string
 }
 
 export type NativeChatComposerImageAttachment = {
@@ -170,7 +171,8 @@ export function NativeChatComposerField({
   sessionOptionsSnapshot,
   contextUsage,
   sessionOptionsPickerRequest,
-  goalMode
+  goalMode,
+  agent
 }: NativeChatComposerFieldProps): React.JSX.Element {
   const draftNotSaved = useNativeChatComposerDraftUnsaved(draftScopeKey)
   const optionCount =
@@ -382,6 +384,7 @@ export function NativeChatComposerField({
                 sessionOptionsPickerRequest={sessionOptionsPickerRequest}
                 focusComposer={focusComposer}
                 onExitGoalMode={goalMode?.active ? goalMode.exit : undefined}
+                {...(agent ? { agent } : {})}
               />
             </div>
           </div>

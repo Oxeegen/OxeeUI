@@ -128,19 +128,6 @@ jobs:
           echo "Resolved $REQUESTED_REF -> $sha"
           echo "sha=$sha" >>"$GITHUB_OUTPUT"
 
-  # Why its own job: this package ships relays for Windows SSH hosts, and only a
-  # Windows runner compiles the addon that launches one outside sshd's job.
-  # Why the unvetted ref is safe here: this job holds no secrets, and the mac job
-  # vets the same ref before it downloads anything, so fork code never gets signed.
-  relay-windows-process-tree:
-    if: github.repository == 'stablyai/orca'
-    needs: resolve-ref
-    permissions:
-      contents: read
-    uses: ./.github/workflows/relay-windows-process-tree.yml
-    with:
-      ref: ${{ needs.resolve-ref.outputs.sha }}
-
   # Why: a branch cut before the orcad template landed has none to build or ship.
   orcad-template-support:
     if: github.repository == 'stablyai/orca'
@@ -158,8 +145,17 @@ jobs:
           ref: ${{ needs.resolve-ref.outputs.sha }}
           sparse-checkout: |
             /config/scripts/packaged-orcad-template.cjs
+            /config/tsconfig.relay.json
           sparse-checkout-cone-mode: false
           persist-credentials: false
+      # Why: a relay-era ref (before #27215) needs the Windows relay addon this build no longer compiles.
+      - name: Refuse a ref that still ships the SSH relay
+        shell: bash
+        run: |
+          if [[ -e config/tsconfig.relay.json ]]; then
+            echo "::error::This ref predates #27215 and still ships the SSH relay; build a commit at or after 2b4b60a87e."
+            exit 1
+          fi
       - name: Detect whether the ref ships the orcad template
         id: detect
         shell: bash
@@ -173,8 +169,8 @@ jobs:
 
   # Design D2, as release-cut does: every desktop build ships the orcad template (server JS plus
   # every target's addons), merged from the node-server lanes that qualify each slot at this ref.
-  # Without it an adhoc build cannot deploy managed orcad to an SSH host. No secrets, like the
-  # relay job, and the mac job vets the ref before anything is signed.
+  # Without it an adhoc build cannot deploy managed orcad to an SSH host. No secrets, and the mac
+  # job vets the ref before anything is signed.
   orcad-template:
     needs: [resolve-ref, orcad-template-support]
     if: github.repository == 'stablyai/orca' && (needs.orcad-template-support.outputs.ships == 'true')
@@ -186,11 +182,10 @@ jobs:
       build_template: true
 
   build-adhoc-mac:
-    needs: [resolve-ref, relay-windows-process-tree, orcad-template-support, orcad-template]
+    needs: [resolve-ref, orcad-template-support, orcad-template]
     # Why not the implicit success(): a ref without the orcad template skips that job on purpose.
     if: >-
       !cancelled() && github.repository == 'stablyai/orca' &&
-      needs.relay-windows-process-tree.result == 'success' &&
       needs.orcad-template-support.result == 'success' &&
       (needs.orcad-template.result == 'success' ||
         (needs.orcad-template.result == 'skipped' &&
@@ -302,6 +297,18 @@ jobs:
             pnpm-lock.yaml
             mobile/pnpm-lock.yaml
 
+      # Why: packaging bundles the pinned Node into the macOS terminal host. Keyed on the pin alone
+      # with no restore-keys, so a pin bump starts empty instead of carrying old archives forward.
+      - name: Locate the pinned Node runtime cache
+        shell: bash
+        run: echo "ORCA_NODE_RUNTIME_CACHE_DIR=$HOME/Library/Caches/orca-node-runtime" >>"$GITHUB_ENV"
+
+      - name: Cache the pinned Node runtime
+        uses: actions/cache@v5
+        with:
+          path: ~/Library/Caches/orca-node-runtime
+          key: orca-node-runtime-mac-${{ hashFiles('src/shared/node-runtime-pin.ts') }}
+
       - name: Cache electron-builder downloads
         uses: actions/cache@v5
         with:
@@ -373,14 +380,6 @@ jobs:
           fi
           cat "$RUNNER_TEMP/adhoc-identity.txt" >>"$GITHUB_OUTPUT"
 
-      # Only a Windows runner compiles these; the relay-windows-process-tree job
-      # built them for this run.
-      - name: Collect the Windows process-table addons for the relay
-        uses: actions/download-artifact@v8
-        with:
-          name: relay-windows-process-tree
-          path: .build/windows-process-tree
-
       - name: Build app
         run: pnpm build:release
         env:
@@ -389,9 +388,6 @@ jobs:
           # gate accepts only 'stable' or 'rc', so leaving this unset keeps them
           # silent, which is correct for unvetted branch artifacts.
           ORCA_DIAGNOSTICS_TOKEN_URL: https://www.onorca.dev/diagnostics/token
-          # Fail the build rather than ship a relay that cannot launch outside
-          # sshd's job for a standard user on a Windows SSH host.
-          ORCA_REQUIRE_RELAY_NATIVE_ADDONS: x64,arm64
 
       # After the app build so nothing that cleans out/ can drop it; electron-builder ships it.
       - name: Download the orcad deployment template
@@ -468,7 +464,7 @@ jobs:
           timeout_minutes: 45
           max_attempts: 2
           retry_wait_seconds: 30
-          command: node config/scripts/ensure-native-runtime.mjs --runtime=electron && ORCA_MAC_ADHOC=1 pnpm exec electron-builder --config config/electron-builder.config.cjs --mac --publish always
+          command: node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON config/scripts/pinned-node-downloads.mjs darwin-arm64 darwin-x64 && node config/scripts/ensure-native-runtime.mjs --runtime=electron && ORCA_MAC_ADHOC=1 pnpm exec electron-builder --config config/electron-builder.config.cjs --mac --publish always
         env:
           # Why: electron-builder's github publisher targets the repo named in the
           # config; the token must therefore carry write access to orca-adhoc.

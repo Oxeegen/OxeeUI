@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import {
   flushOrcadProfileStoreForShutdown,
@@ -166,5 +168,17 @@ describe('orcad profile-state shutdown', () => {
 
     await expect(flushOrcadProfileStoreForShutdown(store)).rejects.toBe(flushError)
     expect(freezeWritesAsync).toHaveBeenCalledOnce()
+  })
+})
+
+describe('orcad runtime cleanup order', () => {
+  // Booting orcad here would need its whole runtime; the wiring is pinned by the entry point's text.
+  it('closes notification dismissals in a cleanup that runs after RPC stops', () => {
+    const entry = readFileSync(join(import.meta.dirname, 'orcad-entry.ts'), 'utf8')
+    const close = entry.indexOf('registerCleanup(() => runtime.closeNotificationDismissals())')
+    const rpcStop = entry.indexOf('registerCleanup(() => rpc.stop())')
+    expect(close).toBeGreaterThan(-1)
+    // Cleanups run in reverse registration order.
+    expect(close).toBeLessThan(rpcStop)
   })
 })

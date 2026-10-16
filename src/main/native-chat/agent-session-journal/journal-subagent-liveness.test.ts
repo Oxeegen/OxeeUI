@@ -15,10 +15,7 @@ import type {
   NativeChatBackgroundTaskBlock,
   NativeChatSubagentEntry
 } from '../../../shared/native-chat-types'
-import {
-  codexSubagentGroupBody,
-  codexSubagentGroupIdentity
-} from '../../codex/codex-subagent-roster'
+import { subagentGroupFallbackText } from '../../../shared/native-chat-subagent-summary'
 import type { openAgentSessionJournal } from './journal-store-factory'
 import { createTrackedJournalOpener } from './journal-host-database-test-support'
 import { lostLiveWorkJournalBody, staleSubagentRosterRevisions } from './journal-subagent-liveness'
@@ -55,11 +52,18 @@ async function open(overrides: Partial<Parameters<typeof openAgentSessionJournal
   })
 }
 
-/** The row as the producer writes it: the structured block plus its twin. */
+/** A grouped row as an earlier build wrote it: the structured block plus its twin. */
 function rosterRow(agents: NativeChatSubagentEntry[]) {
   return {
-    identity: codexSubagentGroupIdentity(GROUP_ID),
-    body: codexSubagentGroupBody(GROUP_ID, agents)
+    identity: { provider: 'orca' as const, clientMessageId: `codex-subagents:${GROUP_ID}` },
+    body: {
+      kind: 'message' as const,
+      role: 'system' as const,
+      blocks: [
+        { type: 'text' as const, text: subagentGroupFallbackText(agents) },
+        { type: 'subagent-group' as const, groupId: GROUP_ID, agents }
+      ]
+    }
   }
 }
 
@@ -306,10 +310,12 @@ describe('journal reopen after the writing host is gone', () => {
 
     // The host dies without ever settling them — no `ended`, so no session sweep.
     await live.close()
+    clock += 3_600_000
 
     const reopened = await open()
     const afterRestart = reopened.snapshot().items.at(-1)!
     expect(afterRestart.itemId).toBe(beforeRestart.itemId)
+    expect(afterRestart.recovered).toBe(true)
     expect(rosterOf(afterRestart.body)).toMatchObject([
       { id: 'a', state: 'unverifiable' },
       { id: 'b', state: 'unverifiable' }

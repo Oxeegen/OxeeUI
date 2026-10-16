@@ -134,8 +134,10 @@ function renderItemsNow(structuredSessionId?: string): void {
         <DropdownMenuTrigger>Open</DropdownMenuTrigger>
         <DropdownMenuContent>
           <TabSessionSurfaceSwitchMenuItems
-            tab={{ id: 'tab-1', worktreeId: 'wt-1', launchAgent: 'claude' }}
-            structuredSessionId={structuredSessionId}
+            tab={{ id: 'tab-1', worktreeId: 'wt-1' }}
+            nativeChat={
+              structuredSessionId ? { sessionId: structuredSessionId, agent: 'claude' } : undefined
+            }
             leadingSeparator
           />
         </DropdownMenuContent>
@@ -202,11 +204,16 @@ describe('TabSessionSurfaceSwitchMenuItems', () => {
     mocks.listSessions.mockResolvedValue(listResult([CHAT_ROW]))
     mocks.subject = CLI_SUBJECT
     mocks.move = { action: 'resume-in-new-chat', worktreeId: 'wt-1' }
+    // The real gate refuses a chat-owned row (pinned in tab-session-history-switch.parity.test.ts).
+    mocks.resolveSwitch.mockImplementation((_state: unknown, session: AiVaultSession) =>
+      session.structuredSession ? null : mocks.move
+    )
     renderItemsNow()
 
     expect(screen.queryByRole('menuitem')).toBeNull()
     await act(async () => {})
     expect(mocks.listSessions).toHaveBeenCalledWith(expect.objectContaining({ force: undefined }))
+    expect(mocks.resolveSwitch).toHaveBeenCalledWith(expect.anything(), CHAT_ROW, CLI_SUBJECT)
     expect(screen.queryByRole('menuitem')).toBeNull()
   })
 

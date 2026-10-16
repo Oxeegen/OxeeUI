@@ -171,6 +171,36 @@ describe('buildMobileNativeChatTransientData', () => {
     expect(folded.map((message) => message.id)).toEqual(['failure', 'sentence', 'a1'])
   })
 
+  it('draws a turn’s subagents, each written as its own row, as one roster row', () => {
+    const own = (id: string): NativeChatMessage => ({
+      id: `subagent:${id}`,
+      role: 'system',
+      blocks: [
+        { type: 'text', text: `Kicked off subagent ${id}` },
+        { type: 'subagent', id, label: id, state: 'working', groupId: 'turn-1' }
+      ],
+      timestamp: 0,
+      source: 'transcript'
+    })
+    const folded = foldMobileNativeChatMessages([
+      user('u1', 'audit'),
+      own('a'),
+      assistant('a1', 'started'),
+      own('b')
+    ])
+    expect(folded.map((message) => message.id)).toEqual(['u1', 'subagent:a', 'a1'])
+    expect(folded[1]?.blocks).toEqual([
+      {
+        type: 'subagent-group',
+        groupId: 'turn-1',
+        agents: [
+          { id: 'a', label: 'a', state: 'working' },
+          { id: 'b', label: 'b', state: 'working' }
+        ]
+      }
+    ])
+  })
+
   it('renders a lone image marker turn (no caption) as an image-ref block', () => {
     const data = build([user('u1', '[Image: source: /tmp/a.png]')], null, [])
     expect(data[0]?.blocks).toEqual([{ type: 'image-ref', path: '/tmp/a.png' }])

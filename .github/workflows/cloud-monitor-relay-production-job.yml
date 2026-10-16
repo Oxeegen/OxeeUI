@@ -102,6 +102,8 @@ jobs:
           id_token_include_email: true
 
       - uses: google-github-actions/setup-gcloud@v2
+        with:
+          skip_install: true
 
       - name: Verify exact-audience admin identity
         env:

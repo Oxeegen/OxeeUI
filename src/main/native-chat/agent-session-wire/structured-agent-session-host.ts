@@ -9,7 +9,6 @@ import { StructuredConversationCommandController } from './structured-conversati
 import type { AgentJournalSnapshot } from '../../../shared/agent-session-journal-types'
 import type { AgentSessionExecutionLocation } from '../../../shared/agent-session-record'
 import type * as SessionWire from '../../../shared/agent-session-wire'
-import type { AgentSessionAttachParams } from './structured-agent-session-attach'
 import { createRestartReconciler } from './structured-agent-session-restart-reconcile'
 import type { AgentSessionSubscribeInput } from './structured-agent-session-subscribers'
 import { StructuredAgentSessionTaskQueue } from './structured-agent-session-task-queue'
@@ -17,7 +16,7 @@ import * as providerSupport from './structured-agent-session-provider-support'
 import * as reveal from './structured-agent-session-reveal'
 import { structuredAgentSessionOwnerStatus } from './structured-agent-session-owner-status'
 import { StructuredAgentSessionHostRuntimeState } from './structured-agent-session-host-runtime-state'
-import { attachStructuredAgentSession } from './structured-agent-session-attach-orchestration'
+import { structuredAgentSessionEntryDelegates } from './structured-agent-session-create'
 import type { StructuredAgentSessionLifetimeContext } from './structured-agent-session-host-lifetime'
 import * as agentStart from './structured-agent-session-agent-start'
 import {
@@ -102,7 +101,8 @@ export class StructuredAgentSessionHost {
       this.sessions,
       this.subscribers,
       (sessionId) => this.lifetime.conversation(sessionId),
-      this.clientDelivery.readChildWork
+      this.clientDelivery.readChildWork,
+      this.clientDelivery.childWorkIncomplete
     )
     this.runtimeState = new StructuredAgentSessionHostRuntimeState(
       deps,
@@ -125,7 +125,7 @@ export class StructuredAgentSessionHost {
       ensureProviderChild: (sessionId, startedFor) =>
         agentStart.ensureStructuredAgentSessionAgent(this.attachContext(), sessionId, startedFor),
       // Put to rest like an idle agent: the stop writes nothing, and the next start is new.
-      stopSignedOutAgent: (id) => this.lifetime.stopAgent(id, { cause: 'evict', resting: true }),
+      stopOutgrownAgent: (id) => this.lifetime.stopAgent(id, { cause: 'evict', resting: true }),
       clientDelivery: this.clientDelivery
     })
     this.restore = reveal.createStructuredAgentSessionHostRestore(deps, {
@@ -244,13 +244,9 @@ export class StructuredAgentSessionHost {
 
   private serialize = this.tasks.serialize.bind(this.tasks)
 
-  attach(
-    caller: StructuredAgentSessionCaller,
-    params: AgentSessionAttachParams,
-    options?: Parameters<typeof attachStructuredAgentSession>[3]
-  ): Promise<SessionWire.AgentSessionMutationResult<SessionWire.AgentSessionAttachResult>> {
-    return attachStructuredAgentSession(this.attachContext(), caller.callerKey, params, options)
-  }
+  private readonly entry = structuredAgentSessionEntryDelegates(() => this.attachContext())
+  attach = this.entry.attach
+  create = this.entry.create
 
   /** Test barrier: every write has landed by its call's return, so no production path needs it. */
   flushStreamedEvents = (id: string): Promise<void> => this.runtimeState.flushEventSink(id)
@@ -281,6 +277,8 @@ export class StructuredAgentSessionHost {
       publish: (sessionId, journal) => this.subscribers.publish(sessionId, journal),
       conversation: this.lifetime.conversation,
       readChildWork: this.clientDelivery.readChildWork,
+      publishChildWork: this.clientDelivery.publishChildWork,
+      childWorkIncomplete: this.clientDelivery.childWorkIncomplete,
       serialize: (sessionId, task) => this.serialize(sessionId, task),
       openConversation: this.conversationDelivery.open,
       ensureAgent: (sessionId) =>

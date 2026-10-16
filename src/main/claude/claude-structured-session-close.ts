@@ -119,12 +119,8 @@ async function finalizeClaudePublishedSession(
     rootExitVerdict = cleanupError
   }
   // Queues the session's ending for the host's child records; the adapter delivers it after close.
-  // A proven close stopped what still ran: on POSIX the whole tree was seen gone; on Windows Claude
-  // left after its stdin ended, or taskkill reported its tree terminated. Any other end, like an
-  // exit of the session's own, leaves how it ended unknown.
-  if (connectionClosed === true) {
-    session.childWork.stopLive()
-  }
+  // Even a proven close is Orca losing contact, not a Stop the CLI accepted: what still ran ends
+  // with no outcome anyone reported.
   session.childWork.clear()
   session.backgroundTasks.clear()
   // The exit is proven, so the session ends now. Saving its resume point is bookkeeping that

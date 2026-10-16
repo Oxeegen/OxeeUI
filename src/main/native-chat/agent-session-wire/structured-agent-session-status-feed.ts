@@ -17,6 +17,7 @@ import type {
   AgentSessionStatusSummary
 } from '../../../shared/agent-session-wire'
 import type { AgentChildWorkEvidence } from '../../../shared/agent-status-child-work-evidence'
+import type { AgentChildWorkRecord } from '../../../shared/agent-status-child-work'
 import type { AgentChildWorkView } from '../../../shared/agent-status-child-work-view'
 import type { AgentSessionJournal } from '../agent-session-journal/journal-store'
 import type { StructuredAgentSessionProviderChild } from './structured-agent-session-host-types'
@@ -326,6 +327,14 @@ export class StructuredAgentSessionStatusFeed {
       return undefined
     }
   }
+
+  childWorkIncomplete = (sessionId: string): boolean =>
+    this.ownership.childWorkIncomplete(sessionId)
+
+  /** The records the views project. Read only from the child-work observer, which already
+   *  reports a failure. */
+  readChildWorkRecords = (sessionId: string): AgentChildWorkRecord[] | undefined =>
+    this.ownership.readChildWorkRecords(sessionId)
 
   private admitChildWork(
     sessionId: string,

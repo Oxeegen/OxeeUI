@@ -71,6 +71,15 @@ export class RuntimeMobileNotificationController {
     this.dismissalStore = new MobileNotificationDismissalStore(userDataPath)
   }
 
+  /** Waits for the pending dismissal write without closing the store. */
+  flushDismissals(): Promise<void> {
+    return this.dismissalStore?.flush() ?? Promise.resolve()
+  }
+
+  closeDismissals(): Promise<void> {
+    return this.dismissalStore?.close() ?? Promise.resolve()
+  }
+
   reconcileDismissedPushes(
     delivered: readonly DeliveredNotificationIdentity[]
   ): DeliveredNotificationIdentity[] {

@@ -1,6 +1,8 @@
 // Each runtime registration owns its adapter, location support and account resolution at start.
 
-import { createCodexStructuredLaunchResolver } from '../codex/codex-structured-launch-resolution'
+import { withSupportedCodexCli } from '../codex/codex-cli-installation-error'
+import { codexStructuredLaunchPart } from '../codex/codex-structured-launch-resolution'
+import { claudeStructuredLaunchPart } from '../claude/claude-structured-launch-resolution'
 import { supportsCodexStructuredLocation } from '../codex/codex-structured-location-support'
 import { supportsClaudeStructuredLocation } from '../claude/claude-structured-location-support'
 import { supportsSupervisedProviderChildLocation } from '../provider-process/supervised-provider-child-location'
@@ -13,6 +15,9 @@ import {
 import { CodexStructuredSessionAdapter } from '../codex/codex-structured-session-adapter'
 import { CODEX_STRUCTURED_AGENT } from '../codex/codex-structured-agent-definition'
 import { CLAUDE_STRUCTURED_AGENT } from '../claude/claude-structured-agent-definition'
+import { CLAUDE_CLI_CONVERSATIONS } from '../claude/claude-cli-conversations'
+import { CODEX_CLI_CONVERSATIONS } from '../codex/codex-cli-conversations'
+import type { StructuredAgentCliConversations } from '../native-chat/structured-agent-cli-conversations'
 import {
   isAgentSessionPreSpawnError,
   type StructuredAgentSessionAdapter,
@@ -21,13 +26,8 @@ import {
 import type { StructuredAgentCommandSettings } from '../native-chat/structured-agent-command-resolution'
 import type { StructuredAgentDefinition } from '../native-chat/agent-session-wire/structured-agent-definition'
 import type { StructuredAgentSessionHost } from '../native-chat/agent-session-wire/structured-agent-session-host'
-import { readClaudeManagedAccountGateSettings } from '../native-chat/claude-structured-managed-account-support'
 import { agentModelCatalogStore } from '../native-chat/agent-model-catalog/agent-model-catalog-store'
 import { agentSessionAttachmentStoreRoot } from '../native-chat/agent-session-attachments/agent-session-attachment-references'
-import {
-  createNativeChatVisualsDelivery,
-  type PrepareNativeChatVisuals
-} from '../native-chat/native-chat-visuals-delivery'
 import type { JournalHostDatabase } from '../native-chat/agent-session-journal/journal-host-database'
 import { replayJournal } from '../native-chat/agent-session-journal/journal-open'
 import type { AgentSessionRecordStore } from './agent-session-record-store'
@@ -46,7 +46,7 @@ import { acpStructuredAgentDefinition } from '../acp/acp-structured-agent-defini
 import { createAcpAgentConnection } from '../acp/acp-agent-connection'
 import {
   acpLaunchVersionSupported,
-  createAcpStructuredLaunchResolver,
+  acpStructuredLaunchPart,
   resolveAcpLaunchCommand
 } from '../acp/acp-structured-launch-resolution'
 import { AcpStructuredSessionAdapter } from '../acp/acp-structured-session-adapter'
@@ -54,9 +54,15 @@ import { PI_RPC_RUNTIME_REGISTRATION } from '../pi/rpc-runtime-registration'
 import type { AgentModelCatalogDiscovery } from '../native-chat/agent-model-catalog/agent-model-catalog-discovery'
 import {
   acpModelCatalogDiscovery,
+  claudeLaunchEnvOverlay,
   claudeModelCatalogDiscovery,
   codexModelCatalogDiscovery
 } from './structured-agent-model-catalog-discovery'
+import {
+  composeStructuredLaunch,
+  composeStructuredLaunchRead,
+  structuredAgentLaunchSources
+} from './structured-agent-launch-composition'
 
 /** What an agent's adapter is built from: the open store and the runtime around it. */
 export type StructuredAgentAdapterContext = {
@@ -103,7 +109,7 @@ export type StructuredAgentModelCatalogContext = Pick<
   'deps' | 'environment'
 >
 
-export type StructuredAgentRuntimeRegistration = {
+export type StructuredAgentRuntimeRegistration = StructuredAgentCliConversations & {
   definition: StructuredAgentDefinition
   createAdapter: (context: StructuredAgentAdapterContext) => StructuredAgentRuntimeAdapter
   /** How this agent's models are listed before any session of it runs. Required: an agent that
@@ -125,35 +131,21 @@ export type StructuredAgentRuntimeRegistration = {
   ) => Promise<AgentSessionAccountHome>
 }
 
-function nativeChatVisualsFor(deps: StructuredAgentSessionRuntimeDeps): {
-  prepareVisuals?: PrepareNativeChatVisuals
-} {
-  return deps.nativeChatVisuals
-    ? {
-        prepareVisuals: createNativeChatVisualsDelivery({
-          stateDirectory: deps.stateDirectory,
-          logger: deps.logger,
-          isEnabled: deps.nativeChatVisuals.isEnabled
-        })
-      }
-    : {}
-}
-
 function createCodexAdapter(context: StructuredAgentAdapterContext): StructuredAgentRuntimeAdapter {
-  const { deps, store, followUps, host } = context
+  const { deps, followUps, host } = context
   return new CodexStructuredSessionAdapter({
     resolveAccountKind: deps.resolveCodexAccountKind,
-    resolveLaunch: createCodexStructuredLaunchResolver({
-      store,
-      resolveWorkspacePath: deps.resolveWorkspacePath,
-      resolveEnvironment: context.environment.resolveCodexEnvironment,
-      resolveLaunchArgs: () => deps.resolveLaunchArgs('codex'),
-      ...(deps.resolveCodexPermissionPolicy
-        ? { resolvePermissionPolicy: deps.resolveCodexPermissionPolicy }
-        : {}),
-      ...(deps.resolveCodexCommand ? { resolveCommand: deps.resolveCodexCommand } : {}),
-      ...nativeChatVisualsFor(deps)
-    }),
+    resolveLaunch: withSupportedCodexCli(
+      composeStructuredLaunch(
+        CODEX_STRUCTURED_AGENT,
+        structuredAgentLaunchSources(context),
+        codexStructuredLaunchPart({
+          resolveLaunchArgs: () => deps.resolveLaunchArgs('codex'),
+          ...(deps.resolveCodexCommand ? { resolveCommand: deps.resolveCodexCommand } : {})
+        })
+      ),
+      deps.readCodexInstallation
+    ),
     ...(deps.openCodexConnection ? { openConnection: deps.openCodexConnection } : {}),
     ...(deps.readProcessStartTime ? { readProcessStartTime: deps.readProcessStartTime } : {}),
     modelCatalog: agentModelCatalogStore,
@@ -175,26 +167,25 @@ function createClaudeAdapter(
   context: StructuredAgentAdapterContext
 ): StructuredAgentRuntimeAdapter {
   const { deps, store, followUps, host } = context
+  const overlay = claudeLaunchEnvOverlay(deps).resolveEnv
   return createStructuredClaudeRuntimeAdapter({
     store,
     resolveWorkspacePath: deps.resolveWorkspacePath,
+    resolveLaunch: composeStructuredLaunch(
+      CLAUDE_STRUCTURED_AGENT,
+      structuredAgentLaunchSources(context),
+      claudeStructuredLaunchPart({
+        resolveLaunchArgs: () => deps.resolveLaunchArgs('claude'),
+        ...(deps.resolveClaudeCommand ? { resolveCommand: deps.resolveClaudeCommand } : {}),
+        resolveAuthPolicy: deps.resolveClaudeAuthPolicy,
+        attachmentDirectory: agentSessionAttachmentStoreRoot(deps.stateDirectory),
+        ...(deps.claudeCliFlags ? { cliFlags: deps.claudeCliFlags } : {})
+      })
+    ),
     ...(deps.resolveClaudeCommand ? { resolveClaudeCommand: deps.resolveClaudeCommand } : {}),
     ...(deps.claudeCliFlags ? { claudeCliFlags: deps.claudeCliFlags } : {}),
-    ...nativeChatVisualsFor(deps),
-    ...(deps.resolveClaudeLaunchEnv ? { resolveClaudeLaunchEnv: deps.resolveClaudeLaunchEnv } : {}),
-    resolveClaudeInheritedEnv: context.environment.resolveClaudeInheritedEnv,
-    resolveClaudeLaunchArgs: () => deps.resolveLaunchArgs('claude'),
-    resolveClaudeAuthPolicy: deps.resolveClaudeAuthPolicy,
-    ...(deps.resolveClaudePermissionMode
-      ? { resolveClaudePermissionMode: deps.resolveClaudePermissionMode }
-      : {}),
-    ...(deps.getClaudeManagedAccountGateSettings
-      ? {
-          readClaudeManagedAccountGate: () =>
-            readClaudeManagedAccountGateSettings(deps.getClaudeManagedAccountGateSettings!)
-        }
-      : {}),
-    attachmentDirectory: agentSessionAttachmentStoreRoot(deps.stateDirectory),
+    ...(overlay ? { resolveClaudeLaunchEnv: overlay } : {}),
+    resolveClaudeInheritedEnv: context.environment.resolveBaseEnvironment,
     onLifecycleEvent: context.deliverLifecycle,
     logger: deps.logger,
     onChildWorkEvidence: (sessionId, evidence) =>
@@ -230,28 +221,24 @@ function acpRegistration(spec: AcpLaunchSpec): StructuredAgentRuntimeRegistratio
       : {}),
     resolveAccountHome: ({ launchEnv }) => spec.account.resolve({ launchEnv }),
     modelCatalog: (context) => acpModelCatalogDiscovery(spec, context),
+    transcriptImport: null,
+    sessionHistory: spec.sessionHistory,
     createAdapter: (context) => {
-      const { deps, store, followUps } = context
+      const { deps, followUps } = context
       const readJournal = (sessionId: string) =>
         replayJournal(context.journalDatabase.db, sessionId)
+      const definition = acpStructuredAgentDefinition(spec)
+      const sources = structuredAgentLaunchSources(context)
+      const part = acpStructuredLaunchPart(spec, {
+        readJournal,
+        ...(deps.resolveAgentFullAccess ? { resolveFullAccess: deps.resolveAgentFullAccess } : {}),
+        logger: deps.logger
+      })
       return new AcpStructuredSessionAdapter({
         spec,
         readJournal,
-        resolveLaunch: createAcpStructuredLaunchResolver(spec, {
-          store,
-          readJournal,
-          resolveWorkspacePath: deps.resolveWorkspacePath,
-          resolveEnvironment: context.environment.resolveBaseEnvironment,
-          ...(deps.resolveAgentLaunchEnv ? { resolveLaunchEnv: deps.resolveAgentLaunchEnv } : {}),
-          ...(deps.resolveAgentCommandSettings
-            ? { resolveCommandSettings: deps.resolveAgentCommandSettings }
-            : {}),
-          ...(deps.resolveAgentFullAccess
-            ? { resolveFullAccess: deps.resolveAgentFullAccess }
-            : {}),
-          ...nativeChatVisualsFor(deps),
-          logger: deps.logger
-        }),
+        resolveLaunch: composeStructuredLaunch(definition, sources, part),
+        readLaunch: composeStructuredLaunchRead(definition, sources, part),
         connect: (launch, options) => createAcpAgentConnection(launch, options),
         onChildWorkEvidence: (sessionId, evidence) =>
           context.host()?.publishChildWorkEvidence(sessionId, evidence),
@@ -295,6 +282,7 @@ export const STRUCTURED_AGENT_RUNTIME_REGISTRATIONS: readonly StructuredAgentRun
       definition: CODEX_STRUCTURED_AGENT,
       createAdapter: createCodexAdapter,
       modelCatalog: codexModelCatalogDiscovery,
+      ...CODEX_CLI_CONVERSATIONS,
       supportsLocation: (location) => supportsCodexStructuredLocation(location),
       resolveAccountHome: async (request, services) =>
         agentSessionAccountHome(
@@ -306,6 +294,7 @@ export const STRUCTURED_AGENT_RUNTIME_REGISTRATIONS: readonly StructuredAgentRun
       definition: CLAUDE_STRUCTURED_AGENT,
       createAdapter: createClaudeAdapter,
       modelCatalog: claudeModelCatalogDiscovery,
+      ...CLAUDE_CLI_CONVERSATIONS,
       supportsLocation: supportsClaudeStructuredLocation,
       resolveAccountHome: async ({ launchEnv, location }, services) =>
         agentSessionAccountHome(

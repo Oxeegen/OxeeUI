@@ -7,6 +7,7 @@ import type {
   SessionOptionsSurface
 } from '../../../../shared/native-chat-session-options'
 import { NativeChatSessionOptionPickers } from './NativeChatSessionOptionPickers'
+import { NativeChatComposerPermissionPicker } from './NativeChatPermissionModePicker'
 import { NativeChatComposerGoalChip } from './NativeChatComposerGoalChip'
 import { NativeChatContextUsageRing } from './NativeChatContextUsageRing'
 import type { NativeChatContextUsageSummary } from './native-chat-context-usage-summary'
@@ -44,6 +45,8 @@ export type NativeChatComposerActionsProps = {
   onExitGoalMode?: () => void
   /** Absent until the session has reported or the transcript can estimate. */
   contextUsage?: NativeChatContextUsageSummary | null
+  /** The chat's agent, whose permission modes the picker describes. */
+  agent?: string
 }
 
 export function NativeChatComposerActions({
@@ -69,7 +72,8 @@ export function NativeChatComposerActions({
   sessionOptionsPickerRequest,
   onExitGoalMode,
   contextUsage,
-  focusComposer
+  focusComposer,
+  agent
 }: NativeChatComposerActionsProps): React.JSX.Element {
   const stops = primaryAction === 'stop'
   const resumes = primaryAction === 'resume'
@@ -141,6 +145,11 @@ export function NativeChatComposerActions({
             {translate('components.native-chat.composer.attach', 'Attach file')}
           </TooltipContent>
         </Tooltip>
+        <NativeChatComposerPermissionPicker
+          surface={sessionOptionsSurface}
+          snapshot={sessionOptionsSnapshot}
+          {...(agent ? { agent } : {})}
+        />
         {onExitGoalMode ? <NativeChatComposerGoalChip onExit={onExitGoalMode} /> : null}
       </div>
       <div className="ml-auto flex items-center gap-1.5">

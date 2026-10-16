@@ -30,7 +30,7 @@ import type { createClaudeStreamedBlockRegistry } from './claude-streamed-block-
 import type { createClaudeStreamedTextCheckpoints } from './claude-streamed-text-checkpoints'
 import type { ClaudeStreamedThinking } from './claude-streamed-thinking'
 import type { ClaudeProvisionalRowCorrections } from './claude-provisional-row-corrections'
-import type { ClaudeSubagentRoster } from './claude-subagent-roster'
+import type { ClaudeSubagentIdentities } from './claude-subagent-identities'
 import { claudeTurnOpenedBySendEcho, type ClaudeTurnSource } from './claude-turn-opening'
 import type { ClaudeOpenTurn } from './claude-open-turn'
 import type { ClaudeAuthenticationFailures } from './claude-authentication-failures'
@@ -41,7 +41,7 @@ export type ClaudeMessageJournalContext = {
   streamedBlocks: ReturnType<typeof createClaudeStreamedBlockRegistry>
   streamedText: ReturnType<typeof createClaudeStreamedTextCheckpoints>
   streamedThinking: ClaudeStreamedThinking
-  subagents: ClaudeSubagentRoster
+  subagents: ClaudeSubagentIdentities
   toolOrigins: ClaudeToolOriginRegistry
   backgroundTasks: ClaudeBackgroundTaskRows
   providerFallback: ClaudeProviderFrameFallback
@@ -67,9 +67,6 @@ export function journalClaudeMessage(
     return false
   }
   let changed = false
-  if (envelope.parentToolUseId) {
-    ctx.subagents.observeChildActivity(envelope.parentToolUseId)
-  }
   const results = claudeToolResults(envelope)
   // Everything this envelope journals belongs to whoever produced the envelope.
   // A child's rows live in the parent's journal, so without this the parent's
@@ -139,7 +136,6 @@ export function journalClaudeMessage(
     const resultIdentity = claudeToolIdentity(envelope.sessionId, result.toolUseId)
     const resultBody = claudeToolBody({ tool, result })
     ctx.sink.appendItem(resultIdentity, resultBody, stamp(resultIdentity, resultBody))
-    ctx.subagents.observeToolResult(result.toolUseId, result.failed)
     if (
       results.length === 1 &&
       envelope.parentToolUseId === null &&

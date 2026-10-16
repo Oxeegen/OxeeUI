@@ -338,7 +338,7 @@ beforeEach(() => {
     settings: createGlobalSettingsFixture({ experimentalTerminalAttention: true })
   })
 })
-afterEach(() => {
+afterEach(async () => {
   cleanup()
   clearStructuredHostStub()
   resetStructuredAgentSessionReadOwnersForTests()
@@ -346,5 +346,6 @@ afterEach(() => {
   resetStructuredAgentSessionStatusFeedsForTests()
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
+  await fixture.controller.closeDismissals()
   rmSync(fixture.directory, { recursive: true, force: true })
 })

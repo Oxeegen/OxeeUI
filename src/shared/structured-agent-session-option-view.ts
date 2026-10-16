@@ -3,6 +3,7 @@ import {
   type StructuredAgentSessionOptionState
 } from './structured-agent-session-options'
 import { cloneNativeChatSessionOptionRecord } from './native-chat-session-option-state'
+import { AGENT_CHAT_PERMISSION_MODE_OPTION_ID } from './agent-chat-permission-mode'
 
 function catalogListsSeedModel(
   state: StructuredAgentSessionOptionState,
@@ -17,8 +18,22 @@ function catalogListsSeedModel(
  * `seed` (the selection a launch seeds) stands in until the record names a
  * model, and `held` picks outrank both until the host settles them. Both show
  * as `dispatched`; derived on every read, never written into the record.
+ *
+ * The permission mode reads its own way: the held pick, else what the host stated, else the seed.
  */
 export function structuredAgentSessionOptionView(
+  state: StructuredAgentSessionOptionState,
+  seed: Readonly<Record<string, string>> | undefined,
+  held: Readonly<Record<string, string>>
+): StructuredAgentSessionOptionState {
+  const { [AGENT_CHAT_PERMISSION_MODE_OPTION_ID]: heldPermission, ...heldSelection } = held
+  const view = modelOptionView(state, seed, heldSelection)
+  const permissionMode =
+    heldPermission ?? state.permissionMode ?? seed?.[AGENT_CHAT_PERMISSION_MODE_OPTION_ID] ?? null
+  return view.permissionMode === permissionMode ? view : { ...view, permissionMode }
+}
+
+function modelOptionView(
   state: StructuredAgentSessionOptionState,
   seed: Readonly<Record<string, string>> | undefined,
   held: Readonly<Record<string, string>>

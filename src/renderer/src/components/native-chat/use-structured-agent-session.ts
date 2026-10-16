@@ -3,9 +3,10 @@ import { useStructuredAgentSessionSends } from './use-structured-agent-session-s
 import { useStructuredAgentSessionCommandWrite } from './use-structured-agent-session-command-write'
 import { structuredAgentSessionNewSendsQueue } from './structured-agent-session-queue-request'
 import type { AgentType } from '../../../../shared/agent-status-types'
+import type { AgentSessionCancelResult } from '../../../../shared/agent-session-wire'
 import type { RuntimeClientTarget } from '@/runtime/runtime-rpc-client'
 import { structuredAgentLabel } from '@/lib/structured-agent-session-launch-label'
-import { takeBackStructuredLaunchPrompts } from '@/lib/structured-agent-session-launch-prompt'
+import { useStructuredLegacyLaunchStop } from '@/lib/structured-agent-session-legacy-launch-stop'
 import { supportsStructuredAgentSessionPromptCancel } from '@/runtime/structured-agent-session-client'
 import {
   useStructuredAgentSessionHostQueuesCommands,
@@ -61,6 +62,8 @@ export function useStructuredAgentSession(args: {
   queueFollowUps?: boolean
   /** The host says a person's Stop is still ending this session's work. */
   hostStopping?: boolean
+  /** The option values the host's status carries; a change re-reads the chat's options. */
+  hostOptionStamp?: string
   /** The host's rewind latch and what follows a message returned by a rewind. */
   rewind?: NativeChatRewindHost
 }) {
@@ -92,6 +95,7 @@ export function useStructuredAgentSession(args: {
     enabled: transportEnabled
   })
   const commandPending = useRef(false)
+  const legacyLaunchStop = useStructuredLegacyLaunchStop(sessionId)
   const transportState = useStructuredAgentSessionTransportState(state, transportEnabled)
   const {
     conversationCommands,
@@ -101,7 +105,8 @@ export function useStructuredAgentSession(args: {
     unavailable,
     threadGoal: threadGoalSupport,
     contextUsage: contextUsageSupport,
-    rewind: rewindSupport
+    rewind: rewindSupport,
+    acceptsImages
   } = useStructuredAgentSessionOptions({
     agent,
     sessionId,
@@ -111,6 +116,7 @@ export function useStructuredAgentSession(args: {
     providerVisible,
     providerStarting,
     ...(args.providerRunning ? { providerRunning: true } : {}),
+    ...(args.hostOptionStamp ? { hostOptionStamp: args.hostOptionStamp } : {}),
     fence: state.fence,
     turnId: transportState.turnId,
     unloadedTurnRevisions: state.unloadedTurnRevisions,
@@ -274,12 +280,12 @@ export function useStructuredAgentSession(args: {
     turnId: transportState.turnId,
     ...structuredAgentSessionStopControl({
       published: transportEnabled,
+      ...legacyLaunchStop,
       host: stopControl,
       transportState,
       sends: {
         sending,
-        stopSends: sends.stopSends,
-        takeBackLaunchText: () => takeBackStructuredLaunchPrompts(sessionId)
+        stopSends: sends.stopSends
       }
     }),
     stopPressed: stopControl.pressed,
@@ -298,7 +304,7 @@ export function useStructuredAgentSession(args: {
       })
     },
     stopBackgroundTask: (taskId?: string) =>
-      mutate('agentSession.cancel', 'agentSession.cancel', {
+      mutate<AgentSessionCancelResult>('agentSession.cancel', 'agentSession.cancel', {
         turnId: 'background-tasks',
         scope: 'background-tasks',
         ...(taskId ? { taskId } : {})
@@ -312,6 +318,8 @@ export function useStructuredAgentSession(args: {
     /** Why the host's catalog probe says no chat can start here; the chat shows it as a notice. */
     unavailable,
     threadGoal,
-    contextUsage
+    contextUsage,
+    /** Whether this session takes images, by its options report; undefined until it answers. */
+    acceptsImages
   }
 }

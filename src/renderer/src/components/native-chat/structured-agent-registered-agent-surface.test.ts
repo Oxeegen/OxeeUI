@@ -72,5 +72,9 @@ describe('a host-registered agent on the structured chat surface', () => {
     // Unlisted: an older host's built-ins keep images; any other agent claims none.
     expect(structuredAgentAcceptsImages(undefined, 'claude')).toBe(true)
     expect(structuredAgentAcceptsImages(undefined, 'grok')).toBe(false)
+    // The session's options report outranks both, either way.
+    expect(structuredAgentAcceptsImages(record(true), 'grok', false)).toBe(false)
+    expect(structuredAgentAcceptsImages(undefined, 'claude', false)).toBe(false)
+    expect(structuredAgentAcceptsImages(undefined, 'grok', true)).toBe(true)
   })
 })

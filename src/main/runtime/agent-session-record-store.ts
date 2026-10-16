@@ -1,6 +1,7 @@
 /** Durable single-writer session records and their operation ledger, as rows in the host's chat
  *  journal database. */
 
+import { backfillAgentSessionPermissionModes } from './agent-session-permission-backfill'
 import { agentSessionRefusalError } from '../../shared/agent-session-wire-refusals'
 import { createAgentSessionConversationReceipts } from './agent-session-conversation-receipts'
 import { commitConversationCommandRecord } from './agent-session-conversation-command-record'
@@ -73,6 +74,7 @@ import type { JournalHostDatabase } from '../native-chat/agent-session-journal/j
 import type { JournalOperationReceipt } from '../native-chat/agent-session-journal/journal-row-writer'
 import { loadAgentSessionStoreRows } from './agent-session-record-rows'
 import { AgentSessionStoreTransactions } from './agent-session-store-transactions'
+import { createAgentSessionFoundingStore } from './agent-session-founding-store'
 import {
   compareAndSetAgentSessionRecordName,
   type CompareAndSetConversationName,
@@ -93,6 +95,7 @@ export class AgentSessionRecordStore {
     private readonly transactions: AgentSessionStoreTransactions,
     readonly hostId: string
   ) {
+    this.founding = createAgentSessionFoundingStore(transactions, this.firstRecordListeners)
     this.conversationReceipts = createAgentSessionConversationReceipts(transactions)
   }
 
@@ -102,7 +105,7 @@ export class AgentSessionRecordStore {
     hostId: string
   }): AgentSessionRecordStore {
     const rows = loadAgentSessionStoreRows(args.journalDatabase.db)
-    const transactions = new AgentSessionStoreTransactions(args.journalDatabase, rows)
+    const transactions = new AgentSessionStoreTransactions(args.journalDatabase, rows, args.hostId)
     return new AgentSessionRecordStore(transactions, args.hostId)
   }
 
@@ -115,10 +118,16 @@ export class AgentSessionRecordStore {
     return this.transactions.readOnly
   }
 
+  backfillChatPermissionModes = (ranWithFullAccess: (provider: string) => boolean): Promise<void> =>
+    backfillAgentSessionPermissionModes(this.transactions, ranWithFullAccess)
+
   getRecord = (sessionId: string): AgentSessionRecord | null =>
     this.state.records.get(sessionId) ?? null
 
   listRecords = (): AgentSessionRecord[] => [...this.state.records.values()]
+
+  /** The runtimes this one replaced for a chat, as found at load; absent for a chat it began. */
+  replacedRuntime = (sessionId: string) => this.transactions.replacedRuntimes.get(sessionId)
 
   /** Every chat this host holds a row for, readable or not. */
   listHeldSessionIds = (): string[] => heldAgentSessionIds(this.state)
@@ -181,9 +190,7 @@ export class AgentSessionRecordStore {
     )
 
   /** A record this build cannot validate: readable as present, never grantable as a writer. */
-  isSessionUnreadable(sessionId: string): boolean {
-    return this.state.unreadableRecords.has(sessionId)
-  }
+  isSessionUnreadable = (sessionId: string): boolean => this.state.unreadableRecords.has(sessionId)
 
   listOperationRows = (): AgentSessionOperationRow[] => [...this.state.operations.values()]
 
@@ -193,11 +200,12 @@ export class AgentSessionRecordStore {
   isClaimKeyVerifiable = (keyId: string, now: number): boolean =>
     isAgentSessionClaimKeyVerifiable(this.state, keyId, now)
 
-  async reserveOwner(request: AgentSessionReserveRequest): Promise<AgentSessionReserveResult> {
-    return this.transact((draft) =>
+  reserveOwner = (request: AgentSessionReserveRequest): Promise<AgentSessionReserveResult> =>
+    this.transact((draft) =>
       commitAgentSessionReservation(draft, request, AGENT_SESSION_LEASE_TTL_MS)
     )
-  }
+
+  readonly founding: ReturnType<typeof createAgentSessionFoundingStore>
 
   commitProcessIdentity = (args: AgentSessionProcessIdentityCommit): Promise<AgentSessionRecord> =>
     this.mutate(args.sessionId, (record) => commitAgentSessionProcessIdentity({ ...args, record }))
@@ -232,10 +240,8 @@ export class AgentSessionRecordStore {
     args: AgentSessionFailedPostAcquisitionAttachmentSettlement
   ) => this.transact((draft) => settleFailedAgentSessionPostAcquisitionAttachment(draft, args))
 
-  async renewLease(args: AgentSessionLeaseRenewal): Promise<AgentSessionRecord> {
-    const [renewed] = await this.renewLeases([args])
-    return renewed
-  }
+  renewLease = (args: AgentSessionLeaseRenewal): Promise<AgentSessionRecord> =>
+    this.renewLeases([args]).then(([renewed]) => renewed)
 
   async renewLeases(renewals: readonly AgentSessionLeaseRenewal[]): Promise<AgentSessionRecord[]> {
     return this.transact((draft) =>
@@ -306,9 +312,8 @@ export class AgentSessionRecordStore {
     claimAfter: ClaimAfterAdmission
   ) => this.transact((draft) => admitAndClaimAgentSessionOperationInto(draft, args, claimAfter))
 
-  async recordOperationOutcome(args: AgentSessionOperationSettlement): Promise<void> {
-    await this.transact((draft) => settleAgentSessionOperationInto(draft, args))
-  }
+  recordOperationOutcome = (args: AgentSessionOperationSettlement): Promise<void> =>
+    this.transact((draft) => settleAgentSessionOperationInto(draft, args))
 
   /** The same settlement, committed by the journal write that makes it true. It changes only the
    *  ledger, so no record listener is owed. */

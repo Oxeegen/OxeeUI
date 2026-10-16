@@ -370,6 +370,56 @@ describe('useMobileStructuredAgentOptions generation fencing', () => {
   })
 })
 
+describe('useMobileStructuredAgentOptions images', () => {
+  it.each([
+    ['claude', undefined, true],
+    ['grok', undefined, false],
+    ['claude', false, false],
+    ['grok', true, true]
+  ] as const)('offers %s images when its report says %s', async (agent, reported, offered) => {
+    const report = reported === undefined ? OPTIONS : { ...OPTIONS, acceptsImages: reported }
+    const client = optionsClient(queuedReads(report))
+    const { mutate } = recordingMutate(async () => ({ status: 'unknown' }))
+    const harness = await mountOptions({ ...BASE, agent, client: client.client, mutate })
+    expect(client.optionReads()).toBe(1)
+    expect(harness.current().acceptsImages).toBe(offered)
+    await harness.unmount()
+  })
+
+  it('keeps the answer through a pick made during the read', async () => {
+    const stale = deferred<AgentSessionOptionsResult>()
+    const first = optionsClient(queuedReads(OPTIONS))
+    const reconnected = optionsClient(() => stale.promise)
+    const { mutate } = recordingMutate(async () => ({ status: 'unknown' }))
+    const harness = await mountOptions({ ...BASE, agent: 'opencode', client: first.client, mutate })
+    await harness.rerender({ client: reconnected.client })
+    await act(async () => {
+      await harness.current().setStructuredOption('model', 'gpt-fast')
+    })
+    expect(harness.current().acceptsImages).toBe(false)
+    await act(async () => {
+      stale.resolve({ ...OPTIONS, acceptsImages: true })
+    })
+    await settle()
+    expect(harness.current().acceptsImages).toBe(true)
+    await harness.unmount()
+  })
+
+  it("never shows one chat's answer on the next while its read is in flight", async () => {
+    const next = deferred<AgentSessionOptionsResult>()
+    let reads = 0
+    const client = optionsClient(() =>
+      reads++ === 0 ? Promise.resolve({ ...OPTIONS, acceptsImages: true }) : next.promise
+    )
+    const { mutate } = recordingMutate(async () => ({ status: 'unknown' }))
+    const harness = await mountOptions({ ...BASE, agent: 'grok', client: client.client, mutate })
+    expect(harness.current().acceptsImages).toBe(true)
+    await harness.rerender({ sessionId: 'session-2' })
+    expect(harness.current().acceptsImages).toBe(false)
+    await harness.unmount()
+  })
+})
+
 describe('useMobileStructuredAgentOptions pending guard', () => {
   it('refuses an overlapping write and releases the guard once the first one settles', async () => {
     const client = optionsClient(queuedReads(FAST_OPTIONS, FAST_OPTIONS_ON))

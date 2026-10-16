@@ -7,6 +7,7 @@ import { isRootAgentJournalItem } from '../../../src/shared/agent-session-journa
 import { stripNoiseMessages } from '../../../src/shared/native-chat-noise'
 import { isWordlessProviderFrameMessage } from '../../../src/shared/native-chat-provider-frame-summary'
 import { foldToolMessages } from '../../../src/shared/native-chat-tool-fold'
+import { foldSubagentItems } from '../../../src/shared/native-chat-subagent-items'
 import { isImageRefBlock, type NativeChatMessage } from '../../../src/shared/native-chat-types'
 import {
   isImageSourceUserTurn,
@@ -64,9 +65,11 @@ export function foldMobileNativeChatMessages(
   // goes too, before folding, so it never splits a tool run.
   return stripNoiseMessages(
     foldToolMessages(
-      normalizeImageTranscriptMessages(
-        messages.filter(
-          (message) => isRootAgentJournalItem(message) && !isWordlessProviderFrameMessage(message)
+      foldSubagentItems(
+        normalizeImageTranscriptMessages(
+          messages.filter(
+            (message) => isRootAgentJournalItem(message) && !isWordlessProviderFrameMessage(message)
+          )
         )
       )
     )

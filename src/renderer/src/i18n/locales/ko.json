@@ -16,6 +16,8 @@
   },
   "settings": {
     "chat": {
+      "permissionsTitle": "새 채팅의 권한",
+      "permissionsDescription": "새 채팅에만 적용됩니다. 터미널에서 여는 에이전트는 설정 → 에이전트 → 에이전트 권한을 사용합니다.",
       "description": "채팅 모양과 이름 지정 방식을 선택하세요.",
       "names": {
         "title": "채팅 이름",
@@ -3743,7 +3745,6 @@
             "54e8d6bb2d": "Fable",
             "d79c3362c4": "5h",
             "a79c64f87e": "Fable",
-            "8295903d17": "전환 후 이전 대화를 계속하려면 활성 Claude terminal을 다시 시작하세요.",
             "c98ea88392": "다른 계정 없음",
             "9332ba8684": "다음으로 전환",
             "d450654fa2": "Claude 계정",
@@ -6498,7 +6499,6 @@
         "AccountsPane": {
           "c2d2751587": "계정 삭제",
           "dbb9626ed1": "취소",
-          "854ebbcc45": "Orca는 저장된 계정에 대해 관리되는 Claude 인증을 삭제합니다. 현재 활성화된 경우 Orca는 시스템 기본 Claude 로그인으로 대체됩니다.",
           "63843e37e2": "Claude 계정을 삭제하시겠습니까?",
           "380a7736cc": "이 계정을 제거하면 관리되는 Codex 홈과 그 안에 저장된 모든 Codex 세션 기록 및 MCP 로그인이 영구적으로 삭제됩니다. 이 작업은 실행 취소할 수 없습니다. 계정이 현재 활성 상태인 경우 Orca는 시스템 기본 Codex 로그인으로 전환됩니다.",
           "0d47394635": "Codex 계정을 제거하시겠습니까?",
@@ -6546,12 +6546,10 @@
           "3fe7862418": "{{value0}}에 대한 관리된 Claude 계정이 없습니다. Orca는 여기에 추가할 때까지 해당 환경의 시스템 기본 Claude 로그인을 사용합니다.",
           "3455cf43fa": "Claude 로그인.",
           "fcc4093fc1": "현재 {{value0}} Codex 로그인을 사용하세요.",
-          "79e484c3b2": "공유 Claude 인증 파일에 대한 선택적 계정 전환기입니다.",
           "8bbfd74556": "Claude 계정",
           "72b36ea174": "선택 사항. Orca는 일반적인 Claude 로그인을 사용할 수 있습니다. 채팅 세션을 이동하지 않고 빠르게 전환하려는 경우에만 계정을 추가하세요.",
           "26ef4b55be": "Claude",
           "2743cdc0af": "Claude 계정 업데이트에 실패했습니다.",
-          "b15ce90870": "{{value0}} -> {{value1}}. 이전 세션을 계속하기 전에 실행 중인 Claude terminals을 다시 시작하세요.",
           "f921d32606": "Claude 계정이 업데이트되었습니다.",
           "5bf8764953": "Codex 계정 업데이트에 실패했습니다.",
           "9baf45d071": "이 기기",
@@ -11113,7 +11111,7 @@
           "sourceControlAiDefaults": "레시피, 프롬프트, 호스팅 리뷰 기본값은 이 클라이언트에서 공유됩니다. 모델 선택과 탐색은 agent가 실행되는 호스트 범위에 유지됩니다.",
           "projectOnThisHost": "이 호스트의 프로젝트",
           "repositorySourceControlAi": "이 재정의는 이 프로젝트 설정에 적용되며, 사용자 지정하기 전까지 클라이언트의 Source Control AI 기본값을 상속합니다.",
-          "agentLaunchDefaults": "기본 agent, 명령 재정의, CLI 인수, 실행 환경은 클라이언트 환경설정입니다. SSH 및 원격 서버 실행은 실행 시점에 여전히 호스트 사용 가능 여부를 확인합니다.",
+          "agentLaunchDefaults": "기본 agent, 명령 재정의, CLI 인수 및 실행 환경은 선택한 호스트에 저장됩니다.",
           "clientDefaultProjectScopes": "클라이언트 기본값 + 프로젝트 범위",
           "terminalQuickCommands": "명령은 이 클라이언트에 저장된 뒤 전역 또는 프로젝트 설정 범위로 지정되어 선택한 terminal 컨텍스트에서 실행됩니다.",
           "hostOverride": "호스트 재정의",
@@ -13660,7 +13658,8 @@
             "resumeInChatTranscriptMissing": "이 대화 기록을 로드할 수 없어 채팅에서 재개할 수 없습니다.",
             "resumeInChatFailed": "새 채팅에서 이 세션을 재개할 수 없습니다.",
             "resumeInNewCliUnavailable": "이 세션은 CLI에서 열 수 없습니다.",
-            "resumeInNewCliHostTooOld": "이 채팅을 새 CLI에서 재개하려면 채팅을 실행하는 호스트의 Orca를 업데이트하세요."
+            "resumeInNewCliHostTooOld": "이 채팅을 새 CLI에서 재개하려면 채팅을 실행하는 호스트의 Orca를 업데이트하세요.",
+            "folderWorkspaceUnavailable": "폴더 워크스페이스는 더 이상 사용할 수 없습니다."
           },
           "AiVaultPanelControls": {
             "scanningSessions": "세션 스캔 중",
@@ -13762,7 +13761,9 @@
             "copied": "복사됨",
             "copy": "복사",
             "noFirstPromptAvailable": "첫 프롬프트를 사용할 수 없습니다",
-            "loadingFirstPrompt": "첫 프롬프트를 불러오는 중…"
+            "loadingFirstPrompt": "첫 프롬프트를 불러오는 중…",
+            "folder": "폴더",
+            "resumeInFolder": "폴더에서 재개"
           },
           "AiVaultSessionRow": {
             "resumeAgentSession": "{{value0}} 세션 재개",
@@ -13858,7 +13859,12 @@
             "noRecordedWorktree": "이 세션에 기록된 작업 트리가 없습니다.",
             "archivedJumpUnavailable": "이 세션은 보관된 작업 트리에 있습니다.",
             "noActiveWorktreeMatch": "이 세션과 일치하는 활성 작업 트리가 없습니다.",
-            "noActiveWorktreeTarget": "사용 가능한 활성 작업 트리가 없습니다."
+            "noActiveWorktreeTarget": "사용 가능한 활성 작업 트리가 없습니다.",
+            "activeFolder": "폴더",
+            "archivedFolder": "보관된 폴더",
+            "archivedFolderJumpUnavailable": "이 세션은 보관된 폴더에 있습니다.",
+            "currentFolder": "현재 폴더",
+            "jumpToFolder": "폴더로 이동"
           },
           "AiVaultSessionSubagents": {
             "subagentsCount": "서브에이전트 ({{value0}})",
@@ -14902,7 +14908,6 @@
                 "d90d2e1f6d": "세션 및 주간 사용량을 추적합니다.",
                 "8919321417": "Codex 로그인에 실패했습니다.",
                 "c7b90c140b": "Codex 계정이 추가되었습니다.",
-                "4e71d72912": "Claude 로그인에 실패했습니다.",
                 "9ddeb558f9": "Claude 계정이 추가되었습니다.",
                 "29d0653961": "로그인",
                 "945865332e": "로그인 중",
@@ -17569,7 +17574,8 @@
         "expandNode": "{{value0}} 확장",
         "selectMachine": "{{value0}}의 채팅 모두 선택",
         "sshHost": "SSH",
-        "done": "완료"
+        "done": "완료",
+        "resultListLabel": "이번에 재개한 채팅"
       },
       "linear-issue-attribute-filter-coverage-notice": {
         "statusPartialTeamCoverage": "{{value1}} 팀 상태 중 {{value0}} 필터링 중 - 나머지 팀의 문제는 포함되지 않습니다.",
@@ -17671,7 +17677,11 @@
         "resumedTitleOne": "채팅 1개 중 {{value0}}개를 재개했습니다",
         "resumingTitleOne": "채팅 1개 재개 중",
         "resumingTitle": "채팅 {{value0}}개 재개 중",
-        "description": "각 채팅은 전체 컨텍스트와 함께 복원되며, 멈춘 지점을 확인하도록 요청됩니다. 이 창을 닫아도 상태 표시줄에서 진행 상황을 계속 볼 수 있습니다."
+        "description": "각 채팅은 전체 컨텍스트와 함께 복원되며, 멈춘 지점을 확인하도록 요청됩니다. 이 창을 닫아도 상태 표시줄에서 진행 상황을 계속 볼 수 있습니다.",
+        "finished": "이 채팅들은 Orca가 종료될 때 작업 중이었습니다. Orca는 각 채팅을 멈춘 지점에서 전체 컨텍스트와 함께 복원하고, 계속하기 전에 하던 작업을 확인하도록 에이전트에게 요청했습니다. 사용자의 프롬프트는 다시 전송되지 않았습니다.",
+        "finishedUpdate": "이 채팅들은 Orca가 업데이트를 설치할 때 작업 중이었습니다. Orca는 각 채팅을 멈춘 지점에서 전체 컨텍스트와 함께 복원하고, 계속하기 전에 하던 작업을 확인하도록 에이전트에게 요청했습니다. 사용자의 프롬프트는 다시 전송되지 않았습니다.",
+        "finishedPartial": "이 채팅들은 Orca가 종료될 때 작업 중이었습니다. Orca가 재개한 채팅은 멈춘 지점에서 전체 컨텍스트와 함께 복원되었고, 계속하기 전에 하던 작업을 확인하도록 요청받았습니다. 사용자의 프롬프트는 다시 전송되지 않았습니다. 아직 확인이 필요하거나 재개할 수 있는 채팅은 목록에서 확인하세요.",
+        "finishedPartialUpdate": "이 채팅들은 Orca가 업데이트를 설치할 때 작업 중이었습니다. Orca가 재개한 채팅은 멈춘 지점에서 전체 컨텍스트와 함께 복원되었고, 계속하기 전에 하던 작업을 확인하도록 요청받았습니다. 사용자의 프롬프트는 다시 전송되지 않았습니다. 아직 확인이 필요하거나 재개할 수 있는 채팅은 목록에서 확인하세요."
       },
       "NativeChatResumeRunStatusIcon": {
         "waitingForReply": "응답 대기 중",
@@ -17691,6 +17701,11 @@
         "attention": "확인 필요",
         "running": "경과 {{value0}}",
         "filter": "표시할 채팅"
+      },
+      "NativeChatResumeAutoNote": {
+        "resuming": "다시 시작한 후 자동으로 재개하는 중입니다.",
+        "resumed": "다시 시작한 후 자동으로 재개했습니다.",
+        "changeInSettings": "설정에서 변경"
       }
     },
     "i18n": {
@@ -17832,6 +17847,7 @@
         "couldNotStart": "{{agent}}을(를) 시작하지 못했습니다.",
         "editSavedArguments": "설정 > 에이전트 > 인수에서 수정하세요.",
         "couldNotRestart": "{{agent}}을(를) 다시 시작하지 못했습니다.",
+        "codexCliTooOld": "Codex {{installedVersion}}은 채팅에 사용하기에는 너무 오래된 버전입니다. {{minimumVersion}} 이상으로 업데이트하세요.",
         "notSignedIn": "{{agent}}에 로그인되어 있지 않습니다.",
         "claudeSystemNotSignedIn": "Claude에 로그인되어 있지 않습니다. `{{loginCommand}}`을 실행하거나 Claude 계정 설정에서 계정을 선택하세요.",
         "claudeManagedNotSignedIn": "이 Claude 계정에 로그인하지 않았습니다. Claude 계정 설정에서 다시 로그인하세요.",
@@ -17847,6 +17863,8 @@
         "managedAccountUnsupported": "WSL에 Claude 계정이 추가되어 있는 동안에는 Claude 채팅에 Windows Claude 계정이 필요합니다.",
         "launchFolderMissing": "이 채팅이 실행되던 폴더가 더 이상 존재하지 않습니다. 이 채팅을 계속하려면 폴더를 복원하세요.",
         "historyInOtherAccount": "이 채팅의 기록은 다른 Claude 계정에 있습니다. 계속하려면 해당 계정으로 다시 전환하세요.",
+        "claudeAccountFolderMissing": "선택한 Claude 계정의 폴더가 없습니다. 다시 로그인하거나 다른 계정을 선택하세요.",
+        "claudeAccountSetupFailed": "선택한 Claude 계정을 설정할 수 없습니다. 다시 시도하거나 다른 계정을 선택하세요.",
         "agentCommandNotRunnable": "{{agent}}의 설정 → 에이전트 → 명령은 Orca가 찾을 수 있는 프로그램 경로나 이름이어야 하며, 인수나 변수를 포함할 수 없습니다. 변경하거나 재설정하세요.",
         "chooseClaudeAccount": "Claude 계정 설정에서 선택하거나 추가하세요.",
         "chooseClaudeAccountThenRunCommand": "Claude 계정 설정에서 선택하거나 추가한 다음 /{{command}}을(를) 다시 실행하세요.",
@@ -18012,6 +18030,7 @@
         "model": "모델",
         "effort": "추론 수준",
         "fastMode": "빠른 모드",
+        "speed": "속도",
         "thinking": "사고",
         "options": "옵션",
         "sessionOptions": "세션 옵션",
@@ -18032,7 +18051,8 @@
           "high": "높음",
           "xhigh": "매우 높음",
           "max": "최대",
-          "ultra": "울트라"
+          "ultra": "울트라",
+          "standard": "표준"
         },
         "noCommandsOrSkills": "일치하는 명령어 또는 스킬이 없습니다",
         "commands": "명령어",
@@ -18063,6 +18083,19 @@
         "attachmentOwnerChanged": "이 워크스페이스는 첨부하는 동안 호스트를 변경했습니다. 파일을 다시 삭제하세요.",
         "attachmentUnreadable": "삭제된 파일을 읽을 수 없습니다.",
         "tooManyAttachments": "한 번에 {{value0}}개 이하의 파일을 첨부하세요.",
+        "permissions": "권한",
+        "permissionAsk": "승인 요청",
+        "permissionAskDescription": "설정에서 허용하지 않은 편집과 명령 전에 묻습니다",
+        "permissionAskCodexDescription": "이 작업 공간에서 파일을 편집하고 명령을 실행하며, 그 외 작업 전에는 묻습니다",
+        "permissionAskSharedDescription": "아직 허용되지 않은 편집이나 명령 전에 묻습니다",
+        "permissionAcceptEdits": "편집 허용",
+        "permissionAcceptEditsDescription": "파일 편집과 파일 명령은 승인하고, 나머지는 묻습니다",
+        "permissionAuto": "대신 승인",
+        "permissionAutoDescription": "승인 요청을 대신 검토합니다",
+        "permissionFullAccess": "전체 액세스",
+        "permissionFullAccessDescription": "편집이나 명령 전에 묻지 않습니다",
+        "permissionFullAccessCodexDescription": "묻지 않습니다. 모든 파일을 편집하고 네트워크를 사용할 수 있습니다",
+        "permissionFullAccessSharedDescription": "편집이나 명령 전에 묻지 않습니다",
         "pasteFailed": "붙여넣기 실패.",
         "commandAttachmentsUnsupported": "채팅 세션 명령을 사용하기 전에 첨부 파일을 제거하세요."
       },
@@ -18183,8 +18216,11 @@
       },
       "transcriptLabel": "대화",
       "toggle": {
-        "showTerminal": "terminal 표시",
-        "showChat": "채팅 보기 표시"
+        "showTerminal": "terminal 표시"
+      },
+      "resumeInNewChat": {
+        "notSavedYet": "{{agent}}이(가) 아직 이 대화를 저장하지 않았습니다. 응답한 후 다시 시도하세요.",
+        "cannotResume": "이 {{agent}} 대화는 기본 채팅에서 재개할 수 없습니다."
       },
       "state": {
         "loading": {
@@ -18285,6 +18321,7 @@
         "orcaStopUpdate": "이 응답이 진행되는 동안 {{machine}}의 Orca가 업데이트를 위해 다시 시작되었습니다.",
         "orcaStopQuit": "이 응답이 진행되는 동안 {{machine}}의 Orca가 종료되었습니다.",
         "orcaStopCrash": "이 응답이 진행되는 동안 {{machine}}의 Orca가 예기치 않게 중지되었습니다.",
+        "orcaStopRemote": "이 응답이 진행되는 동안 {{machine}}의 Orca가 중지되었습니다.",
         "orcaStopCanContinue": "이 대화에서 계속할 수 있습니다."
       },
       "providerFrame": {
@@ -18489,8 +18526,7 @@
       },
       "visualUnavailable": "시각화를 사용할 수 없습니다",
       "visualLoading": "시각화 로드 중",
-      "visualOpenInSidebar": "사이드바에서 열기",
-      "visualClose": "시각화 닫기"
+      "visualOpenInNewTab": "새 탭에서 열기"
     },
     "tab": {
       "bar": {
@@ -19118,9 +19154,6 @@
     "nativeChatUpgrade": {
       "eyebrow": "새 기능",
       "title": "기본 채팅이 업그레이드되었습니다",
-      "chatModeNote": "새 Agent 탭은 이전처럼 터미널에서 열립니다.",
-      "chatModeLabel": "채팅 모드 켜기",
-      "chatModeHint": "새 Agent 탭을 채팅으로 엽니다.",
       "intro": "이제 지원되는 Agent의 새 채팅은 업그레이드된 채팅 보기에서 열립니다. 채팅과 CLI 사이를 오가려면 오른쪽 사이드바에서 {{panel}}을 여세요:",
       "resumeInNativeChat": "{{action}}: 지원되는 CLI 대화를 기본 채팅에서 엽니다.",
       "resumeInCli": "{{action}}: Claude 또는 Codex 채팅을 새 CLI 세션으로 복사합니다. 원래 채팅은 그대로 유지됩니다.",
@@ -19447,9 +19480,6 @@
       "oldTerminalDialogRisk": "서버를 공유하는 Codex 세션은 함께 종료될 수 있으며 에이전트 상태가 잘못될 수 있습니다.",
       "oldTerminalDialogCause": "이전 터미널은 여전히 Codex 서버를 공유합니다. 새 터미널을 열어 별도의 서버에서 Codex를 실행합니다.",
       "fix": "자물쇠",
-      "openNewTerminal": "새 터미널 열기",
-      "dontShowAgain": "다시 보지 않기",
-      "dismiss": "닫기",
       "dialogTitle": "각 Codex 탭에 자체 서버를 제공합니다",
       "dialogDescription": "Codex 세션은 터미널 공유 백그라운드 서버에서 직접 시작되었습니다. ORCA는 시작되는 Codex 세션을 별도로 유지합니다. 세션이 서버를 공유할 때 서버를 닫으면 다른 세션이 종료될 수 있으며 에이전트 상태가 잘못될 수 있습니다.",
       "copy": "복사",
@@ -19460,7 +19490,6 @@
       "step2Title": "실행 중인 공유 서버 중지",
       "undo": "되돌리려면 codex features enable daemon_auto_start를 실행하세요.",
       "step2Warning": "서버를 공유하는 열려 있는 Codex 세션을 닫습니다.",
-      "learnMore": "자세히 알아보기",
       "turnOff": "끄기",
       "turningOff": "끄는 중...",
       "turnedOff": "껐어요",
@@ -19476,6 +19505,12 @@
     },
     "paneMove": {
       "failed": "분할 창을 새 탭으로 이동할 수 없습니다."
+    },
+    "paneTopBanner": {
+      "openNewTerminal": "새 터미널 열기",
+      "learnMore": "자세히 알아보기",
+      "dontShowAgain": "다시 보지 않기",
+      "dismiss": "닫기"
     }
   },
   "fileSearch": {
@@ -19554,5 +19589,16 @@
   },
   "projectField": {
     "updateFailed": "프로젝트 필드를 업데이트하지 못했습니다"
-  }
+  },
+  "settings.agents.environmentName": "환경 변수 이름",
+  "settings.agents.environmentValue": "{{name}} 값",
+  "settings.agents.savedEnvironment": "저장된 값 · 바꾸려면 입력",
+  "settings.agents.newEnvironment": "값",
+  "settings.agents.removeEnvironment": "삭제",
+  "settings.agents.loadingHost": "에이전트 설정 불러오는 중…",
+  "settings.agents.updateHost": "에이전트 실행 설정을 편집하려면 이 서버를 업데이트하세요.",
+  "settings.agents.readFailed": "에이전트 설정을 읽을 수 없습니다. 호스트 연결을 확인하고 다시 시도하세요.",
+  "settings.agents.saveFailed": "에이전트 설정을 저장할 수 없습니다. 호스트 연결을 확인하고 다시 시도하세요.",
+  "settings.agents.hostDefaults": "선택한 호스트의 새 에이전트 기본값입니다.",
+  "settings.agents.save": "저장"
 }

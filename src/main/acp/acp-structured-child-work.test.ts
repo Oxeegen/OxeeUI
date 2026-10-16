@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { _internals } from '../agent-hooks/server'
-import { isSubagentGroupBlock } from '../../shared/native-chat-types'
+import { isSubagentBlock } from '../../shared/native-chat-types'
 import type { AgentChildWorkView } from '../../shared/agent-status-child-work-view'
 import { closeProviderTimelineRigs } from '../native-chat/agent-session-timeline/provider-timeline-assembler-test-support'
 import {
@@ -71,9 +71,7 @@ async function fixture() {
     (await hosted.host.history({ sessionId: SESSION, direction: 'tail' })).page.backgroundTasks
   const roster = async () =>
     (await hosted.rows()).flatMap((row) =>
-      row.body.kind === 'message'
-        ? row.body.blocks.filter(isSubagentGroupBlock).flatMap((group) => group.agents)
-        : []
+      row.body.kind === 'message' ? row.body.blocks.filter(isSubagentBlock) : []
     )
   const targetedStop = (taskId: string) => {
     const fields = { turnId: 'background-tasks', scope: 'background-tasks' as const, taskId }
@@ -136,14 +134,15 @@ describe('Grok roster evidence through the existing host child store', () => {
     ).toBeNull()
   })
 
-  it('shares exact ordinal labels between roster, agent strip and sidebar after parent completion', async () => {
+  it('shares one label and one id between saved rows, agent strip and sidebar after parent completion', async () => {
     const f = await fixture()
     await f.spawn('first')
     await f.spawn('sibling')
-    expect(await f.roster()).toMatchObject([{ label: 'Exact label' }, { label: 'Exact label 2' }])
+    // Each saved row keeps the raw label; the shared presentation derives the ordinal, as the strip does.
+    expect(await f.roster()).toMatchObject([{ label: 'Exact label' }, { label: 'Exact label' }])
     expect((await f.strip())?.tasks).toMatchObject([
       { id: 'first', kind: 'agent', description: 'Exact label' },
-      { id: 'sibling', kind: 'agent', description: 'Exact label 2' }
+      { id: 'sibling', kind: 'agent', description: 'Exact label' }
     ])
     const stripIds = (await f.strip())?.children?.map((view) => view.id)
     expect(f.sidebar.at(-1)?.map((view) => view.id)).toEqual(stripIds)
@@ -171,7 +170,11 @@ describe('Grok roster evidence through the existing host child store', () => {
       })
     })
     expect(await f.targetedStop('first')).toMatchObject({ ok: true, value: { cancelled: true } })
-    expect(f.childWork.views().every((view) => view.membership === 'live')).toBe(true)
+    // The accepted Stop settles that run until Grok's own ending says how it ended.
+    expect(f.childWork.views()).toMatchObject([
+      { providerId: 'first', membership: 'settled', outcome: 'cancelled' },
+      { providerId: 'sibling', membership: 'live' }
+    ])
     expect(f.agent.frames.filter((frame) => frame.method === 'session/cancel')).toEqual([])
     await f.finish('first', 'cancelled')
     expect((await f.roster())[0].state).toBe('stopped')
@@ -259,7 +262,7 @@ describe('Grok roster evidence through the existing host child store', () => {
     await f.spawn(first, 'First', 'turn-A')
     await f.spawn(second, 'Second', 'turn-B')
     const entries = await f.roster()
-    expect(entries[0].id).toBe(entries[1].id)
+    expect(entries[0].id).not.toBe(entries[1].id)
     const bothStrip = (await f.strip())?.tasks
     const bothSidebar = f.sidebar.at(-1)
     await f.finish(first, 'completed')
@@ -283,7 +286,7 @@ describe('Grok roster evidence through the existing host child store', () => {
       { description: entry.label, kind: 'agent', stoppable: false }
     ])
     expect((await f.strip())?.tasks?.[0]?.id).toMatch(/^acp-child:[0-9a-f]{64}$/)
-    expect((await f.strip())?.tasks?.[0]?.id).not.toBe(entry.id)
+    expect((await f.strip())?.tasks?.[0]?.id).toBe(entry.id)
   })
 
   it('keeps 34 live groups in both host surfaces and never recreates the first settled eviction', async () => {
@@ -312,8 +315,10 @@ describe('Grok roster evidence through the existing host child store', () => {
     const childWork = acpChildWorkStatusSink()
     const hosted = await openHostRig({
       statusSink: childWork.sink,
-      script: (agent) =>
+      script: (agent) => {
         agent.on('_x.ai/subagent/cancel', (frame) => agent.fail(frame, -32601, 'Method not found'))
+        agent.on('_x.ai/task/kill', (frame) => agent.fail(frame, -32601, 'Method not found'))
+      }
     })
     cleanup.push(() => hosted.host.close(SESSION, 'user-close'))
     expect(await hosted.host.attach(CALLER, attachParams())).toMatchObject({ ok: true })
@@ -358,9 +363,13 @@ describe('Grok roster evidence through the existing host child store', () => {
     }
   })
 
-  it.each(['rpc-error', 'mismatched-id'])(
+  // Grok's own refusal means it did nothing; a reply about another subagent proves nothing, so it is unknown.
+  it.each([
+    ['rpc-error', { ok: false, refusal: { code: 'agent_session_operation_invalid' } }],
+    ['mismatched-id', { ok: false, refusal: { code: 'agent_session_operation_unknown' } }]
+  ] as const)(
     'does not settle or cancel the parent after a targeted %s',
-    async (failure) => {
+    async (failure, answer) => {
       const f = await fixture()
       await f.spawn('first')
       await f.spawn('sibling')
@@ -371,17 +380,17 @@ describe('Grok roster evidence through the existing host child store', () => {
           f.agent.reply(frame, { result: { subagentId: 'other', cancelled: true } })
         }
       })
-      expect(await f.targetedStop('first')).toMatchObject({ ok: true, value: { cancelled: false } })
+      expect(await f.targetedStop('first')).toMatchObject(answer)
       expect(f.childWork.views().every((view) => view.membership === 'live')).toBe(true)
       expect(f.agent.frames.filter((frame) => frame.method === 'session/cancel')).toEqual([])
       expect(f.rig.child().closed).toBe(false)
     }
   )
 
-  it('records a terminal first snapshot without leaving either running surface occupied', async () => {
+  it('records nothing for a subagent first reported finished, and occupies no running surface', async () => {
     const f = await fixture()
     await f.finish('finished-before-spawn', 'completed')
-    expect(await f.roster()).toMatchObject([{ id: 'finished-before-spawn', state: 'completed' }])
+    expect(await f.roster()).toEqual([])
     expect(f.childWork.views()).toEqual([])
     expect(await f.strip()).toBeNull()
   })

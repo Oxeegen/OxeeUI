@@ -1,11 +1,13 @@
+import {
+  createClaudeStructuredLaunchResolver,
+  createCodexStructuredLaunchResolver
+} from '../runtime/structured-agent-launch-composition.test-support'
 import { existsSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { LOCAL_EXECUTION_HOST_ID } from '../../shared/execution-host'
-import { createClaudeStructuredLaunchResolver } from '../claude/claude-structured-launch-resolution'
 import { CLAUDE_PLUGIN_DIR_FLAG, type ClaudeCliFlag } from '../claude/claude-cli-flag-support'
-import { createCodexStructuredLaunchResolver } from '../codex/codex-structured-launch-resolution'
 import {
   adapterFor,
   fakeCodex,
@@ -19,7 +21,6 @@ import {
 import { nativeChatVisualsFolderFor } from './native-chat-visuals-folder'
 
 const SKILL = { pluginDir: '/app/plugin', skillsRoot: '/app/plugin/skills' }
-const MANUAL = { approvalPolicy: 'on-request', sandbox: 'workspace-write' } as const
 const scratch: string[] = []
 afterEach(() => {
   for (const dir of scratch.splice(0)) {
@@ -49,7 +50,7 @@ describe('inline visuals launch preference', () => {
       store: { getRecord: () => record, pinLaunchDirectory: vi.fn() },
       resolveWorkspacePath: async () => '/repo',
       resolveCommand: () => '/bin/claude',
-      resolveAuthPolicy: () => ({ stripAuthEnv: false }),
+      resolveAuthPolicy: () => ({ account: 'system' }),
       resolveLaunchArgs: () => ['--add-dir', '/user/notes', '--plugin-dir', '/user/plugin'],
       resolveEnv: () => ({ [NATIVE_CHAT_VISUALS_DIR_ENV]: '/inherited', KEEP: 'yes' }),
       resolveInheritedEnv: async () => ({ PATH: '/bin' }),
@@ -91,7 +92,6 @@ describe('inline visuals launch preference', () => {
       resolveWorkspacePath: async () => '/repo',
       resolveCommand: () => '/bin/codex',
       resolveLaunchArgs: () => [],
-      resolvePermissionPolicy: () => MANUAL,
       resolveEnvironment: async () => ({
         [NATIVE_CHAT_VISUALS_DIR_ENV]: '/inherited',
         KEEP: 'yes'

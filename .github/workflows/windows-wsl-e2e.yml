@@ -38,7 +38,7 @@ jobs:
           native-runtime: electron
       - name: Build relay and Electron
         run: |
-          pnpm run build:relay
+          pnpm run build:wsl-guest
           if ($LASTEXITCODE -ne 0) { throw 'Relay build failed' }
           pnpm exec electron-vite build --mode e2e
           if ($LASTEXITCODE -ne 0) { throw 'Electron build failed' }

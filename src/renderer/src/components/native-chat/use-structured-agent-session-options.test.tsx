@@ -610,4 +610,23 @@ describe('useStructuredAgentSessionOptions', () => {
       unmount()
     })
   })
+
+  it.each([true, false, undefined])(
+    "reports the session's own image answer, %s, once its options read lands",
+    async (acceptsImages) => {
+      answer({
+        options: () =>
+          Promise.resolve(
+            acceptsImages === undefined ? LIVE_OPTIONS : { ...LIVE_OPTIONS, acceptsImages }
+          )
+      })
+      const { result, unmount } = renderOptions(REOPENED, mutateWith(async () => null).mutate)
+      expect(result.current.acceptsImages).toBeUndefined()
+      await waitFor(() =>
+        expect(currentValue(result.current.optionSnapshot, 'model')).toBe('gpt-5.5')
+      )
+      expect(result.current.acceptsImages).toBe(acceptsImages)
+      unmount()
+    }
+  )
 })

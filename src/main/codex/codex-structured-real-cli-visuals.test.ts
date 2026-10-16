@@ -9,9 +9,10 @@ import { resolveCodexCommand } from '../codex-cli/command'
 import { NATIVE_CHAT_VISUALS_SKILL_NAME } from '../native-chat/native-chat-visuals-skill-location'
 import { openCodexAppServerConnection } from './codex-app-server-connection'
 import { withCodexVisualsThreadConfig } from './codex-structured-visuals'
+import { codexStructuredPermissionPolicy } from './codex-structured-permission-policy'
 
 const enabled = process.env.ORCA_REAL_CODEX_CLI_TEST === '1'
-const MANUAL = { approvalPolicy: 'on-request', sandbox: 'workspace-write' } as const
+const MANUAL = codexStructuredPermissionPolicy('ask')
 
 describe.skipIf(!enabled)('Codex real app-server chat visuals', () => {
   it('lists the visuals skill and grants the chat folder beside the user writable roots', async () => {

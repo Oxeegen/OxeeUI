@@ -16,6 +16,8 @@
   },
   "settings": {
     "chat": {
+      "permissionsTitle": "新聊天的权限",
+      "permissionsDescription": "仅适用于新聊天。在终端中打开的智能体使用设置 → 智能体 → 智能体权限。",
       "description": "选择聊天的外观和命名方式。",
       "names": {
         "title": "聊天名称",
@@ -3743,7 +3745,6 @@
             "54e8d6bb2d": "Fable",
             "d79c3362c4": "5小时",
             "a79c64f87e": "Fable",
-            "8295903d17": "切换后继续旧对话之前，请重新启动实时 Claude 终端。",
             "c98ea88392": "没有其他账户",
             "9332ba8684": "切换到",
             "d450654fa2": "Claude 账户",
@@ -6498,7 +6499,6 @@
         "AccountsPane": {
           "c2d2751587": "删除账户",
           "dbb9626ed1": "取消",
-          "854ebbcc45": "Orca 将删除此已保存账户的托管 Claude 身份验证。如果当前处于活动状态，Orca 将回退到系统默认的 Claude 登录名。",
           "63843e37e2": "删除 Claude 账户？",
           "380a7736cc": "移除此账户会永久删除其托管的 Codex 主目录，包括其中存储的所有 Codex 会话历史记录和 MCP 登录信息。此操作无法撤销。如果该账户当前处于活动状态，Orca 将回退到系统默认的 Codex 登录。",
           "0d47394635": "删除 Codex 账户？",
@@ -6546,12 +6546,10 @@
           "3fe7862418": "{{value0}} 没有受管理的 Claude 账户。Orca 将使用该环境的系统默认 Claude 登录，直到您在此处添加一个。",
           "3455cf43fa": "Claude 登录。",
           "fcc4093fc1": "使用您当前 {{value0}} Codex 登录名。",
-          "79e484c3b2": "用于共享 Claude 身份验证文件的可选账户切换器。",
           "8bbfd74556": "Claude 账户",
           "72b36ea174": "可选。Orca 可使用系统默认 Claude 登录；仅当你需要快速切换且不想迁移聊天会话时才添加账户。",
           "26ef4b55be": "Claude",
           "2743cdc0af": "Claude 账户更新失败。",
-          "b15ce90870": "{{value0}} -> {{value1}}。在继续旧会话之前重新启动实时 Claude 终端。",
           "f921d32606": "Claude 账户已更新。",
           "5bf8764953": "Codex 账户更新失败。",
           "9baf45d071": "当前设备",
@@ -11113,7 +11111,7 @@
           "sourceControlAiDefaults": "方案、提示和托管评审默认值由此客户端共享；模型选择和发现则限定在智能体运行的主机内。",
           "projectOnThisHost": "此主机上的项目",
           "repositorySourceControlAi": "这些覆盖项应用于此项目设置，并继承客户端的源代码管理 AI 默认值，直至自定义。",
-          "agentLaunchDefaults": "默认智能体、命令覆盖、CLI 参数和启动环境是客户端偏好。SSH 和远程服务器启动仍会在运行时验证主机可用性。",
+          "agentLaunchDefaults": "默认代理、命令覆盖、CLI 参数和启动环境保存在所选主机上。",
           "clientDefaultProjectScopes": "客户端默认 + 项目范围",
           "terminalQuickCommands": "命令保存在此客户端，然后限定为全局或某项目设置，以便从所选终端上下文运行。",
           "hostOverride": "主机覆盖",
@@ -13660,7 +13658,8 @@
             "resumeInChatTranscriptMissing": "无法加载此对话的历史记录，因此无法在聊天中恢复。",
             "resumeInChatFailed": "无法在新聊天中恢复此会话。",
             "resumeInNewCliUnavailable": "无法在 CLI 中打开此会话。",
-            "resumeInNewCliHostTooOld": "请更新运行此聊天的主机上的 Orca，才能在新的 CLI 中恢复它。"
+            "resumeInNewCliHostTooOld": "请更新运行此聊天的主机上的 Orca，才能在新的 CLI 中恢复它。",
+            "folderWorkspaceUnavailable": "文件夹工作区不再可用。"
           },
           "AiVaultPanelControls": {
             "scanningSessions": "正在扫描会话",
@@ -13762,7 +13761,9 @@
             "copied": "已复制",
             "copy": "复制",
             "noFirstPromptAvailable": "没有可用的首次提示",
-            "loadingFirstPrompt": "正在加载首次提示…"
+            "loadingFirstPrompt": "正在加载首次提示…",
+            "folder": "文件夹",
+            "resumeInFolder": "在文件夹中恢复"
           },
           "AiVaultSessionRow": {
             "resumeAgentSession": "恢复 {{value0}} 会话",
@@ -13858,7 +13859,12 @@
             "noRecordedWorktree": "此会话没有记录工作树。",
             "archivedJumpUnavailable": "此会话位于已归档的工作树中。",
             "noActiveWorktreeMatch": "没有与此会话匹配的活动工作树。",
-            "noActiveWorktreeTarget": "没有可用的活动工作树。"
+            "noActiveWorktreeTarget": "没有可用的活动工作树。",
+            "activeFolder": "文件夹",
+            "archivedFolder": "已归档的文件夹",
+            "archivedFolderJumpUnavailable": "此会话位于已归档的文件夹中。",
+            "currentFolder": "当前文件夹",
+            "jumpToFolder": "跳转到文件夹"
           },
           "AiVaultSessionSubagents": {
             "subagentsCount": "子智能体（{{value0}}）",
@@ -14902,7 +14908,6 @@
                 "d90d2e1f6d": "跟踪会话和每周使用情况。",
                 "8919321417": "Codex 登录失败。",
                 "c7b90c140b": "添加了 Codex 账户。",
-                "4e71d72912": "Claude 登录失败。",
                 "9ddeb558f9": "已添加 Claude 账户。",
                 "29d0653961": "登入",
                 "945865332e": "登录",
@@ -17569,7 +17574,8 @@
         "expandNode": "展开 {{value0}}",
         "selectMachine": "选择 {{value0}} 上的全部聊天",
         "sshHost": "SSH",
-        "done": "完成"
+        "done": "完成",
+        "resultListLabel": "本次恢复的聊天"
       },
       "linear-issue-attribute-filter-coverage-notice": {
         "statusPartialTeamCoverage": "过滤 {{value1}} 团队状态中的 {{value0}} — 不包括其余团队的问题。",
@@ -17671,7 +17677,11 @@
         "resumedTitleOne": "已恢复 {{value0}}/1 个聊天",
         "resumingTitleOne": "正在恢复 1 个聊天",
         "resumingTitle": "正在恢复 {{value0}} 个聊天",
-        "description": "每个聊天都会带着完整上下文恢复，并被要求检查它停在了哪里。你可以关闭此窗口，状态栏会继续显示进度。"
+        "description": "每个聊天都会带着完整上下文恢复，并被要求检查它停在了哪里。你可以关闭此窗口，状态栏会继续显示进度。",
+        "finished": "Orca 关闭时这些聊天正在工作。Orca 已将每个聊天恢复到停止的位置并保留完整上下文，并让智能体在继续之前先检查它之前在做什么。你自己的提示没有被重新发送。",
+        "finishedUpdate": "Orca 安装更新时这些聊天正在工作。Orca 已将每个聊天恢复到停止的位置并保留完整上下文，并让智能体在继续之前先检查它之前在做什么。你自己的提示没有被重新发送。",
+        "finishedPartial": "Orca 关闭时这些聊天正在工作。Orca 恢复的聊天已回到停止的位置并保留完整上下文，并被要求在继续之前先检查之前在做什么。你自己的提示没有被重新发送。请在列表中查看仍需处理或可以恢复的聊天。",
+        "finishedPartialUpdate": "Orca 安装更新时这些聊天正在工作。Orca 恢复的聊天已回到停止的位置并保留完整上下文，并被要求在继续之前先检查之前在做什么。你自己的提示没有被重新发送。请在列表中查看仍需处理或可以恢复的聊天。"
       },
       "NativeChatResumeRunStatusIcon": {
         "waitingForReply": "等待回复",
@@ -17691,6 +17701,11 @@
         "attention": "需要处理",
         "running": "已运行 {{value0}}",
         "filter": "显示聊天"
+      },
+      "NativeChatResumeAutoNote": {
+        "resuming": "重启后正在自动恢复。",
+        "resumed": "重启后已自动恢复。",
+        "changeInSettings": "在设置中更改"
       }
     },
     "i18n": {
@@ -17797,6 +17812,7 @@
         "couldNotStart": "{{agent}} 无法启动。",
         "editSavedArguments": "请在设置 > 智能体 > 参数中编辑。",
         "couldNotRestart": "{{agent}} 无法重新启动。",
+        "codexCliTooOld": "Codex {{installedVersion}} 版本过旧，无法用于聊天。请更新到 {{minimumVersion}} 或更高版本。",
         "notSignedIn": "{{agent}} 尚未登录。",
         "claudeSystemNotSignedIn": "Claude 尚未登录。请运行 `{{loginCommand}}`，或在 Claude 账户设置中选择账户。",
         "claudeManagedNotSignedIn": "此 Claude 账户尚未登录。请在 Claude 账户设置中重新登录。",
@@ -17812,6 +17828,8 @@
         "managedAccountUnsupported": "当 WSL 中添加了 Claude 账户时，Claude 聊天需要 Windows Claude 账户。",
         "launchFolderMissing": "此聊天运行所在的文件夹已不存在。请恢复该文件夹以继续此聊天。",
         "historyInOtherAccount": "此聊天的历史记录位于另一个 Claude 账户中。请切换回该账户以继续此聊天。",
+        "claudeAccountFolderMissing": "所选 Claude 账户的文件夹不存在。请重新登录该账户或选择其他账户。",
+        "claudeAccountSetupFailed": "无法设置所选 Claude 账户。请重试或选择其他账户。",
         "agentCommandNotRunnable": "{{agent}} 在设置 → 智能体中的命令必须是 Orca 能找到的程序路径或名称，且不能包含参数或变量。请修改或重置。",
         "chooseClaudeAccount": "请在 Claude 账户设置中选择或添加一个。",
         "chooseClaudeAccountThenRunCommand": "请在 Claude 账户设置中选择或添加一个，然后重新运行 /{{command}}。",
@@ -17977,6 +17995,7 @@
         "model": "模型",
         "effort": "推理强度",
         "fastMode": "快速模式",
+        "speed": "速度",
         "thinking": "思考",
         "options": "选项",
         "sessionOptions": "会话选项",
@@ -17997,7 +18016,8 @@
           "high": "高",
           "xhigh": "极高",
           "max": "最大",
-          "ultra": "极致"
+          "ultra": "极致",
+          "standard": "标准"
         },
         "noCommandsOrSkills": "没有匹配的命令或技能",
         "commands": "命令",
@@ -18028,6 +18048,19 @@
         "attachmentOwnerChanged": "此工作区在附加时更改了主机 - 再次删除文件。",
         "attachmentUnreadable": "无法读取删除的文件。",
         "tooManyAttachments": "每次最多附加 {{value0}} 个文件。",
+        "permissions": "权限",
+        "permissionAsk": "请求批准",
+        "permissionAskDescription": "在设置未允许的编辑和命令前询问",
+        "permissionAskCodexDescription": "在此工作区中编辑文件并运行命令；其他操作前会询问",
+        "permissionAskSharedDescription": "在执行尚未获准的编辑或命令前询问",
+        "permissionAcceptEdits": "接受编辑",
+        "permissionAcceptEditsDescription": "批准文件编辑和文件命令；其余操作会询问",
+        "permissionAuto": "替我批准",
+        "permissionAutoDescription": "代你审核批准请求",
+        "permissionFullAccess": "完全访问",
+        "permissionFullAccessDescription": "编辑或运行命令前从不询问",
+        "permissionFullAccessCodexDescription": "从不询问；可以编辑任何文件并使用网络",
+        "permissionFullAccessSharedDescription": "编辑或运行命令前从不询问",
         "pasteFailed": "粘贴失败。",
         "commandAttachmentsUnsupported": "使用聊天会话命令前，请先移除附件。"
       },
@@ -18148,8 +18181,11 @@
       },
       "transcriptLabel": "对话",
       "toggle": {
-        "showTerminal": "显示终端",
-        "showChat": "显示聊天视图"
+        "showTerminal": "显示终端"
+      },
+      "resumeInNewChat": {
+        "notSavedYet": "{{agent}} 尚未保存此对话。请在它回复后重试。",
+        "cannotResume": "此 {{agent}} 对话无法在本机聊天中恢复。"
       },
       "state": {
         "loading": {
@@ -18250,6 +18286,7 @@
         "orcaStopUpdate": "此回复进行期间，{{machine}} 上的 Orca 为更新而重新启动。",
         "orcaStopQuit": "此回复进行期间，{{machine}} 上的 Orca 已关闭。",
         "orcaStopCrash": "此回复进行期间，{{machine}} 上的 Orca 意外停止。",
+        "orcaStopRemote": "此回复进行期间，{{machine}} 上的 Orca 已停止。",
         "orcaStopCanContinue": "你可以在此对话中继续。"
       },
       "providerFrame": {
@@ -18454,8 +18491,7 @@
       },
       "visualUnavailable": "可视化不可用",
       "visualLoading": "正在加载可视化",
-      "visualOpenInSidebar": "在侧边栏中打开",
-      "visualClose": "关闭可视化"
+      "visualOpenInNewTab": "在新标签页中打开"
     },
     "tab": {
       "bar": {
@@ -19118,9 +19154,6 @@
     "nativeChatUpgrade": {
       "eyebrow": "新功能",
       "title": "本机聊天已升级",
-      "chatModeNote": "新的智能体标签页仍像以前一样在终端中打开。",
-      "chatModeLabel": "开启聊天模式",
-      "chatModeHint": "新的智能体标签页改为以聊天方式打开。",
       "intro": "受支持智能体的新聊天现在会在升级后的聊天视图中打开。要在聊天和 CLI 之间切换，请打开右侧边栏中的{{panel}}：",
       "resumeInNativeChat": "{{action}}：在本机聊天中打开受支持的 CLI 对话。",
       "resumeInCli": "{{action}}：将 Claude 或 Codex 聊天复制到新的 CLI 会话中。原始聊天保持不变。",
@@ -19447,9 +19480,6 @@
       "oldTerminalDialogRisk": "共享服务器的 Codex 会话可能会一起结束，并且智能体状态可能会错误。",
       "oldTerminalDialogCause": "较旧的终端仍然共享 Codex 服务器。打开一个新终端以在单独的服务器上运行 Codex。",
       "fix": "使固定",
-      "openNewTerminal": "打开新终端",
-      "dontShowAgain": "不再显示",
-      "dismiss": "关闭",
       "dialogTitle": "为每个 Codex 选项卡提供自己的服务器",
       "dialogDescription": "Codex 会话直接在共享一台后台服务器的终端中启动。 Orca 将其启动的 Codex 会话分开保存。当会话共享一台服务器时，关闭一个服务器可能会结束其他服务器，并且智能体状态可能会错误。",
       "copy": "复制",
@@ -19460,7 +19490,6 @@
       "step2Title": "停止正在运行的共享服务器",
       "undo": "要撤消，请运行 codex features enable daemon_auto_start。",
       "step2Warning": "关闭共享服务器的所有打开的 Codex 会话",
-      "learnMore": "了解更多",
       "turnOff": "关",
       "turningOff": "正在关闭…",
       "turnedOff": "已关闭",
@@ -19476,6 +19505,12 @@
     },
     "paneMove": {
       "failed": "无法将窗格移动到新选项卡。"
+    },
+    "paneTopBanner": {
+      "openNewTerminal": "打开新终端",
+      "learnMore": "了解更多",
+      "dontShowAgain": "不再显示",
+      "dismiss": "关闭"
     }
   },
   "fileSearch": {
@@ -19554,5 +19589,16 @@
   },
   "projectField": {
     "updateFailed": "无法更新项目字段"
-  }
+  },
+  "settings.agents.environmentName": "环境变量名称",
+  "settings.agents.environmentValue": "{{name}} 的值",
+  "settings.agents.savedEnvironment": "已保存的值 · 输入以替换",
+  "settings.agents.newEnvironment": "值",
+  "settings.agents.removeEnvironment": "删除",
+  "settings.agents.loadingHost": "正在加载代理设置…",
+  "settings.agents.updateHost": "请更新此服务器以编辑其代理启动设置。",
+  "settings.agents.readFailed": "无法读取代理设置。请检查主机连接并重试。",
+  "settings.agents.saveFailed": "无法保存代理设置。请检查主机连接并重试。",
+  "settings.agents.hostDefaults": "所选主机上新代理的默认设置。",
+  "settings.agents.save": "保存"
 }

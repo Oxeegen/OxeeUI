@@ -5,6 +5,11 @@ import { durableWriteTempPath, removeStaleDurableWriteTempFiles } from '../durab
 
 const STALE_WRITE_TEMP_AGE_MS = 24 * 60 * 60 * 1000
 
+export type StatsSnapshotWriterOptions = {
+  /** Creation mode for the published file, e.g. 0o600 for state other users must not read. */
+  fileMode?: number
+}
+
 export class StatsSnapshotWriter {
   private writeGeneration = 0
   private lastCommittedGeneration = 0
@@ -14,7 +19,10 @@ export class StatsSnapshotWriter {
   private readonly staleTempCleanup: Promise<void>
   private inFlightAsyncTmpFile: string | null = null
 
-  constructor(private readonly resolveFile: () => string) {
+  constructor(
+    private readonly resolveFile: () => string,
+    private readonly options: StatsSnapshotWriterOptions = {}
+  ) {
     this.staleTempCleanup = removeStaleDurableWriteTempFiles(resolveFile(), {
       minimumAgeMs: STALE_WRITE_TEMP_AGE_MS
     })
@@ -23,17 +31,9 @@ export class StatsSnapshotWriter {
   write(serialize: () => string): Promise<void> {
     this.writeRequested = true
     this.pendingSerialize = serialize
-    if (this.pendingWrite) {
-      return this.pendingWrite
-    }
-    const run = this.drainWrites()
-    const tracked = run.finally(() => {
-      if (this.pendingWrite === tracked) {
-        this.pendingWrite = null
-      }
-    })
-    this.pendingWrite = tracked
-    return tracked
+    // Why safe: drainWrites awaits before its finally can clear pendingWrite, so this assignment lands first.
+    this.pendingWrite ??= this.drainWrites()
+    return this.pendingWrite
   }
 
   writeSync(serialize: () => string): void {
@@ -56,7 +56,7 @@ export class StatsSnapshotWriter {
       }
     }
     const { tmpFile, json, generation } = this.preparePayload(statsFile, serialize)
-    writeFileSync(tmpFile, json, 'utf-8')
+    writeFileSync(tmpFile, json, { encoding: 'utf-8', mode: this.options.fileMode })
     renameSync(tmpFile, statsFile)
     this.lastCommittedGeneration = Math.max(this.lastCommittedGeneration, generation)
   }
@@ -82,22 +82,27 @@ export class StatsSnapshotWriter {
   }
 
   private async drainWrites(): Promise<void> {
-    await this.staleTempCleanup
-    let firstError: unknown = null
-    while (this.writeRequested) {
-      this.writeRequested = false
-      const serialize = this.pendingSerialize!
-      try {
-        await this.writeToDiskAsync(serialize)
-      } catch (error) {
-        firstError ??= error
-        if (!this.writeRequested) {
-          throw error
+    try {
+      await this.staleTempCleanup
+      let firstError: unknown = null
+      while (this.writeRequested) {
+        this.writeRequested = false
+        const serialize = this.pendingSerialize!
+        try {
+          await this.writeToDiskAsync(serialize)
+        } catch (error) {
+          firstError ??= error
+          if (!this.writeRequested) {
+            throw error
+          }
         }
       }
-    }
-    if (firstError) {
-      throw firstError
+      if (firstError) {
+        throw firstError
+      }
+    } finally {
+      // Why: clear in the same tick the loop saw no request left, so a later write() starts a new drain.
+      this.pendingWrite = null
     }
   }
 
@@ -107,7 +112,7 @@ export class StatsSnapshotWriter {
     const { tmpFile, json, generation } = this.preparePayload(statsFile, serialize)
     let renamed = false
     try {
-      await writeFile(tmpFile, json, 'utf-8')
+      await writeFile(tmpFile, json, { encoding: 'utf-8', mode: this.options.fileMode })
       if (this.lastCommittedGeneration >= generation) {
         return
       }
