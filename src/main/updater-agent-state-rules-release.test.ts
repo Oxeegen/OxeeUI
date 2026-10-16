@@ -2,7 +2,7 @@
 // what the updater resolves on any path: the stable Latest feed, the RC prerelease feed, or the
 // build picker.
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { getVersionChannel } from '../shared/release-channel'
+import { getVersionChannel, MAIN_RELEASE_REPO } from '../shared/release-channel'
 import { installNetRequestFetchAdapter } from './updater-net-request.fixture'
 
 const { netFetchMock, netRequestMock } = vi.hoisted(() => ({
@@ -23,6 +23,9 @@ vi.mock('./git/gh-rate-limit-breaker', () => ({
 const { fetchNewerReleaseTag } = await import('./updater-prerelease-feed')
 const { listReleaseBuilds, resolveTargetBuild } = await import('./updater-release-builds')
 
+// Why brand-derived: the feed repo follows the publish target, so a fork does not assert
+// upstream's feed URL (the code under test fetches this product's own feed).
+const RELEASES_BASE = `https://github.com/${MAIN_RELEASE_REPO}`
 const RULES_TAGS = ['agent-state-rules-engine-1-next', 'agent-state-rules-engine-1-stable']
 const APP_TAGS = ['v1.4.3-rc.1', 'v1.4.2', 'v1.4.2-rc.4', 'v1.4.1']
 
@@ -30,7 +33,7 @@ function atomFeed(tags: readonly string[]): string {
   const entries = tags
     .map(
       (tag) =>
-        `<entry><link rel="alternate" type="text/html" href="https://github.com/stablyai/orca/releases/tag/${tag}"/><title>${tag}</title></entry>`
+        `<entry><link rel="alternate" type="text/html" href="${RELEASES_BASE}/releases/tag/${tag}"/><title>${tag}</title></entry>`
     )
     .join('')
   return `<?xml version="1.0" encoding="UTF-8"?><feed>${entries}</feed>`
@@ -38,7 +41,7 @@ function atomFeed(tags: readonly string[]): string {
 
 function serveFeed(tags: readonly string[]): void {
   netFetchMock.mockImplementation((url: string) => {
-    if (url === 'https://github.com/stablyai/orca/releases.atom') {
+    if (url === `${RELEASES_BASE}/releases.atom`) {
       return Promise.resolve({ ok: true, text: () => Promise.resolve(atomFeed(tags)) })
     }
     const manifest = url.match(/\/releases\/download\/v([^/]+)\/latest(?:-[a-z]+)?\.yml$/)

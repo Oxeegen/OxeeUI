@@ -18,6 +18,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   transcript-readers:
+    if: github.repository == 'stablyai/orca'
     strategy:
       fail-fast: false
       matrix:

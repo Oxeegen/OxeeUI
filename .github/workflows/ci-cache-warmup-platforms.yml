@@ -57,4 +57,5 @@ concurrency:
 
 jobs:
   warm-platforms:
+    if: github.repository == 'stablyai/orca'
     uses: ./.github/workflows/ci-cache-warmup-platform-jobs.yml

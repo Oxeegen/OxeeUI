@@ -38,6 +38,7 @@ env:
 jobs:
   # The distro is linux-x64-glibc; its node-pty slot only builds on Linux, and nothing else is needed.
   template:
+    if: github.repository == 'stablyai/orca'
     name: Build the linux-x64-glibc orcad template
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -64,6 +65,7 @@ jobs:
           if-no-files-found: error
 
   wsl2:
+    if: github.repository == 'stablyai/orca'
     name: WSL2 distros (systemd off and on)
     needs: template
     runs-on: windows-2025

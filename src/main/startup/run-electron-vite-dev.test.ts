@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { afterEach, describe, expect, it } from 'vitest'
+import { BRAND } from '@brand/config/brand'
 
 const processesToCleanUp = new Set<number>()
 
@@ -281,7 +282,9 @@ describe('run-electron-vite-dev', () => {
     expect(envSnapshot.worktreeName).toBe('payment-ui')
     expect(envSnapshot.repoRoot).toBe(resolve('.'))
     expect(envSnapshot.badgeLabel).toBeNull()
-    expect(envSnapshot.dockTitle).toBe('Orca: feature/billing-shell')
+    // Why brand-derived: the dev runner labels the window with this fork's product
+    // name, so an upstream literal here would assert the rebrand away.
+    expect(envSnapshot.dockTitle).toBe(`${BRAND.productName}: feature/billing-shell`)
     expect(envSnapshot.stableName).toBeNull()
     expect(envSnapshot.electronExecPath).toBeNull()
 

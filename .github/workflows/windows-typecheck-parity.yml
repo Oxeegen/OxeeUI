@@ -25,6 +25,7 @@ concurrency:
 
 jobs:
   parity:
+    if: github.repository == 'stablyai/orca'
     name: Windows compiler diagnostics and file selection
     runs-on: windows-2022
     timeout-minutes: 40

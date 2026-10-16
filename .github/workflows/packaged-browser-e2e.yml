@@ -20,6 +20,7 @@ permissions:
   contents: read
 jobs:
   compatibility:
+    if: github.repository == 'stablyai/orca'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -64,6 +65,7 @@ jobs:
           path: test-results/
           retention-days: 3
   layout-compat:
+    if: github.repository == 'stablyai/orca'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

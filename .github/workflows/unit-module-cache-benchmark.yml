@@ -12,6 +12,7 @@ concurrency:
 
 jobs:
   baseline:
+    if: github.repository == 'stablyai/orca'
     uses: ./.github/workflows/unit-tests.yml
     with:
       node_versions: '["24.21.0"]'
@@ -22,6 +23,7 @@ jobs:
       run_relay_integration: false
 
   producer:
+    if: github.repository == 'stablyai/orca'
     needs: baseline
     uses: ./.github/workflows/unit-tests.yml
     with:
@@ -36,6 +38,7 @@ jobs:
       run_relay_integration: false
 
   warm:
+    if: github.repository == 'stablyai/orca'
     needs: producer
     uses: ./.github/workflows/unit-tests.yml
     with:
