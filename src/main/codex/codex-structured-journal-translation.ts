@@ -1,4 +1,6 @@
 import { createCodexProviderActivityReader } from '../native-chat/agent-session-wire/provider-frame-activity'
+import { recordCodexContextUsage } from './codex-context-usage'
+import { CODEX_TOKEN_USAGE_METHOD } from './codex-subagent-activity'
 import {
   CODEX_JOURNAL_ADMITTED,
   type CodexJournalTranslationAdmission,
@@ -15,7 +17,7 @@ import { createCodexJournalTranslatorWriters } from './codex-structured-journal-
 import { publishCodexTurnLifecycle } from './codex-structured-journal-translation-turns'
 import { codexProviderRetryRowBody, isCodexProviderRetryFrame } from './codex-provider-retry-row'
 import { createCodexThreadItemRouter } from './codex-structured-journal-thread-item-routing'
-import { codexThreadStoppedRunning, readCodexTurnId } from './codex-structured-thread-facts'
+import { readCodexTurnId } from './codex-structured-thread-facts'
 import {
   observeCodexExecutionFrame,
   readCodexBackgroundTaskFrame
@@ -75,15 +77,6 @@ export function createCodexJournalTranslator(
     commands,
     ...(deps.now ? { now: deps.now } : {})
   })
-  let primaryThreadStoppedRunning = false
-  const reportPrimaryThreadStoppedRunning = (): void => {
-    const primaryThreadId = deps.primaryThreadId?.() ?? null
-    if (!primaryThreadStoppedRunning || !primaryThreadId || activeTurns.current(primaryThreadId)) {
-      return
-    }
-    primaryThreadStoppedRunning = false
-    deps.onPrimaryThreadStoppedRunning?.()
-  }
   const routeThreadItem = createCodexThreadItemRouter({
     deps,
     items,
@@ -207,24 +200,19 @@ export function createCodexJournalTranslator(
         return suppressionAdmission.accepted ? prompts.handle(event) : suppressionAdmission
       }
       if (event.type === 'server-request') {
-        return genericFrames.appendUnhandled(
-          `request:${event.method}`,
-          event.params,
-          event.threadId
-        )
+        const requestKey = `request:${event.method}`
+        return genericFrames.appendUnhandled(requestKey, event.params, event.threadId)
       }
       if (event.type === 'provider-frame') {
         return genericFrames.appendUnhandled(event.kind, event.payload, event.threadId)
       }
+      if (event.type !== 'notification') {
+        return CODEX_JOURNAL_ADMITTED
+      }
       if (event.method === 'turn/started' || event.method === 'turn/completed') {
-        const admission =
-          event.method === 'turn/started'
-            ? turnBoundaries.start(event)
-            : turnBoundaries.complete(event)
-        if (admission.accepted) {
-          reportPrimaryThreadStoppedRunning()
-        }
-        return admission
+        return event.method === 'turn/started'
+          ? turnBoundaries.start(event)
+          : turnBoundaries.complete(event)
       }
       const compaction = compactions.handle(event)
       if (compaction) {
@@ -233,6 +221,20 @@ export function createCodexJournalTranslator(
       const goal = goals.handle(event)
       if (goal) {
         return publishActivity(event, goal)
+      }
+      // The session's own thread fills the window its chat shows; a child's frame measures its own.
+      if (
+        event.method === CODEX_TOKEN_USAGE_METHOD &&
+        event.threadId === (deps.primaryThreadId?.() ?? null)
+      ) {
+        recordCodexContextUsage({
+          sink: deps.sink,
+          activeTurns,
+          attributionFor,
+          threadId: event.threadId,
+          params: event.params,
+          capturedAt: deps.now?.() ?? Date.now()
+        })
       }
       if (event.method === 'item/started' || event.method === 'item/completed') {
         const routed = routeThreadItem(event)
@@ -253,25 +255,13 @@ export function createCodexJournalTranslator(
           })
         )
       }
-      // A thread that stopped running settles no open turn: Codex clears `running`
-      // on every error, and an open turn ends on its `turn/completed`. It releases
-      // a send whose dispatch was never answered, which nothing else re-derives live.
-      if (
-        event.method === 'thread/status/changed' &&
-        codexThreadStoppedRunning(event.params) &&
-        event.threadId === (deps.primaryThreadId?.() ?? null)
-      ) {
-        primaryThreadStoppedRunning = true
-        reportPrimaryThreadStoppedRunning()
-      }
       // A turn-ending `error` is a row inside the turn it names; the failed
       // `turn/completed` Codex sends after it is that turn's end. The thread
       // status was read for state above and prints nothing.
       const unhandled = genericFrames.appendUnhandled(
         `notification:${event.method}`,
         event.params,
-        event.threadId,
-        { coveredByTypedTranslator: event.method === 'thread/status/changed' }
+        event.threadId
       )
       if (unhandled.accepted && event.method === 'error') {
         commands.errorShown(event.params)

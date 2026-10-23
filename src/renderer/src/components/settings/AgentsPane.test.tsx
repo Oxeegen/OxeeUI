@@ -34,6 +34,7 @@ import {
 } from './AgentsPane'
 import { matchesSettingsSearch } from './settings-search'
 import { TooltipProvider } from '../ui/tooltip'
+import { resolveSettingsHostScope } from './settings-host-scope'
 
 const detectedAgentsMock = vi.hoisted(() => ({
   detectedIds: ['claude'] as TuiAgent[] | null,
@@ -104,6 +105,13 @@ function renderPane(
       React.createElement(AgentsPane, {
         settings,
         updateSettings: vi.fn(),
+        // Why: mirrors the page before the user picks a host — the default host setting.
+        hostScope: resolveSettingsHostScope({
+          choice: null,
+          defaultEnvironmentId: settings.activeRuntimeEnvironmentId,
+          savedEnvironmentIds: [],
+          catalogHydrated: false
+        }),
         ...props
       })
     )
@@ -205,6 +213,15 @@ describe('AgentsPane', () => {
     } finally {
       initialState.runtimeEnvironments = priorRuntimeEnvironments
     }
+  })
+
+  it('detects agents on the host chosen in the page, not the focused server', () => {
+    renderPane(
+      { ...getDefaultSettings('/tmp'), activeRuntimeEnvironmentId: 'env-1' },
+      { hostScope: { target: { kind: 'local' }, available: true } }
+    )
+
+    expect(detectedAgentsMock.lastTarget).toEqual({ kind: 'local' })
   })
 
   it('shows a retryable error when initial local detection fails', () => {
@@ -486,24 +503,40 @@ describe('AgentsPane', () => {
     expect(matchesSettingsSearch('permission', getAgentsPaneSearchEntries())).toBe(true)
     expect(matchesSettingsSearch('yolo', getAgentsPaneSearchEntries())).toBe(true)
     expect(matchesSettingsSearch('manual', getAgentsPaneSearchEntries())).toBe(true)
+    expect(matchesSettingsSearch('approve for me', getAgentsPaneSearchEntries())).toBe(true)
   })
 
-  it('applies the selected agent permission mode from settings without a mixed segment', () => {
-    const onChange = vi.fn()
-    const element = AgentPermissionsSetting({ mode: 'mixed', onChange })
-    const props = element.props.children.props.action.props as {
-      value: 'yolo'
-      onChange: (value: 'yolo' | 'manual' | 'mixed') => void
-      options: { value: string }[]
-    }
+  it.each([
+    ['manual', undefined, 'How much agents can do without asking you.', 1],
+    ['auto', 'yolo', 'Supported agents</button> approve safe actions on their own.', 2],
+    ['auto', 'mixed', 'Supported agents</button> approve safe actions on their own.', 1],
+    ['mixed', undefined, 'Most agents use Yolo. Choosing a mode resets the marked exceptions', 0]
+  ] as const)('describes %s permissions with others %s', (mode, nonAutoMode, copy, checked) => {
+    const markup = renderToStaticMarkup(
+      <TooltipProvider>
+        <AgentPermissionsSetting
+          mode={mode}
+          nonAutoMode={nonAutoMode}
+          majorityMode="yolo"
+          autoAgentLabels={['Claude', 'Claude Agent Teams', 'Codex']}
+          onChange={vi.fn()}
+          onChangeNonAuto={vi.fn()}
+        />
+      </TooltipProvider>
+    )
+    expect(markup).toContain(copy)
+    expect(markup.includes('inert=""')).toBe(mode !== 'auto')
+    expect(markup.match(/aria-checked="true"/g)?.length ?? 0).toBe(checked)
+  })
 
-    expect(props.value).toBe('yolo')
-    expect(props.options.map((option) => option.value)).toEqual(['yolo', 'manual'])
-    props.onChange('mixed')
-    expect(onChange).not.toHaveBeenCalled()
-
-    props.onChange('manual')
-    expect(onChange).toHaveBeenCalledWith('manual')
+  it('explains inline when the host cannot run Auto', () => {
+    const markup = renderToStaticMarkup(
+      <TooltipProvider>
+        <AgentPermissionsSetting mode="yolo" autoSupported={false} onChange={vi.fn()} />
+      </TooltipProvider>
+    )
+    expect(markup).toContain('Auto needs a newer Orca on this host.')
+    expect(markup).toMatch(/aria-disabled="true"[^>]*>Auto</)
   })
 
   it('keeps catalog agent ids, labels, and commands discoverable in settings search', () => {

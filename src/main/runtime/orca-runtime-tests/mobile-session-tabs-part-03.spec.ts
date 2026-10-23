@@ -1,3 +1,4 @@
+import { ORCA_LAYOUT_OWNER_IS_MAIN } from '../../../shared/layout-owner-switch'
 import { describe, expect, it, vi } from 'vitest'
 import {
   MOCK_GIT_WORKTREES,
@@ -13,8 +14,10 @@ import {
   TEST_WORKTREE_PATH,
   UUID_RE,
   deferred,
+  makeRuntimeStoreWithWorkspaceSession,
   store
 } from '../orca-runtime-test-fixtures.spec'
+import { getDefaultWorkspaceSession } from '../../../shared/constants'
 
 describe('OrcaRuntimeService', () => {
   it('keeps client selection when a renderer session-tab close cannot commit', async () => {
@@ -249,17 +252,10 @@ describe('OrcaRuntimeService', () => {
 
   it('creates mobile session terminals in a headless runtime server', async () => {
     const spawn = vi.fn().mockResolvedValue({ id: 'pty-headless' })
-    const runtime = new OrcaRuntimeService(store)
-    const persistViewMode = vi.spyOn(
-      runtime as unknown as {
-        persistHeadlessSessionTabProps: (
-          worktreeId: string,
-          tabId: string,
-          props: { viewMode: 'terminal' | 'chat' }
-        ) => void
-      },
-      'persistHeadlessSessionTabProps'
+    const { runtimeStore, getSession } = makeRuntimeStoreWithWorkspaceSession(
+      getDefaultWorkspaceSession()
     )
+    const runtime = new OrcaRuntimeService(runtimeStore)
     runtime.setPtyController({
       spawn,
       write: () => true,
@@ -289,9 +285,12 @@ describe('OrcaRuntimeService', () => {
       viewMode: 'chat',
       isActive: true
     })
-    expect(persistViewMode).toHaveBeenCalledWith(TEST_WORKTREE_ID, result.tab.parentTabId, {
-      viewMode: 'chat'
-    })
+    // Written with the pane before spawn, so a serve restart keeps the initial mode.
+    expect(
+      getSession().tabsByWorktree[TEST_WORKTREE_ID]?.find(
+        (tab) => tab.id === result.tab.parentTabId
+      )?.viewMode
+    ).toBe('chat')
 
     const listed = await runtime.listMobileSessionTabs(`id:${TEST_WORKTREE_ID}`)
     expect(listed.tabs).toEqual([
@@ -566,7 +565,8 @@ describe('OrcaRuntimeService', () => {
       expect.objectContaining({ source: 'runtime-session', viewMode: 'chat' })
     )
     expect(spawn).not.toHaveBeenCalled()
-    expect(setBackgroundThrottling.mock.calls).toEqual([[false], [true]])
+    // The final release restores throttling on the next task, after any native destruction.
+    await vi.waitFor(() => expect(setBackgroundThrottling.mock.calls).toEqual([[false], [true]]))
     expect(result.tab).toMatchObject({
       type: 'terminal',
       status: 'ready',
@@ -648,6 +648,17 @@ describe('OrcaRuntimeService', () => {
         runtime.markRendererReloading(1)
       } else {
         runtime.markGraphUnavailable(1)
+      }
+      if (ORCA_LAYOUT_OWNER_IS_MAIN && graphStatus === 'unavailable') {
+        // Layout-owner build: the window closed, so main takes the graph back and starts the
+        // terminal itself; nothing reaches the closed window. (The fixture store has no
+        // agent-session API, so only where the start runs is under test.)
+        electronMocks.BrowserWindow.fromId.mockReturnValue(null)
+        await runtime.createMobileSessionTerminal(`id:${TEST_WORKTREE_ID}`, {}).catch(() => null)
+        expect(runtime.getStatus().graphStatus).toBe('ready')
+        expect(spawn).toHaveBeenCalledTimes(1)
+        expect(send).not.toHaveBeenCalled()
+        return
       }
 
       await expect(

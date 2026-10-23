@@ -1,7 +1,5 @@
-import { EventEmitter } from 'node:events'
-import { PassThrough } from 'node:stream'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { spawnProcess } from '../../shared/child-process/run-process'
+import { createFakePipedChild } from '../../shared/__fixtures__/fake-spawned-child'
 import { codexCliInstallation } from '../../shared/codex-cli-installation'
 import { agentSessionRecordFixture } from '../../shared/agent-session-record.test-fixture'
 import type { AgentSessionRecord } from '../../shared/agent-session-record'
@@ -81,18 +79,12 @@ describe('Codex structured launch version admission', () => {
     vi.spyOn(process, 'platform', 'get').mockReturnValue('win32')
     vi.mocked(readCodexCliInstallation).mockResolvedValue(codexCliInstallation(false, null))
     await requireSupportedCodexCli({ program: 'codex.exe' })
-    const child = Object.assign(new EventEmitter(), {
-      pid: undefined,
-      stdin: new PassThrough(),
-      stdout: new PassThrough(),
-      stderr: new PassThrough(),
-      kill: vi.fn(() => true)
-    })
+    const child = createFakePipedChild()
+    Object.assign(child, { pid: undefined })
     const opening = openCodexAppServerConnection(
       { command: 'codex.exe', args: ['app-server'] },
       {},
-      // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the connection only uses the fake's pid, pipes, kill and events.
-      (() => child) as unknown as typeof spawnProcess
+      () => child
     ).catch((error: unknown) => error)
     child.emit(
       'error',
@@ -138,8 +130,7 @@ describe('Codex structured launch version admission', () => {
           resolveCommand: () => '/host/bin/codex',
           resolveEnvironment: async () => ({ PATH: '/host/bin', HOME: '/host/home' }),
           resolveLaunchArgs: () => [],
-          resolveWorkspacePath: async () => '/folder',
-          resolveRollout: async () => null
+          resolveWorkspacePath: async () => '/folder'
         })
       )
       vi.mocked(readCodexCliInstallation).mockResolvedValue(codexCliInstallation(true, '0.135.0'))
@@ -190,8 +181,7 @@ describe('Codex structured launch version admission', () => {
           resolveCommand: () => '/host/project-aware-codex',
           resolveEnvironment: async () => ({ PATH: '/host/bin' }),
           resolveLaunchArgs: () => [],
-          resolveWorkspacePath: async () => '/workspace',
-          resolveRollout: async () => null
+          resolveWorkspacePath: async () => '/workspace'
         })
       )
       expect(

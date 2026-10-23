@@ -32,12 +32,13 @@ import { agentMainAgentVerdict } from '../../../../shared/agent-main-agent-verdi
 import { useStructuredAgentSessionLaunchLifecycle } from '@/lib/structured-agent-session-launch-registry'
 import { useStructuredAgentSessionLaunchFailedAt } from '@/lib/structured-agent-session-launch-failed-at'
 import { useAppStore } from '@/store'
-import type { RuntimeClientTarget } from '@/runtime/runtime-rpc-client'
+import type { RuntimeClientTarget } from '../../../../shared/runtime-client-target'
 import {
   structuredAgentSessionOwnerForTab,
   structuredAgentSessionTargetForHost
 } from '@/runtime/structured-agent-session-owner'
 import { getStructuredAgentSessionStatusFeed } from '@/runtime/structured-agent-session-status-feed'
+import { useStructuredChatSleepProjection } from './structured-chat-sleep-projection'
 import { getStructuredAgentSessionTabs, type StructuredTab } from './structured-agent-session-tabs'
 
 // Re-exported so the bridge stays the one import site its consumers already know.
@@ -317,6 +318,7 @@ function StructuredAgentSessionStatusProjection({
 }): React.JSX.Element | null {
   const owner = useAppStore((state) => structuredAgentSessionOwnerForTab(state, tab))
   const target = useMemo(() => structuredAgentSessionTargetForHost(owner), [owner])
+  useStructuredChatSleepProjection(tab, target)
   return target ? <StructuredAgentSessionOwnedStatusProjection tab={tab} target={target} /> : null
 }
 

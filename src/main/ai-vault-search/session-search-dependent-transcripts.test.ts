@@ -69,7 +69,7 @@ function matches(term: string): unknown {
     .get(term)
 }
 
-it.each(['cline'] as const)(
+it.each(['cline', 'kiro'] as const)(
   'removes old searchable messages when the %s sidecar is deleted',
   async (agent) => {
     const path = join(root, agent, SESSION_ID, `${SESSION_ID}.json`)

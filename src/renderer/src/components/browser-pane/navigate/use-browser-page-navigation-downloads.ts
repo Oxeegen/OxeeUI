@@ -1,3 +1,4 @@
+import { LOCAL_EXECUTION_HOST_ID } from '../../../../../shared/execution-host'
 import {
   useCallback,
   useEffect,
@@ -13,7 +14,7 @@ import { translate } from '@/i18n/i18n'
 import {
   getWorkspaceFileBrowserOpenTarget,
   REMOTE_FILE_BROWSER_UNSUPPORTED_MESSAGE
-} from '@/lib/file-preview'
+} from '@/lib/workspace-file-browser-open-target'
 import { routeWorkspaceDocAddressSubmission } from './workspace-doc-address-submission'
 import {
   getWorkspaceFileDragRejectionMessage,
@@ -243,7 +244,7 @@ export function useBrowserPageNavigationDownloads({
         )
         return
       }
-      const opened = await window.api.shell.openFilePath(download.savePath)
+      const opened = await window.api.shell.openFilePath(download.savePath, LOCAL_EXECUTION_HOST_ID)
       if (!opened) {
         setResourceNotice(
           translate(
@@ -267,7 +268,10 @@ export function useBrowserPageNavigationDownloads({
         )
         return
       }
-      const result = await window.api.shell.openInFileManager(download.savePath)
+      const result = await window.api.shell.openInFileManager(
+        download.savePath,
+        LOCAL_EXECUTION_HOST_ID
+      )
       if (!result.ok) {
         setResourceNotice(
           translate(

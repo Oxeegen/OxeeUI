@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type * as LocalCommandResolver from './command-path-resolver'
-import type { ProcessSpec } from '../../shared/child-process/process-spec'
+import type { ProcessSpec } from '@orca/process-host/process-spec'
 
 const {
   handleMock,
@@ -9,7 +9,6 @@ const {
   runWslProcessMock,
   hydrateShellPathMock,
   mergePathSegmentsMock,
-  getActiveMultiplexerMock,
   getBitbucketAuthStatusMock,
   getAzureDevOpsAuthStatusMock,
   getGiteaAuthStatusMock,
@@ -25,7 +24,6 @@ const {
   runWslProcessMock: vi.fn(),
   hydrateShellPathMock: vi.fn(),
   mergePathSegmentsMock: vi.fn(),
-  getActiveMultiplexerMock: vi.fn(),
   getBitbucketAuthStatusMock: vi.fn(),
   getAzureDevOpsAuthStatusMock: vi.fn(),
   getGiteaAuthStatusMock: vi.fn(),
@@ -52,7 +50,7 @@ vi.mock('child_process', () => {
   }
 })
 
-vi.mock('../../shared/child-process/run-process', () => ({
+vi.mock('@orca/process-host', () => ({
   runProcess: async (spec: ProcessSpec) => ({
     ...(await execFileAsyncMock(spec.program, spec.args, {
       encoding: 'utf-8',
@@ -91,10 +89,6 @@ vi.mock('../pty/windows-environment-path', () => ({
   mergePersistedWindowsPath: mergePersistedWindowsPathMock
 }))
 
-vi.mock('./ssh', () => ({
-  getActiveMultiplexer: getActiveMultiplexerMock
-}))
-
 vi.mock('../bitbucket/client', () => ({
   getBitbucketAuthStatus: getBitbucketAuthStatusMock
 }))
@@ -107,7 +101,8 @@ vi.mock('../gitea/client', () => ({
   getGiteaAuthStatus: getGiteaAuthStatusMock
 }))
 
-import { _resetPreflightCache, registerPreflightHandlers, runPreflightCheck } from './preflight'
+import { _resetPreflightCache, runPreflightCheck } from '../preflight/agent-detection'
+import { registerPreflightHandlers } from './preflight'
 import {
   defaultAzureDevOpsStatus,
   defaultBitbucketStatus,
@@ -128,7 +123,6 @@ describe('preflight', () => {
         runWslProcessMock,
         hydrateShellPathMock,
         mergePathSegmentsMock,
-        getActiveMultiplexerMock,
         getBitbucketAuthStatusMock,
         getAzureDevOpsAuthStatusMock,
         getGiteaAuthStatusMock,

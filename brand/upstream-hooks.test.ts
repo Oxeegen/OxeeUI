@@ -17,7 +17,10 @@ import { describe, expect, it } from 'vitest'
 const HOOKS: [file: string, markers: string[]][] = [
   ['electron.vite.config.ts', ["'@brand': resolve('brand')"]],
   ['vite.web.config.ts', ["'@brand': resolve('brand')"]],
-  ['config/vitest.config.ts', ["'@brand': resolve('brand')", "'brand/**/*.test.ts'"]],
+  [
+    'config/vitest.config.ts',
+    ["find: '@brand', replacement: resolve('brand')", "'brand/**/*.test.ts'"]
+  ],
   ['tsconfig.json', ['"@brand/*"']],
   ['config/tsconfig.node.json', ['"@brand/*"', '"../brand/**/*"']],
   ['config/tsconfig.web.json', ['"@brand/*"', '"../brand/**/*"']],

@@ -4,8 +4,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { providerDiagnosticOf } from '../../shared/agent-session-failure'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { spawnProcess, type SpawnedProcess } from '../../shared/child-process/run-process'
-import type { ProcessSpec } from '../../shared/child-process/process-spec'
+import { spawnProcess } from '@orca/process-host'
+import type { SpawnedProcess, ProcessSpec } from '@orca/process-host/process-spec'
+
 import { query, type CanUseTool, type Options } from '@anthropic-ai/claude-agent-sdk'
 import {
   openClaudeStreamJsonConnection,
@@ -557,6 +558,7 @@ describe('Claude stream-json connection', () => {
     const session = {
       connection,
       options: new Map<string, string>(),
+      appliedInputOptions: new Map<string, string>(),
       reportedOptions: {},
       startup: { state: 'proven' }
     } as unknown as ClaudeSession

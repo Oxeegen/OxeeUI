@@ -3,6 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createGlobalSettingsFixture } from '../../../../shared/global-settings-test-fixture'
 import { AgentLaunchSettingsSection } from './AgentLaunchSettingsSection'
+import type { SettingsHostScope } from './settings-host-scope'
 
 const state = vi.hoisted(() => ({
   runtimeEnvironments: [{ id: 'ssh-host', name: 'SSH host', createdAt: 1, pairingRevision: 17 }],
@@ -41,18 +42,24 @@ beforeEach(() => {
   state.remote.mockClear()
   state.local.mockClear()
 })
-const SSH_HOST = 'ssh-host'
-const section = (environmentId: string | null) => (
+const SSH_HOST: SettingsHostScope = {
+  target: { kind: 'environment', environmentId: 'ssh-host' },
+  available: true
+}
+const section = (
+  hostScope: SettingsHostScope,
+  activeRuntimeEnvironmentId: string | null = null
+) => (
   <AgentLaunchSettingsSection
-    settings={createGlobalSettingsFixture({ activeRuntimeEnvironmentId: environmentId })}
+    settings={createGlobalSettingsFixture({ activeRuntimeEnvironmentId })}
     updateSettings={vi.fn()}
-    environmentId={environmentId}
+    hostScope={hostScope}
     renderPermissions={() => null}
   />
 )
 
 describe('launch settings host', () => {
-  it("edits the Active Server's launch settings on that server", () => {
+  it("edits the chosen server's launch settings even when the Active Server is this computer", () => {
     render(section(SSH_HOST))
     expect(screen.getByText('Remote launch settings mounted at 17')).toBeTruthy()
     expect(state.remote.mock.calls[0]?.[0]).toMatchObject({
@@ -63,8 +70,8 @@ describe('launch settings host', () => {
     expect(state.local).not.toHaveBeenCalled()
   })
 
-  it('edits desktop launch settings when there is no Active Server', () => {
-    render(section(null))
+  it('edits desktop launch settings when this computer is chosen over the Active Server', () => {
+    render(section({ target: { kind: 'local' }, available: true }, 'ssh-host'))
     expect(screen.getByText('Local launch settings')).toBeTruthy()
     expect(state.remote).not.toHaveBeenCalled()
   })
@@ -83,6 +90,14 @@ describe('launch settings host', () => {
     state.runtimeEnvironments = []
     render(section(SSH_HOST))
     expect(screen.getByText('Loading agent settings…')).toBeTruthy()
+    expect(state.local).not.toHaveBeenCalled()
+    expect(state.remote).not.toHaveBeenCalled()
+  })
+
+  it('says a removed server is unavailable instead of showing another host', () => {
+    state.runtimeEnvironments = []
+    render(section({ ...SSH_HOST, available: false }))
+    expect(screen.getByText(/This server is no longer saved/)).toBeTruthy()
     expect(state.local).not.toHaveBeenCalled()
     expect(state.remote).not.toHaveBeenCalled()
   })

@@ -18,6 +18,8 @@ import {
 } from './agent-session-argument-problem'
 import { isAgentJournalResolution } from './agent-session-journal-schemas'
 import { AGENT_SESSION_REWIND_REASONS, type AgentSessionRewindReason } from './agent-session-rewind'
+import type { TuiAgent } from './tui-agent'
+import { TUI_AGENT_DISPLAY_NAMES } from './tui-agent-display-names'
 import type {
   AgentSessionOwnerVerdict,
   AgentSessionWireRefusalCode
@@ -31,6 +33,10 @@ export const AGENT_SESSION_REFUSAL_REASONS = {
     'messageIdReused',
     'operationRefusedEarlier',
     'journalWriteFailed',
+    /** A Stop that could not be saved. */
+    'stopFailed',
+    /** A card's Cancel whose dismissal could not be saved. */
+    'cancelNotSaved',
     /** The message names a chat attachment the host no longer stores. */
     'attachmentExpired',
     // The conversation's state
@@ -42,6 +48,7 @@ export const AGENT_SESSION_REFUSAL_REASONS = {
     'conversationCommandInFlight',
     'handoffInFlight',
     'turnActive',
+    'continuationSuperseded',
     'promptPending',
     'backgroundTasksRunning',
     'messagesUnsettled',
@@ -51,6 +58,8 @@ export const AGENT_SESSION_REFUSAL_REASONS = {
     'rewindUnconfirmed',
     // A prompt card or an option
     'promptGone',
+    /** The agent that raised the prompt has ended, so nothing can take its answer. */
+    'promptOwnerEnded',
     'optionRejected',
     // The provider
     'providerStarting',
@@ -76,6 +85,8 @@ export const AGENT_SESSION_REFUSAL_REASONS = {
     'claudeAccountSetupFailed',
     /** Settings → Agents → Command names no program this host can run. */
     'agentCommandNotRunnable',
+    /** The runtime Orca installs for the agent is not installed on this host. */
+    'runtimeNotInstalled',
     /** The agent started, then Orca could not open the chat's conversation for it. */
     'attachFailed'
   ],
@@ -157,11 +168,17 @@ type PromptFacts = {
 
 type NoFacts = Record<never, never>
 
+export type AgentSessionConversationOwner = { sessionId: string; workspaceId: string }
+
+type ConversationOwnerFacts = { owner?: AgentSessionConversationOwner }
+
 /** The facts a code carries beside its reason. */
 type AgentSessionRefusalFactsByCode = {
   agent_session_operation_invalid: RewindFacts & {
     account?: AgentSessionAccountKind
     argumentProblem?: AgentSessionArgumentProblem
+    /** The chat's agent a `stopFailed` Stop could not stop. */
+    agent?: TuiAgent
     codexInstallation?: CodexInstallationProblem
   }
   agent_session_operation_unknown: RewindFacts
@@ -171,8 +188,8 @@ type AgentSessionRefusalFactsByCode = {
   }
   agent_session_item_revision_stale: PromptFacts
   agent_session_already_resolved: PromptFacts
-  agent_session_ownership_unknown: NoFacts
-  agent_session_conflict: NoFacts
+  agent_session_ownership_unknown: ConversationOwnerFacts
+  agent_session_conflict: ConversationOwnerFacts
   execution_owner_reconciling: NoFacts
   agent_session_identity_required: NoFacts
   agent_session_operation_conflict: NoFacts
@@ -255,6 +272,11 @@ function readFact(
   }
 }
 
+/** An agent this build can name; a newer host's agent reads as none. */
+function isNamedAgent(value: unknown): value is TuiAgent {
+  return typeof value === 'string' && Object.hasOwn(TUI_AGENT_DISPLAY_NAMES, value)
+}
+
 export function isAgentSessionRefusalReason<C extends AgentSessionWireRefusalCode>(
   code: C,
   value: unknown
@@ -288,15 +310,31 @@ export function readAgentSessionRefusalDetails<C extends AgentSessionWireRefusal
     code === 'agent_session_operation_invalid'
       ? readCodexInstallationProblem(value.codexInstallation)
       : undefined
+  const owner =
+    (code === 'agent_session_conflict' || code === 'agent_session_ownership_unknown') &&
+    value.reason === 'conversationHeldElsewhere' &&
+    isRecord(value.owner) &&
+    typeof value.owner.sessionId === 'string' &&
+    value.owner.sessionId.trim().length > 0 &&
+    typeof value.owner.workspaceId === 'string' &&
+    value.owner.workspaceId.trim().length > 0
+      ? { sessionId: value.owner.sessionId, workspaceId: value.owner.workspaceId }
+      : undefined
   const read = {
     ...(isAgentSessionRefusalReason(code, value.reason) ? { reason: value.reason } : {}),
     ...facts,
+    ...(owner ? { owner } : {}),
     ...(code === 'agent_session_operation_invalid' &&
     value.reason === 'notSignedIn' &&
     (value.account === 'managed' || value.account === 'system')
       ? { account: value.account }
       : {}),
     ...(argumentProblem ? { argumentProblem } : {}),
+    ...(code === 'agent_session_operation_invalid' &&
+    value.reason === 'stopFailed' &&
+    isNamedAgent(value.agent)
+      ? { agent: value.agent }
+      : {}),
     ...(codexInstallation ? { codexInstallation } : {})
   }
   // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the reason was checked against `code`'s list and only the facts `code` lists (plus the verdict every code may carry) were kept.

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { isUnreadableError } from '../../shared/secure-file'
-import { StatsSnapshotWriter } from '../stats/stats-snapshot-writer'
+import { AtomicSnapshotWriter } from '../persistence/atomic-snapshot-writer'
 import type { MobileNotificationEvent } from './runtime-mobile-notification-controller'
 import type { DeliveredNotificationIdentity } from '../../shared/mobile-notification-identity'
 import {
@@ -9,7 +9,6 @@ import {
   type StructuredAttentionOrigin
 } from '../../shared/agent-session-attention'
 
-export type { DeliveredNotificationIdentity } from '../../shared/mobile-notification-identity'
 export type DeliveredNotificationRecord = DeliveredNotificationIdentity & {
   structuredOrigin?: StructuredAttentionOrigin
 }
@@ -28,10 +27,10 @@ export class MobileNotificationDismissalStore {
   private closed = false
   // Why not the secure writer: this holds notification ids, not credentials, and its synchronous
   // Windows icacls launches froze every window on each notification (STA-9692).
-  private readonly writer: StatsSnapshotWriter
+  private readonly writer: AtomicSnapshotWriter
   constructor(userDataPath: string) {
     this.path = join(userDataPath, 'mobile-notification-dismissals.json')
-    this.writer = new StatsSnapshotWriter(() => this.path, { fileMode: 0o600 })
+    this.writer = new AtomicSnapshotWriter(() => this.path, { fileMode: 0o600 })
     try {
       const value: unknown = JSON.parse(readFileSync(this.path, 'utf8'))
       if (Array.isArray(value)) {

@@ -21,6 +21,7 @@ import {
   useActivityTerminalPortalStatus
 } from './activity-terminal-portal-status'
 import type { ActivityTerminalPortalSlotId } from './activity-thread-types'
+import { addAppKeyListener, removeAppKeyListener } from '@/lib/app-keyboard-router'
 
 export * from './activity-prototype-page-exports'
 
@@ -236,8 +237,8 @@ export default function ActivityPrototypePage(): React.JSX.Element {
       })
     }
 
-    window.addEventListener('keydown', focusActivityFilter, { capture: true })
-    return () => window.removeEventListener('keydown', focusActivityFilter, { capture: true })
+    addAppKeyListener('keydown', focusActivityFilter)
+    return () => removeAppKeyListener('keydown', focusActivityFilter)
   }, [activePortalTargetEl, inactivePortalTargetEl])
 
   const {

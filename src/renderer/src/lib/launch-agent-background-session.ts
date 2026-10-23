@@ -1,4 +1,5 @@
 import { useAppStore } from '@/store'
+import { runtimeTargetForOwnerEnvironment } from '@/runtime/runtime-client-target'
 import { buildAgentStartupPlan } from '@/lib/tui-agent-startup'
 import type {
   LaunchAgentBackgroundSessionArgs,
@@ -17,14 +18,12 @@ import {
   type EagerPtyHandle
 } from '@/components/terminal-pane/pty-dispatcher'
 import { subscribeToPtyData } from '@/components/terminal-pane/pty-data-sidecar-subscriptions'
-import { callRuntimeRpc, getActiveRuntimeTarget } from '@/runtime/runtime-rpc-client'
-import { getSettingsForWorktreeRuntimeOwner } from '@/lib/worktree-runtime-owner'
+import { callRuntimeRpc } from '@/runtime/runtime-rpc-client'
+import { runtimeEnvironmentIdWithLegacyFallbackUnlessTwin } from '@/lib/worktree-runtime-owner'
 import { retireProvider } from '@/lib/retire-unowned-background-terminal'
 import { createRuntimeAgentBackgroundTerminal } from '@/lib/runtime-agent-background-create'
-import {
-  subscribeToRuntimeTerminalData,
-  toRemoteRuntimePtyId
-} from '@/runtime/runtime-terminal-stream'
+import { subscribeToRuntimeTerminalData } from '@/runtime/runtime-terminal-stream'
+import { toRemoteRuntimePtyId } from '../../../shared/remote-runtime-pty-id'
 import { isMainTerminalSideEffectAuthorityForPty } from '@/components/terminal-pane/terminal-side-effect-facts-handler'
 import { hasExtraAgentArgs } from '../../../shared/automation-extra-agent-args'
 import { runBestEffortAgentBackgroundCleanups } from '@/lib/agent-background-session-cleanup'
@@ -55,10 +54,10 @@ export async function launchAgentBackgroundSession(
     worktreePath: worktree.path,
     repo
   })
-  const { platform: launchPlatform, isRemote } = launchHost
+  const { platform: launchPlatform, isRemote, isLocalHost } = launchHost
   // Route by the worktree's owner host, not the focused runtime.
-  const runtimeTarget = getActiveRuntimeTarget(
-    getSettingsForWorktreeRuntimeOwner(store, worktreeId)
+  const runtimeTarget = runtimeTargetForOwnerEnvironment(
+    runtimeEnvironmentIdWithLegacyFallbackUnlessTwin(store, worktreeId)
   )
   if (hasExtraAgentArgs(args.extraAgentArgs) && runtimeTarget.kind === 'environment') {
     // Why: that server rebuilds the command from its own settings and would drop the extras.
@@ -67,9 +66,14 @@ export async function launchAgentBackgroundSession(
   // Why before any tab or PTY: an invalid launch must fail the run without creating a terminal.
   const planInputs = resolveAgentStartupPlanInputs({
     agent,
-    settings: store.settings ?? {},
+    // Why: the client's Windows shell setting describes this machine, not a remote host.
+    settings: isLocalHost
+      ? (store.settings ?? {})
+      : { ...store.settings, terminalWindowsShell: undefined },
     platform: launchPlatform,
     isRemote,
+    // The window quotes by its Settings shell, which its pane's spawn also reads.
+    shell: undefined,
     extraAgentArgs: args.extraAgentArgs
   })
   const trimmedPrompt = prompt?.trim() ?? ''
@@ -107,7 +111,8 @@ export async function launchAgentBackgroundSession(
     eagerPtyBuffer: EagerPtyHandle | null = null
   let terminalOwnership: ReturnType<typeof bindAutomationTerminal> = null
   let unsubscribeExit = (): void => {},
-    unsubscribeData = (): void => {}
+    unsubscribeData = (): void => {},
+    releaseRuntimeObservers = (): void => {}
   const handleExit = (exitPtyId: string, code: number): void => {
     if (exitHandled) {
       return
@@ -241,16 +246,25 @@ export async function launchAgentBackgroundSession(
         throw new Error('Runtime terminal id is invalid.')
       }
       unsubscribeData = await subscribeToRuntimeTerminalData(
-        store.settings,
         ptyId,
         `desktop:background:${tab.id}`,
         handleData
       )
+      const exitWait = new AbortController()
+      // Why: a kept-open terminal never resolves the wait, which would hold one
+      // of the server's long-wait slots for 24h after the run completes.
+      releaseRuntimeObservers = () => {
+        releaseRuntimeObservers = (): void => {}
+        exitWait.abort()
+        const closeData = unsubscribeData
+        unsubscribeData = (): void => {}
+        closeData()
+      }
       void callRuntimeRpc<{ wait: { exitCode?: number | null } }>(
         runtimeTarget,
         'terminal.wait',
         { terminal: runtimeTerminalHandle, for: 'exit' },
-        { timeoutMs: 24 * 60 * 60 * 1000 }
+        { timeoutMs: 24 * 60 * 60 * 1000, signal: exitWait.signal }
       )
         .then((result) => handleExit(ptyId, runtimeWaitExitCode(result.wait)))
         .catch(() => {})
@@ -272,7 +286,14 @@ export async function launchAgentBackgroundSession(
       scheduleAgentBackgroundDraft(tab.id, pasteDraftAfterLaunch, agent)
     }
 
-    return { tabId: tab.id, paneKey, ptyId, startupPlan, terminalOwnership }
+    return {
+      tabId: tab.id,
+      paneKey,
+      ptyId,
+      startupPlan,
+      terminalOwnership,
+      releaseRuntimeObservers: () => releaseRuntimeObservers()
+    }
   } catch (error) {
     // Why: terminal creation and stream subscription are separate remote calls.
     // A failure between them must not strand an invisible runtime terminal.

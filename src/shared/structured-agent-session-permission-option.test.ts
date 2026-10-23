@@ -57,7 +57,7 @@ describe('the permission mode picker', () => {
 
   it('shows nothing for a host that states no mode, or an agent with none', () => {
     expect(permission(live('codex', {}))).toBeUndefined()
-    expect(permission(live('grok', { permissionMode: 'ask' }))).toBeUndefined()
+    expect(permission(live('pi', { permissionMode: 'ask' }))).toBeUndefined()
   })
 
   it("offers Codex's three modes with its own descriptions", () => {

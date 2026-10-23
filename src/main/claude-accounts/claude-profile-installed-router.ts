@@ -47,13 +47,12 @@ export function getClaudeWslProfileRouter(): ClaudeWslProfileRouter | undefined 
   return installedWsl
 }
 
-/** A local or WSL pane's env with the routed account's pointer added; SSH panes keep theirs. */
+/** A local or WSL pane's env with the routed account's pointer added. */
 export function withClaudeProfileTerminalEnv<Env extends Record<string, string> | undefined>(
   env: Env,
-  connectionId: string | null | undefined,
   target: ClaudeAccountSelectionTarget
 ): Env | Record<string, string> {
-  const profileEnv = connectionId ? undefined : installed?.terminalEnv(target)
+  const profileEnv = installed?.terminalEnv(target)
   return profileEnv ? { ...env, ...profileEnv } : env
 }
 

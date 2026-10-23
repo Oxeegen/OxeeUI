@@ -5,7 +5,8 @@ import {
   includesQualifiedSearchRefs,
   projectRepoSearchRefsForClient
 } from './repo-search-ref-projection'
-import { RepoSelector } from './github-repo-target-schemas'
+import { RepoSelector, RepoShow } from '../../../../shared/rpc-contract/github-repo-target-params'
+import { hostQualifiedRepoSelector } from '../../runtime-repo-selector'
 import {
   projectRepoResultVisibilityForClient,
   projectRepoVisibilityForClient
@@ -27,6 +28,7 @@ import {
   RepoSparsePresetSave,
   RepoUpdate
 } from '../../../../shared/rpc-contract/repo-params'
+import { RepoAddRemote } from '../../../../shared/rpc-contract/ssh-params'
 
 export const REPO_METHODS = [
   defineMethod({
@@ -37,7 +39,7 @@ export const REPO_METHODS = [
       context.runtime.enrichMissingRepoGitRemoteIdentities?.()
       return {
         repos: context.runtime
-          .listRepos()
+          .listVisibleRepos()
           .map((repo) => projectRepoVisibilityForClient(repo, context))
       }
     }
@@ -47,7 +49,7 @@ export const REPO_METHODS = [
     name: 'projectGroup.list',
     permission: 'workspace',
     params: null,
-    handler: (_params, { runtime }) => ({ groups: runtime.listProjectGroups() })
+    handler: (_params, { runtime }) => ({ groups: runtime.listVisibleProjectGroups() })
   }),
   defineMethod({
     name: 'projectGroup.create',
@@ -77,7 +79,12 @@ export const REPO_METHODS = [
     params: ProjectGroupMoveProject,
     handler: async (params, context) => ({
       repo: projectRepoVisibilityForClient(
-        await context.runtime.moveProjectToGroup(params.repo, params.groupId ?? null, params.order),
+        await context.runtime.moveProjectToGroup(
+          params.repo,
+          params.groupId ?? null,
+          params.order,
+          params.connectionId
+        ),
         context
       )
     })
@@ -126,6 +133,16 @@ export const REPO_METHODS = [
       )
     })
   }),
+  // Why a new method, not a field on repo.add: an old host would strip the field and register the
+  // path on itself instead of on its SSH target. Gated by ssh.target-management.v1.
+  defineMethod({
+    name: 'repo.addRemote',
+    permission: 'workspace',
+    params: RepoAddRemote,
+    handler: async (params, context) => ({
+      repo: projectRepoVisibilityForClient(await context.runtime.addSshRepo(params), context)
+    })
+  }),
   defineMethod({
     name: 'repo.create',
     permission: 'workspace',
@@ -156,9 +173,12 @@ export const REPO_METHODS = [
   defineMethod({
     name: 'repo.show',
     permission: 'workspace',
-    params: RepoSelector,
+    params: RepoShow,
     handler: async (params, context) => ({
-      repo: projectRepoVisibilityForClient(await context.runtime.showRepo(params.repo), context)
+      repo: projectRepoVisibilityForClient(
+        await context.runtime.showRepo(hostQualifiedRepoSelector(params.repo, params.repoHostId)),
+        context
+      )
     })
   }),
   defineMethod({

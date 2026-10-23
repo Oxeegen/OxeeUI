@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { translate } from '@/i18n/i18n'
 import { isImeCompositionKeyDown } from '@/lib/ime-composition-keyboard-event'
-import type { PtyTransport } from './pty-transport'
+import type { PtyTransport } from './pty-transport-types'
 import { TerminalPaneHeaderDropSurface } from './TerminalPaneHeaderDropSurface'
 import { TerminalPaneResumeInChatButton } from './TerminalPaneResumeInChatButton'
 import { makePaneKey } from '../../../../shared/stable-pane-id'
@@ -44,7 +44,7 @@ type TerminalPaneHeaderOverlayProps = {
   canShowTerminal?: boolean
   /** Flip the active pane from the native chat view back to the terminal. */
   onShowTerminal?: () => void
-  /** Offers the tab menu's "Resume in New Native Chat" for the active pane's own conversation. */
+  /** Offers the tab menu's "Switch to Chat" for the active pane's own conversation. */
   canResumeInNewNativeChat?: boolean
   canContinueAgentSessionInNewSession?: boolean
   onContinueAgentSessionInNewSession?: (pane: ManagedPane) => void

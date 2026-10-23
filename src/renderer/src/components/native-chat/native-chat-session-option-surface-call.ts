@@ -13,13 +13,13 @@ function optionUpdateFailureDescription(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
-/** One picker write: marks `pendingKey` until it settles and reports a failure as a toast. */
-export function runSessionOptionSurfaceCall(
-  pendingKey: string,
-  setPendingId: (id: string | null) => void,
+/** One picker write: marks `pending` until it settles and reports a failure as a toast. */
+export function runSessionOptionSurfaceCall<T>(
+  pending: T,
+  setPending: (pending: T | null) => void,
   call: () => Promise<unknown>
 ): void {
-  setPendingId(pendingKey)
+  setPending(pending)
   void call()
     .catch((error) => {
       toast.error(
@@ -27,5 +27,5 @@ export function runSessionOptionSurfaceCall(
         { description: optionUpdateFailureDescription(error) }
       )
     })
-    .finally(() => setPendingId(null))
+    .finally(() => setPending(null))
 }

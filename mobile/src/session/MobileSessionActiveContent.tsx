@@ -3,6 +3,7 @@ import { saveTerminalTextScale } from '../storage/preferences'
 import { MobileBrowserPane } from '../browser/MobileBrowserPane'
 import { TerminalPaneView } from './TerminalPaneView'
 import { MobileNativeChatOverlay } from './MobileNativeChatOverlay'
+import { resolveMobileNativeChatSessionId } from './mobile-native-chat-eligibility'
 import { colors } from '../theme/mobile-theme'
 import { styles } from './mobile-session-styles'
 import type { MobileSessionController } from './use-mobile-session-controller'
@@ -31,6 +32,7 @@ export function MobileSessionActiveContent({
     setCreateError,
     setShowCreateTabDrawer,
     dictationMode,
+    dictationEnabled,
     toastMessage,
     handleTerminalTap,
     browserScreencastSupported,
@@ -68,6 +70,7 @@ export function MobileSessionActiveContent({
     handleKeyboardAvoidanceMetrics,
     handleHaptic,
     nativeChatImages,
+    nativeChatStructuredComposer,
     activeMarkdownTab,
     activeFileTab,
     activeBrowserTab,
@@ -228,7 +231,8 @@ export function MobileSessionActiveContent({
         controller={nativeChatController}
         onOpenFile={handleNativeChatFileTap}
         images={nativeChatImages}
-        onMicPress={handleDictationToggle}
+        structuredComposer={nativeChatStructuredComposer}
+        onMicPress={dictationEnabled ? handleDictationToggle : undefined}
         micActive={dictation.isRecording}
         dictationMode={dictationMode}
         onMicPressIn={handleDictationPressIn}
@@ -237,6 +241,7 @@ export function MobileSessionActiveContent({
         sendErrorMessage={nativeChatSendError.message}
         onClearSendError={nativeChatSendError.clear}
         sendSurfaceId={controller.nativeChatScopeKey ?? ''}
+        sessionId={resolveMobileNativeChatSessionId(controller.activeSessionTab)}
         getSendCompletionGeneration={controller.getSendCompletionGeneration}
         keyboardInset={keyboardLift}
       />

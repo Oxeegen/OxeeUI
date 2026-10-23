@@ -53,6 +53,7 @@ export class RuntimeClientSettingsController {
     const settings = this.store.getSettings()
     return {
       defaultTuiAgent: settings.defaultTuiAgent ?? null,
+      newWorkspaceSetupOnly: false,
       disabledTuiAgents: settings.disabledTuiAgents ?? [],
       agentCmdOverrides: settings.agentCmdOverrides ?? {},
       agentDefaultArgs: settings.agentDefaultArgs ?? {},
@@ -89,6 +90,9 @@ export class RuntimeClientSettingsController {
       ...(settings.nativeChatPermissionMode
         ? { nativeChatPermissionMode: settings.nativeChatPermissionMode }
         : {}),
+      ...(settings.agentNativeChatPermissionModes
+        ? { agentNativeChatPermissionModes: settings.agentNativeChatPermissionModes }
+        : {}),
       // Why projected: a paired client's AI buttons start these actions' agents, and must honour
       // the agent saved for each one as the desktop does. Absent on older hosts.
       sourceControlAi: projectSourceControlLaunchRecipes(settings),
@@ -106,7 +110,17 @@ export class RuntimeClientSettingsController {
     }
     const beforeSettings = this.store.getSettings()
     const before = beforeSettings.agentStatusHooksEnabled !== false
-    this.store.updateSettings(updates, { notifyListeners: true })
+    // Legacy clients can select an agent or a shell, but cannot select None.
+    this.store.updateSettings(
+      {
+        ...updates,
+        ...(updates.nativeChatPermissionMode !== undefined
+          ? { agentNativeChatPermissionModes: {} }
+          : {}),
+        ...(updates.defaultTuiAgent !== undefined ? { newWorkspaceSetupOnly: false } : {})
+      },
+      { notifyListeners: true }
+    )
     const settings = this.store.getSettings()
     if (updates.worktreeVisibilityDefaults !== undefined) {
       this.notifyReposChanged?.()

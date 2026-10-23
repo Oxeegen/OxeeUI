@@ -6,6 +6,7 @@ import { computeAgentSessionPayloadFingerprint } from '../../../shared/agent-ses
 import {
   createRestTestRig,
   foundRestTestChat,
+  IDLE_MS,
   REST_TEST_CALLER as CALLER,
   REST_TEST_SESSION as SESSION,
   restTestSend,
@@ -62,6 +63,29 @@ describe('a chat permission mode', () => {
     expect(rig.store.getRecord(SESSION)?.permissionMode).toBe('full-access')
     expect((await rig.host.readOptions(SESSION)).current.permissionMode).toBe('full-access')
     expect(rig.host.readStatusSummary(SESSION)?.permissionMode).toBe('full-access')
+  })
+
+  it('records a pick at rest with the host clock without starting an agent', async () => {
+    await foundRestTestChat(rig)
+    rig.clock.now += IDLE_MS + 1
+    await vi.waitFor(() => expect(rig.store.getRecord(SESSION)?.lease.claimStatus).toBe('released'))
+    expect(rig.host.collaboratorsForTests().sessions.get(SESSION)?.child).toBeUndefined()
+    rig.clock.now += 123
+    const pickedAt = rig.clock.now
+    const setOption = vi.spyOn(rig.host.deps.adapter, 'setOption')
+
+    expect(await pick('full-access')).toMatchObject({
+      ok: true,
+      value: { options: { permissionMode: 'full-access' } }
+    })
+    expect(rig.store.getRecord(SESSION)).toMatchObject({
+      permissionMode: 'full-access',
+      updatedAt: pickedAt
+    })
+    expect(setOption).not.toHaveBeenCalled()
+    expect(rig.adapter.acquire).toHaveBeenCalledTimes(1)
+    await rig.restart()
+    expect((await rig.host.readOptions(SESSION)).current.permissionMode).toBe('full-access')
   })
 
   it('keeps Full access through a model pick on the running agent and the next start', async () => {

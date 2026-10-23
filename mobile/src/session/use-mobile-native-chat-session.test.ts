@@ -3,6 +3,7 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { NativeChatMessage } from '../../../src/shared/native-chat-types'
 import type { RpcClient } from '../transport/rpc-client'
+import { createFakeRpcClient, rpcSuccess } from '../mobile-web-shell/bridge-host-test-fakes'
 import {
   useMobileNativeChatSession,
   type MobileNativeChatSession
@@ -48,6 +49,36 @@ describe('useMobileNativeChatSession', () => {
       renderer = create(createElement(Harness, { client }))
     })
   }
+
+  it.each([true, false])(
+    'preserves only post-response live changes while history waits (overlap: %s)',
+    async (overlap) => {
+      const cached = message('cached')
+      const partial = message('reply')
+      const history = { ...cached, blocks: [{ type: 'text' as const, text: 'fresh history' }] }
+      const final = { ...partial, blocks: [{ type: 'text' as const, text: 'complete' }] }
+      const response = [message('older'), history, partial, ...(overlap ? [] : [message('absent')])]
+      const subscribe: RpcClient['subscribe'] = (_method, _params, onData) => {
+        emit = onData
+        onData({ type: 'snapshot', messages: [cached, partial], hasMore: true })
+        return () => {}
+      }
+      const sendRequest = async () => rpcSuccess('older', { messages: response })
+      let land = () => {}
+      const settled = new Promise<void>((resolve) => {
+        land = resolve
+      })
+      await mount({ ...createFakeRpcClient(), subscribe, sendRequest })
+      await act(async () => {
+        state?.loadEarlier(() => settled)
+      })
+      await act(async () => emit({ type: 'appended', messages: [final, message('suffix')] }))
+      await act(async () => land())
+      expect(state?.messages.find((m) => m.id === 'reply')).toEqual(final)
+      expect(state?.messages.find((m) => m.id === 'cached')).toEqual(history)
+      expect(state?.messages.map((m) => m.id)).toEqual(response.map((m) => m.id).concat('suffix'))
+    }
+  )
 
   it('drops an older-page response captured before transcript replacement', async () => {
     let resolveEarlier: (response: unknown) => void = () => {}
@@ -157,12 +188,11 @@ describe('useMobileNativeChatSession', () => {
       })
 
       expect(sendRequest).toHaveBeenCalledTimes(requestsAtCap + 1)
-      expect(sendRequest).toHaveBeenLastCalledWith('nativeChat.readSession', {
-        agent: 'claude',
-        sessionId: 'session',
-        limit: 60,
-        beforeOffset: 500
-      })
+      expect(sendRequest).toHaveBeenLastCalledWith(
+        'nativeChat.readSession',
+        { agent: 'claude', sessionId: 'session', limit: 60, beforeOffset: 500 },
+        expect.objectContaining({ budgetSpansConnect: true })
+      )
     }
   )
 
@@ -293,11 +323,11 @@ describe('useMobileNativeChatSession', () => {
     )
     act(() => state?.loadEarlier())
 
-    expect(sendRequest).toHaveBeenCalledWith('nativeChat.readSession', {
-      agent: 'claude',
-      sessionId: 'session',
-      limit: 100
-    })
+    expect(sendRequest).toHaveBeenCalledWith(
+      'nativeChat.readSession',
+      { agent: 'claude', sessionId: 'session', limit: 100 },
+      expect.objectContaining({ budgetSpansConnect: true })
+    )
   })
 
   it('clears hasMore when a replaced window is shorter than the initial page', async () => {
@@ -352,6 +382,44 @@ describe('useMobileNativeChatSession', () => {
 
     expect(state?.messages.some((entry) => entry.id === 'stale-page')).toBe(false)
     expect(state?.loadingEarlier).toBe(false)
+  })
+
+  it('lands a page across a same-cursor replay, and flags a refused page until the next tap', async () => {
+    const pages: ((response: unknown) => void)[] = []
+    const sendRequest = vi.fn(() => new Promise((resolve) => pages.push(resolve)))
+    const window = Array.from({ length: 40 }, (_unused, index) => message(`win-${index}`))
+    const snapshot = { type: 'snapshot', messages: window, hasMore: true, beforeOffset: 100 }
+    const subscribe: RpcClient['subscribe'] = vi.fn((_method, _params, onData) => {
+      emit = onData
+      onData(snapshot)
+      return () => {}
+    })
+    await mount({ sendRequest, subscribe } as unknown as RpcClient)
+    const answer = (response: unknown) =>
+      act(async () => {
+        pages.at(-1)?.(response)
+        await Promise.resolve()
+      })
+
+    // A reconnect re-subscribes and replays the same newest window while the page is out.
+    act(() => state?.loadEarlier())
+    await act(async () => emit(snapshot))
+    await answer({
+      ok: true,
+      result: { messages: [message('older')], hasMore: true, beforeOffset: 40 }
+    })
+    expect(state?.messages.map((entry) => entry.id)).toEqual([
+      'older',
+      ...window.map((entry) => entry.id)
+    ])
+
+    act(() => state?.loadEarlier())
+    await answer({ id: 'x', ok: false, error: { code: 'refused', message: 'refused' } })
+    expect(state?.olderPages).toBe('failed')
+    expect(state?.loadingEarlier).toBe(false)
+    act(() => state?.loadEarlier())
+    expect(sendRequest).toHaveBeenCalledTimes(3)
+    expect(state?.olderPages).toBe('loading')
   })
 
   it('keeps the base snapshot authoritative when a live append arrives first', async () => {
@@ -432,11 +500,11 @@ describe('useMobileNativeChatSession', () => {
     act(() => state?.loadEarlier())
 
     // 70 rows held plus one page: a read of 100 would come back shorter than the list it replaces.
-    expect(sendRequest).toHaveBeenLastCalledWith('nativeChat.readSession', {
-      agent: 'claude',
-      sessionId: 'session',
-      limit: 130
-    })
+    expect(sendRequest).toHaveBeenLastCalledWith(
+      'nativeChat.readSession',
+      { agent: 'claude', sessionId: 'session', limit: 130 },
+      expect.objectContaining({ budgetSpansConnect: true })
+    )
   })
 })
 

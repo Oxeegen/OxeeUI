@@ -1,7 +1,7 @@
 import type { RemoveWorktreeResult } from '../../shared/worktree/create-types'
 import type { GitWorktreeInfo } from '../../shared/worktree/types'
 import { LOCAL_EXECUTION_HOST_ID } from '../../shared/execution-host'
-import type { Store } from '../persistence'
+import type { RuntimeStore } from './runtime-store-contract'
 import {
   releaseStartupRemovalFence,
   type BackgroundWorktreeRemovalJob
@@ -34,7 +34,7 @@ import {
 } from './runtime-registered-local-worktree-removal'
 
 type InterruptedWorktreeRemovalHost = {
-  store: Store
+  store: RuntimeStore
   acquireWatcherRemoval: (path: string) => Promise<{ finish: (removed: boolean) => Promise<void> }>
   closeWatchers: (path: string) => Promise<void>
   preservedBranchCleanup: Pick<RuntimePreservedBranchCleanup, 'preserveHead' | 'remember'>
@@ -110,7 +110,7 @@ type InterruptedLocalWorktreeRemovalArgs = Pick<
   RuntimeLocalWorktreeRemovalFinishArgs,
   'removedPushTarget' | 'closeWatchers' | 'preserveBranchHead' | 'finishRemoval'
 > & {
-  store: Store
+  store: RuntimeStore
   record: WorktreeRemovalRecord
   acquireWatcherRemoval: (path: string) => Promise<{ finish: (removed: boolean) => Promise<void> }>
   stopPtys?: () => Promise<void>

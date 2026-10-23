@@ -241,14 +241,14 @@ default agent and the permission default, **Yolo** or **Manual**.
 Oxeegen is building a **sovereign AI stack**: its own models, served from its own
 inference servers, and the desktop apps that put them to work.
 
-| | |
-|---|---|
-| **Oxeegen models** | Max, Pro, Flash and Instant, running on Oxeegen's servers and served through an OpenAI-compatible API, with US and EU regions. |
-| **Oxeegen Hermes** | Oxeegen's own version of the Hermes agent, running on Oxeegen's models — OxeeUI's main backend. |
-| **[OxeeOffice](https://github.com/Oxeegen/OxeeOffice)** | The AI office suite: Word, Excel, PowerPoint and PDF files, edited with an AI that runs on Oxeegen's models. |
-| **[VOxee](https://github.com/Oxeegen/VOxee)** | Voice to text: dictation, meeting transcription and notes on Oxeegen's self-hosted models. |
-| **OxeeUI** | The agentic development environment — this repository. |
-| **[Cloud computers](https://www.oxeegen.com/computer)** | Managed virtual desktops in Oxeegen's datacenter with 24/7 Ultra-Support, including a dedicated OxeeUI platform. |
+|                                                         |                                                                                                                                |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **Oxeegen models**                                      | Max, Pro, Flash and Instant, running on Oxeegen's servers and served through an OpenAI-compatible API, with US and EU regions. |
+| **Oxeegen Hermes**                                      | Oxeegen's own version of the Hermes agent, running on Oxeegen's models — OxeeUI's main backend.                                |
+| **[OxeeOffice](https://github.com/Oxeegen/OxeeOffice)** | The AI office suite: Word, Excel, PowerPoint and PDF files, edited with an AI that runs on Oxeegen's models.                   |
+| **[VOxee](https://github.com/Oxeegen/VOxee)**           | Voice to text: dictation, meeting transcription and notes on Oxeegen's self-hosted models.                                     |
+| **OxeeUI**                                              | The agentic development environment — this repository.                                                                         |
+| **[Cloud computers](https://www.oxeegen.com/computer)** | Managed virtual desktops in Oxeegen's datacenter with 24/7 Ultra-Support, including a dedicated OxeeUI platform.               |
 
 OxeeUI is the developer's seat in that stack. It runs Oxeegen Hermes and the coding
 agents your team already uses, on your own machine or in an Oxeegen cloud computer — see
@@ -256,10 +256,10 @@ agents your team already uses, on your own machine or in an Oxeegen cloud comput
 
 ## Download
 
-| Platform | Requirements | Download |
-|---|---|---|
-| **Windows** (x64) | Windows 10 or later | [`oxeeui-windows-setup.exe`](https://github.com/Oxeegen/OxeeUI/releases/latest/download/oxeeui-windows-setup.exe) |
-| **Linux** (x86_64) | FUSE 2 runtime | [`oxeeui-linux-x86_64.AppImage`](https://github.com/Oxeegen/OxeeUI/releases/latest/download/oxeeui-linux-x86_64.AppImage) |
+| Platform           | Requirements        | Download                                                                                                                  |
+| ------------------ | ------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| **Windows** (x64)  | Windows 10 or later | [`oxeeui-windows-setup.exe`](https://github.com/Oxeegen/OxeeUI/releases/latest/download/oxeeui-windows-setup.exe)         |
+| **Linux** (x86_64) | FUSE 2 runtime      | [`oxeeui-linux-x86_64.AppImage`](https://github.com/Oxeegen/OxeeUI/releases/latest/download/oxeeui-linux-x86_64.AppImage) |
 
 Every version and its notes are on the [Releases](https://github.com/Oxeegen/OxeeUI/releases)
 page. The installers are **unsigned**: on first run, Windows SmartScreen warns — choose

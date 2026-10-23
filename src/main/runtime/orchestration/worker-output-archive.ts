@@ -1,18 +1,15 @@
 import type { AgentType, NativeChatMessage } from '../../../shared/native-chat-types'
 import type { OrchestrationWorkerReadFallbackReason } from '../../../shared/orchestration-worker-output'
-import type { OrcaRuntimeService } from '../orca-runtime'
+import type { WorkerTerminalReleaseRuntime } from './worker-terminal-release-runtime'
 import { OrchestrationError } from './orchestration-error'
 import type {
   WorkerTerminalArchiveKind,
   WorkerTerminalArchiveRow,
   WorkerTerminalArchiveStatus
 } from './worker-terminal-ownership'
-import {
-  MAX_WORKER_TRANSCRIPT_MESSAGE_LIMIT,
-  redactWorkerTerminalLines
-} from './worker-transcript-payload'
+import { MAX_WORKER_TRANSCRIPT_MESSAGE_LIMIT } from './worker-transcript-payload'
+import { redactWorkerTerminalLines } from './worker-terminal-redaction'
 import { readWorkerTranscript } from './worker-transcript-read'
-import { getSshFilesystemProvider } from '../../providers/ssh-filesystem-dispatch'
 import { isWslHookRelayConnectionId } from '../../../shared/wsl-hook-relay-contract'
 import { captureStructuredWorkerArchive } from '../rpc/methods/orchestration-structured-worker-lifecycle'
 import type { WorkerStructuredJournalArchive } from './structured-worker-journal-archive'
@@ -84,7 +81,7 @@ export function summarizeWorkerOutputArchive(archive: WorkerTerminalArchiveRow):
 // hook-reported provider transcript; falls back to bounded redacted terminal output. Throws
 // typed archive_failed so release retains the live terminal when no evidence can be preserved.
 export async function captureWorkerOutputArchive(args: {
-  runtime: OrcaRuntimeService
+  runtime: WorkerTerminalReleaseRuntime
   dispatchId: string
   terminalHandle: string
   attachedAtMs: number
@@ -107,11 +104,9 @@ export async function captureWorkerOutputArchive(args: {
   if (session) {
     transcriptFallbackReason = 'transcript_unreadable'
     const isWslSession = isWslHookRelayConnectionId(session.connectionId)
-    const remoteConnectionId = session.connectionId && !isWslSession ? session.connectionId : null
-    const remoteFilesystemProvider = remoteConnectionId
-      ? getSshFilesystemProvider(remoteConnectionId)
-      : undefined
-    if ((isWslSession && !session.wslDistro) || (remoteConnectionId && !remoteFilesystemProvider)) {
+    // Why: this process serves no SSH filesystem, so an SSH worker's transcript is unreachable.
+    const isSshSession = Boolean(session.connectionId) && !isWslSession
+    if ((isWslSession && !session.wslDistro) || isSshSession) {
       transcriptFallbackReason = 'remote_capability_unavailable'
     } else {
       const snapshot = await readWorkerTranscript({
@@ -119,8 +114,7 @@ export async function captureWorkerOutputArchive(args: {
         sessionId: session.providerSession.id,
         transcriptPath: session.providerSession.transcriptPath,
         wslDistro: session.wslDistro,
-        limit: MAX_WORKER_TRANSCRIPT_MESSAGE_LIMIT,
-        filesystemProvider: remoteFilesystemProvider
+        limit: MAX_WORKER_TRANSCRIPT_MESSAGE_LIMIT
       }).catch(() => null)
       if (snapshot?.ok && snapshot.messages.length > 0) {
         return {

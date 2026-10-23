@@ -7,6 +7,7 @@ import { mainProcessState as state } from './main-process-state'
 import { prepareCodexAiVaultSessionResume } from '../codex/codex-ai-vault-session-resume'
 import { resolveHostCodexSessionSourceHome } from '../codex/codex-session-source-home'
 import { preserveAgentAuthBeforeRestart } from '../agent-auth-restart-preservation'
+import { preserveStateBeforeUpdateRestart } from '../update-restart-preservation'
 import {
   emitPluginWorktreeLifecycle,
   handleCodexHomePtySpawned,
@@ -95,11 +96,17 @@ export function attachMainWindowCoreServices(
         state.desktopRelayService?.fenceAndCloseNow()
         await preserveAgentAuthBeforeRestart({ codexRuntimeHome, store })
       },
-      onOrcaProfileAuthMutation: () => state.desktopRelayService?.authMutated(),
+      onOrcaProfileAuthMutation: () => {
+        // Why: a provider whose launch-time install failed is installed by the next auth change.
+        void state.desktopRelayInstaller?.authChanged()
+        state.desktopRelayService?.authMutated()
+      },
       // Sign-out is the one fence a paired phone can be told about; quit and
       // relaunch above stay reasonless so a restart never reads as signed out.
-      onBeforeOrcaProfileSignOut: () =>
+      onBeforeOrcaProfileSignOut: () => {
+        state.desktopRelayInstaller?.suspend()
         state.desktopRelayService?.fenceAndCloseNow(RELAY_HOST_CLOSE_REASON.SIGNED_OUT)
+      }
     },
     state.pluginService ?? undefined,
     state.pluginMarketplaceService && state.pluginMarketplaceInstaller
@@ -128,10 +135,7 @@ export function attachMainWindowCoreServices(
       isRecoveryReloadInFlight,
       onCodexHomePtySpawned: handleCodexHomePtySpawned,
       onPtyExit: handlePtyExit,
-      onBeforeUpdateQuit: async () => {
-        await preserveAgentAuthBeforeRestart({ codexRuntimeHome, store })
-        await store.flushPendingOrThrowAsync({ fullCheckpoint: true })
-      },
+      onBeforeUpdateQuit: () => preserveStateBeforeUpdateRestart({ codexRuntimeHome, store }),
       onBeforeUpdateQuitFailure: 'abort',
       updateInstallMode: resolveUpdateInstallMode(state.isServeMode),
       onWorktreeLifecycle: emitPluginWorktreeLifecycle

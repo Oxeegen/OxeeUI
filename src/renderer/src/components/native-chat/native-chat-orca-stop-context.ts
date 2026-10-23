@@ -8,12 +8,23 @@ export type NativeChatOrcaStopView = {
   hostLabel: string | null
   remoteHost: boolean
   continueAvailable: boolean
+  /** The cut turn whose row carries Continue right now, if any. */
+  offeredTurnItemId: string | null
+  continueNow: () => void
+  /** The turn a usage limit ended whose row carries Continue right now, if any. */
+  usageLimitTurnItemId: string | null
+  usageLimitContinueDisabled?: boolean
+  continueUsageLimit: (hadFocus?: boolean) => void
 }
 
 export const NativeChatOrcaStopContext = createContext<NativeChatOrcaStopView>({
   hostLabel: null,
   remoteHost: false,
-  continueAvailable: false
+  continueAvailable: false,
+  offeredTurnItemId: null,
+  continueNow: () => {},
+  usageLimitTurnItemId: null,
+  continueUsageLimit: () => {}
 })
 
 export function useNativeChatOrcaStopView(): NativeChatOrcaStopView {

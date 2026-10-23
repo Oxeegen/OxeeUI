@@ -3,7 +3,11 @@ import {
   normalizeCompatibleAgentTitleForOwner
 } from '../../shared/agent-title-owner'
 import { resolvePaneAgentOwnerRecord } from '../../shared/pane-agent-owner'
-import type { AgentStatusEntry, AgentStatusIpcPayload } from '../../shared/agent-status-types'
+import {
+  pickHostTurnEnd,
+  type AgentStatusEntry,
+  type AgentStatusIpcPayload
+} from '../../shared/agent-status-types'
 import type { RuntimeMobileSessionTerminalTab } from '../../shared/runtime-types'
 import {
   renewRuntimeMobileAgentStatusFromPtyTitle,
@@ -15,13 +19,16 @@ import type { RuntimeAgentRowSnapshot } from './runtime-worktree-agent-rows'
 import {
   classifyAgentTitle,
   getLatestAgentCandidateTitle,
-  getLatestPtyTitle
+  getLatestPtyTitle,
+  terminalTitleBlocksExplicitAgentStatus
 } from './runtime-worktree-status-projection'
 
 type RuntimeMobileAgentStatusHost = {
   getPaneKey(tab: RuntimeMobileSessionTerminalTab): string
   getLeaf(tab: RuntimeMobileSessionTerminalTab): RuntimeLeafRecord | null
   getTrackedTitle(ptyId: string | null): string | null
+  /** Wall clock of the PTY's latest live OSC title; seeded restore titles leave it unset. */
+  getPtyTitleObservedAtEpochMs?(ptyId: string | null): number | null
 }
 
 export function buildRuntimeMobileAgentStatus(
@@ -64,7 +71,12 @@ export function buildRuntimeMobileAgentStatus(
         )
       : null
   const ptyTitleClassification = classifyAgentTitle(ptyTitle)
-  const nonAgentTitle = ptyTitle !== null && ptyTitleClassification !== 'agent'
+  const titleOmitsAgent = ptyTitle !== null && ptyTitleClassification !== 'agent'
+  const oscTitle = pty?.lastOscTitle ?? leaf?.lastOscTitle ?? null
+  // Why: a manual rename is not the shell reclaiming the pane, so the hook session stays addressable (#20626).
+  const manualTitleOverridesAgentOsc =
+    titleOmitsAgent && ptyTitle !== oscTitle && classifyAgentTitle(oscTitle) === 'agent'
+  const nonAgentTitle = titleOmitsAgent && !manualTitleOverridesAgentOsc
   if (nonAgentTitle) {
     // Why: non-agent title = shell reclaimed the pane; suppress to clear stuck spinners (#1437), though a live hook signal survives.
     const hasLiveHookSignal =
@@ -107,6 +119,7 @@ export function buildRuntimeMobileAgentStatus(
           ? { evidenceObservedAt: liveRow.evidenceObservedAt }
           : {}),
         stateStartedAt: liveRow.stateStartedAt,
+        ...pickHostTurnEnd(liveRow),
         stateHistory: [],
         ...(terminalHandle ? { terminalHandle } : {}),
         ...((pty?.worktreeId ?? liveRow.worktreeId)
@@ -114,7 +127,8 @@ export function buildRuntimeMobileAgentStatus(
           : {}),
         tabId: tab.parentTabId,
         terminalTitle,
-        ...providerSession
+        ...providerSession,
+        ...(liveRow.programStatus ? { programStatus: liveRow.programStatus } : {})
       },
       ownerAgent,
       ownerOptions
@@ -125,6 +139,42 @@ export function buildRuntimeMobileAgentStatus(
     })
     if (renewedStatus) {
       return { agentStatus: renewedStatus }
+    }
+  }
+  // Why: a turn restored across a server restart is unverifiable, not finished; a synthetic
+  // `done` told clients a running agent had stopped. Keep its own date (so it cannot outrank a
+  // client's row) and drop the question fields (#12346). Only a later shell title retires it.
+  const shellTitleRetiredRestored =
+    hookRow.restored !== null &&
+    !manualTitleOverridesAgentOsc &&
+    terminalTitleBlocksExplicitAgentStatus(ptyTitle) &&
+    (pty?.lastOscTitleEpochMs ?? host.getPtyTitleObservedAtEpochMs?.(leaf?.ptyId ?? null) ?? 0) >=
+      hookRow.restored.updatedAt
+  const restored = !pty?.lastAgentStatus && !shellTitleRetiredRestored ? hookRow.restored : null
+  if (restored) {
+    const restoredAgentType = ownerAgent ?? restored.payload.agentType
+    return {
+      agentStatus: normalizeCompatibleAgentStatusEntryForOwner(
+        {
+          state: restored.payload.state,
+          prompt: restored.payload.prompt,
+          updatedAt: restored.updatedAt,
+          stateStartedAt: restored.stateStartedAt,
+          restoredUnconfirmed: true,
+          paneKey,
+          ...(terminalHandle ? { terminalHandle } : {}),
+          ...(restoredAgentType ? { agentType: restoredAgentType } : {}),
+          ...((pty?.worktreeId ?? restored.worktreeId)
+            ? { worktreeId: pty?.worktreeId ?? restored.worktreeId }
+            : {}),
+          tabId: tab.parentTabId,
+          terminalTitle,
+          stateHistory: [],
+          ...providerSession
+        },
+        ownerAgent,
+        ownerOptions
+      )
     }
   }
   // Last resort: the pane's hook evidence is identity only (resume rows, stale

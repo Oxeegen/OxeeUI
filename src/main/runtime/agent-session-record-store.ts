@@ -4,11 +4,9 @@
 import { backfillAgentSessionPermissionModes } from './agent-session-permission-backfill'
 import { agentSessionRefusalError } from '../../shared/agent-session-wire-refusals'
 import { createAgentSessionConversationReceipts } from './agent-session-conversation-receipts'
-import { commitConversationCommandRecord } from './agent-session-conversation-command-record'
 import { pinAgentSessionRecordLaunchDirectory } from './agent-session-record-launch-directory'
 import {
   agentSessionOperationKey,
-  type AgentSessionOperationClaim,
   type AgentSessionOperationDecision,
   type AgentSessionOperationRow
 } from '../../shared/agent-session-operation-ledger'
@@ -72,6 +70,7 @@ import {
 } from './agent-session-tab-table'
 import type { JournalHostDatabase } from '../native-chat/agent-session-journal/journal-host-database'
 import type { JournalOperationReceipt } from '../native-chat/agent-session-journal/journal-row-writer'
+import { agentSessionOperationOutcomeReceipt } from './agent-session-operation-receipt'
 import { loadAgentSessionStoreRows } from './agent-session-record-rows'
 import { AgentSessionStoreTransactions } from './agent-session-store-transactions'
 import { createAgentSessionFoundingStore } from './agent-session-founding-store'
@@ -80,8 +79,6 @@ import {
   type CompareAndSetConversationName,
   setAgentSessionRecordConversationName
 } from './agent-session-record-conversation-name'
-
-type AgentSessionOperationSettlement = Parameters<typeof settleAgentSessionOperationInto>[1]
 
 export const AGENT_SESSION_LEASE_TTL_MS = 30_000,
   AGENT_SESSION_LEASE_RENEW_INTERVAL_MS = 10_000
@@ -163,16 +160,6 @@ export class AgentSessionRecordStore {
     return this.listRecords().filter((record) => agentSessionScopeKey(record.location) === scope)
   }
 
-  setConversationCommand(
-    sessionId: string,
-    fence: number,
-    command: NonNullable<AgentSessionRecord['conversationCommand']>
-  ): Promise<void> {
-    return this.transact((draft) =>
-      commitConversationCommandRecord(draft, sessionId, fence, command)
-    )
-  }
-
   /** Unfenced on purpose: the name is a durable note, so writing it never contends with the
    *  writer lease. `null` clears it. */
   setConversationName = (sessionId: string, name: string | null): Promise<AgentSessionRecord> =>
@@ -213,23 +200,19 @@ export class AgentSessionRecordStore {
   async proveOwner(args: {
     sessionId: string
     fence: number
-    link: AgentSessionProviderHandleLink
+    link?: AgentSessionProviderHandleLink
     now: number
     leaseTtlMs?: number
-    options?: Readonly<Record<string, string>>
   }): Promise<AgentSessionRecord> {
-    return this.mutate(args.sessionId, (record) => {
-      const proved = proveAgentSessionOwner({
+    return this.mutate(args.sessionId, (record) =>
+      proveAgentSessionOwner({
         record,
         fence: args.fence,
-        link: args.link,
+        ...(args.link ? { link: args.link } : {}),
         now: args.now,
         leaseTtlMs: args.leaseTtlMs ?? AGENT_SESSION_LEASE_TTL_MS
       })
-      return args.options
-        ? replaceAgentSessionRecordOptions(proved, { ...args, options: args.options })
-        : proved
-    })
+    )
   }
 
   /** Settle the failed attach and its reservation in one durable transaction. */
@@ -258,23 +241,20 @@ export class AgentSessionRecordStore {
     return this.mutate(args.sessionId, (record) => evictAgentSessionOwner({ ...args, record }))
   }
 
-  async transitionHandoff(
+  transitionHandoff = (
     sessionId: string,
     transition: (record: AgentSessionRecord) => AgentSessionRecord
-  ): Promise<AgentSessionRecord> {
-    return this.mutate(sessionId, transition)
-  }
+  ): Promise<AgentSessionRecord> => this.mutate(sessionId, transition)
 
   /**
-   * Adjudicate every lease this host loaded. No lease grants a writer until it appears here. On a
-   * database a newer Orca wrote, the verdicts are kept in memory only: they are re-derived at every
+   * Adjudicate loaded leases, or only the addressed session. No lease grants a writer until it
+   * appears here. On a newer database, verdicts stay in memory only: they are re-derived at every
    * start, and none grants a writer there, since every grant is a write.
    */
   async reconcileOnRestart(
     args: AgentSessionRestartProbeArgs
   ): Promise<Map<string, AgentSessionRecord>> {
-    const pending = this.listRecords().filter((record) => record.lease.unreconciled)
-    const probes = await collectAgentSessionRestartProbes(pending, args)
+    const probes = await collectAgentSessionRestartProbes(this, args)
     return this.transact((draft) => applyAgentSessionRestartProbes(draft, probes, args.now), {
       inMemoryWhenReadOnly: true
     })
@@ -300,10 +280,7 @@ export class AgentSessionRecordStore {
   /** Durable compare-and-swap for the right to run an admitted operation's effect: two replays both
    *  read `pending`, and only a conditional swap tells the one that may run from the one that must
    *  replay. */
-  claimOperation = (args: {
-    callerKey: string
-    operationId: string
-  }): Promise<AgentSessionOperationClaim> =>
+  claimOperation = (args: Parameters<typeof claimAgentSessionOperationInto>[1]) =>
     this.transact((draft) => claimAgentSessionOperationInto(draft, args))
 
   /** Admission and, when `claimAfter` allows, the claim: one durable write before the effect. */
@@ -312,16 +289,35 @@ export class AgentSessionRecordStore {
     claimAfter: ClaimAfterAdmission
   ) => this.transact((draft) => admitAndClaimAgentSessionOperationInto(draft, args, claimAfter))
 
-  recordOperationOutcome = (args: AgentSessionOperationSettlement): Promise<void> =>
-    this.transact((draft) => settleAgentSessionOperationInto(draft, args))
+  recordOperationOutcome = (
+    args: Parameters<typeof settleAgentSessionOperationInto>[1]
+  ): Promise<void> => this.transact((draft) => settleAgentSessionOperationInto(draft, args))
 
-  /** The same settlement, committed by the journal write that makes it true. It changes only the
-   *  ledger, so no record listener is owed. */
-  operationOutcomeReceipt = (args: AgentSessionOperationSettlement): JournalOperationReceipt =>
-    this.transactions.receipt((draft) => settleAgentSessionOperationInto(draft, args))
+  /** Settlement committed with its journal write; a new submission also clears Sleep in that draft. */
+  operationOutcomeReceipt = (args: Parameters<typeof agentSessionOperationOutcomeReceipt>[1]) =>
+    agentSessionOperationOutcomeReceipt(this.transactions, args)
+
+  /** Automatic queue admission uses the same record transition as a client's send receipt. */
+  submissionReceipt = (sessionId: string) =>
+    this.transactions.receipt(() => {}, { submissionSessionId: sessionId })
+
+  admittedSendCount = (sessionId: string) => this.transactions.admittedSendCount(sessionId)
+
+  commitOperationReceipt = (receipt: JournalOperationReceipt) =>
+    this.transactions.commitReceipt(receipt)
+
+  readCommandReceipt = (...args: Parameters<AgentSessionStoreTransactions['readCommandReceipt']>) =>
+    this.transactions.readCommandReceipt(...args)
 
   replaceSessionOptions = (args: AgentSessionOptionsReplacement): Promise<AgentSessionRecord> =>
     this.mutate(args.sessionId, (record) => replaceAgentSessionRecordOptions(record, args))
+
+  /** One options revision from `agent-session-record-options`, decided against the record this
+   *  ordered write holds. */
+  reviseSessionOptions = <A extends { sessionId: string }>(
+    revise: (record: AgentSessionRecord, args: A) => AgentSessionRecord,
+    args: A
+  ) => this.mutate(args.sessionId, (record) => revise(record, args))
 
   async retireClaimKey(keyId: string, now: number): Promise<void> {
     await this.transact((draft) => retireAgentSessionClaimKey(draft, keyId, now))

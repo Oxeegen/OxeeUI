@@ -7,6 +7,7 @@ import { XTERM_ENGINE_JS } from './terminal-webview-engine.generated'
 import { createTerminalDocumentScope } from './document/document-scope'
 import { attachWebglAddon, startWebglRecovery } from './document/webgl-recovery'
 import { XTERM_HTML } from './terminal-webview-html'
+import { applyTerminalTheme } from './document/terminal-theme'
 
 function createWebglRecoveryHarness(failSecondAttach = false) {
   const timers: Array<() => void> = []
@@ -209,17 +210,19 @@ describe('terminal WebView bundled engine', () => {
 
   it('reapplies theme, clears the active atlas, and refreshes when visible', () => {
     const harness = createWebglRecoveryHarness()
+    applyTerminalTheme(harness.scope, harness.scope.terminalThemeInput)
+    const firstTheme = harness.term.options.theme
 
     // Hidden: nothing is re-applied, because a repaint of an invisible terminal is wasted. happy-dom
     // reports a visible document, so the hidden arm is the stub and the visible one is the default.
     vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
     harness.fireVisibilityChange()
-    expect(harness.term.options.theme).toEqual({})
+    expect(harness.term.options.theme).toBe(firstTheme)
     vi.restoreAllMocks()
 
     harness.fireVisibilityChange()
     // The theme is re-applied through the document's own path, read off the terminal it wrote to.
-    expect(harness.term.options.theme).not.toEqual({})
+    expect(harness.term.options.theme).not.toBe(firstTheme)
     expect(harness.addons[0]?.clearTextureAtlas).toHaveBeenCalledTimes(1)
     expect(harness.term.refresh).toHaveBeenCalledTimes(1)
   })

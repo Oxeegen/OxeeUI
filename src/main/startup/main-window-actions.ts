@@ -38,7 +38,7 @@ export function focusExistingWindow(): void {
     app,
     getWindow: () => state.mainWindow,
     openWindow,
-    // Why: a 20s blank launch invites a second double-click, and icacls is rewriting
+    // Why: a 20s blank launch invites a second double-click, and the repair is rewriting
     // the per-file DACLs a fresh renderer would read. The gated launch opens the window.
     canOpenWindow: () => !isBlockingInstallDirAclRepairInFlight(),
     warn: console.warn

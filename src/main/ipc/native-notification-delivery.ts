@@ -82,11 +82,10 @@ export function deliverNativeNotification(
   // the session, so focusTerminal would hunt a split-layout leaf that does not exist; the
   // unified tab id in the same key is what reveals the chat.
   const chatTarget = args.surface === 'agent-session' ? paneTarget : null
-  // Why: worktreeId is formatted "repoId::worktreePath"; without the separator we can't extract a
-  // repoId to activate. A folder workspace ("folder:<id>") has none, but a chat reveal selects its
-  // workspace itself, so only the terminal route needs the repoId to bind a click at all.
+  // Why: only a "repoId::worktreePath" id has a repo to activate. Folder and floating workspaces have
+  // none; a pane reveal shows its workspace where it lives on its own, so it still binds the click.
   const repoId = worktreeId?.includes('::') ? getRepoIdFromWorktreeId(worktreeId) : null
-  if (worktreeId && (repoId !== null || chatTarget)) {
+  if (worktreeId && (repoId !== null || paneTarget)) {
     clickHandler = () => {
       release()
       const win = getTrustedUIRendererWindow()

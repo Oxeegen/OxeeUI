@@ -7,7 +7,7 @@ import path from 'node:path'
 import { isTerminalLeafId } from '../../../../shared/stable-pane-id'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ManagedPane, PaneManager } from '@/lib/pane-manager/pane-manager'
-import type { PtyTransport } from './pty-transport'
+import type { PtyTransport } from './pty-transport-types'
 import TerminalPaneHeaderOverlay from './TerminalPaneHeaderOverlay'
 import {
   encodeWorkspaceFilePaths,
@@ -43,7 +43,7 @@ vi.mock('@/store', () => ({
 }))
 vi.mock('./terminal-input-activity', () => ({ recordTerminalUserInputForLeaf: vi.fn() }))
 vi.mock('./TerminalPaneResumeInChatButton', () => ({
-  TerminalPaneResumeInChatButton: () => <button type="button">Resume in New Native Chat</button>
+  TerminalPaneResumeInChatButton: () => <button type="button">Continue in Chat UI</button>
 }))
 
 const mounted: { container: HTMLDivElement; root: Root }[] = []
@@ -191,11 +191,11 @@ afterEach(() => {
 })
 
 describe('TerminalPaneHeaderOverlay', () => {
-  it('offers Resume in New Native Chat instead of a chat view switch, on the active pane only', () => {
+  it('offers Continue in Chat UI instead of a chat view switch, on the active pane only', () => {
     const { container } = renderOverlay({ paneTitles: {}, canResumeInNewNativeChat: true })
 
     const resumeButtons = [...container.querySelectorAll('button')].filter(
-      (button) => button.textContent === 'Resume in New Native Chat'
+      (button) => button.textContent === 'Continue in Chat UI'
     )
     expect(resumeButtons).toHaveLength(1)
     expect(resumeButtons[0]?.closest('.pane-title-bar')?.hasAttribute('data-active-pane')).toBe(
@@ -212,7 +212,7 @@ describe('TerminalPaneHeaderOverlay', () => {
     })
 
     expect(container.querySelector('button[aria-label="Show terminal"]')).not.toBeNull()
-    expect(container.textContent).not.toContain('Resume in New Native Chat')
+    expect(container.textContent).not.toContain('Continue in Chat UI')
   })
 
   it('keeps the titled split-pane X as remove-title only', () => {

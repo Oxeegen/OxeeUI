@@ -3,6 +3,7 @@ import { getAppEnvironment } from '../../shared/app-environment'
 import { toWindowsWslPath } from '../../shared/wsl-paths'
 import { resolveLocalAccountRuntimeTarget } from '../../shared/local-account-runtime'
 import type { Store } from '../persistence'
+import { isWslDistroRunning } from '../wsl-background-distro-gate'
 import { getDefaultWslDistro, getWslHome } from '../wsl'
 import { ClaudeProfileRouter } from './claude-profile-router'
 import { ClaudeWslProfileRouter } from './claude-profile-wsl-router'
@@ -25,7 +26,10 @@ export class ClaudeRuntimeAuthService {
   private readonly dataRoot = getAppEnvironment().getPath('userData')
   private mutationQueue: Promise<unknown> = Promise.resolve()
 
-  constructor(private readonly store: Pick<Store, 'getSettings'>) {
+  constructor(
+    private readonly store: Pick<Store, 'getSettings'>,
+    private readonly isDistroRunning: (distro: string) => Promise<boolean> = isWslDistroRunning
+  ) {
     const args = { getSettings: () => store.getSettings(), dataRoot: this.dataRoot }
     this.router = new ClaudeProfileRouter(args)
     installClaudeProfileRouter(this.router)
@@ -47,6 +51,15 @@ export class ClaudeRuntimeAuthService {
     target?: ClaudeAccountSelectionTarget
   ): Promise<ClaudeRuntimeAuthPreparation> {
     const wsl = this.wslRouteFor(target)
+    // Why: a quota poll is background work and must not boot a stopped distro.
+    if (wsl && !(await this.isDistroRunning(wsl.distro))) {
+      return {
+        configDir: '',
+        envPatch: {},
+        provenance: 'profile:unavailable',
+        usageError: `WSL distro ${wsl.distro} is not running.`
+      }
+    }
     try {
       return await (wsl ? wsl.router.preparation(wsl.distro) : this.router.preparation())
     } catch (error) {

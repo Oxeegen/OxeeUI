@@ -13,13 +13,23 @@ import {
   getFolderWorkspacePathStatusForPath
 } from '../project-groups/folder-workspace-path-status'
 import { FolderWorkspaceCreateRefusedError } from '../project-groups/folder-workspace-create-refusal'
-import { getSshFilesystemProvider } from '../providers/ssh-filesystem-dispatch'
 import type { RuntimeStore } from './runtime-store-contract'
+import {
+  runtimeVisibleFolderWorkspaces,
+  runtimeVisibleProjectGroups
+} from './runtime-visible-catalog'
 import { folderWorkspaceKey } from '../../shared/workspace-scope'
+import {
+  assertWslMoveProjectWritable,
+  assertWslMoveRepoWritable,
+  isLocalWslMoveRow,
+  shouldDropWslMoveProjectUpdate
+} from '../persistence/moving-wsl-projects/wsl-move-scope-guard'
 
 type RuntimeProjectGroupDependencies = {
   getStore: () => RuntimeStore | null
-  resolveRepo: (selector: string) => Promise<Repo>
+  // `connectionId` narrows twins by their SSH target; undefined keeps the plain selector.
+  resolveRepo: (selector: string, connectionId?: string | null) => Promise<Repo>
   notifyReposChanged: () => void
   resolveFolderConnectionId: (workspace: FolderWorkspace) => string | null
   teardownFolderWorkspacePtys: (worktreeId: string, connectionId: string | null) => Promise<void>
@@ -59,6 +69,15 @@ export class RuntimeProjectGroupController {
 
   listFolderWorkspaces(): FolderWorkspace[] {
     return this.deps.getStore()?.getFolderWorkspaces?.() ?? []
+  }
+
+  /** What a client may list; `listGroups`/`listFolderWorkspaces` keep the full store. */
+  listVisibleGroups(): ProjectGroup[] {
+    return runtimeVisibleProjectGroups(this.deps.getStore())
+  }
+
+  listVisibleFolderWorkspaces(): FolderWorkspace[] {
+    return runtimeVisibleFolderWorkspaces(this.deps.getStore())
   }
 
   async createGroup(input: {
@@ -110,13 +129,19 @@ export class RuntimeProjectGroupController {
     return { deleted }
   }
 
-  async moveProject(repoSelector: string, groupId: string | null, order?: number): Promise<Repo> {
+  async moveProject(
+    repoSelector: string,
+    groupId: string | null,
+    order?: number,
+    connectionId?: string | null
+  ): Promise<Repo> {
     const store = this.deps.getStore()
     if (!store?.moveProjectToGroup) {
       throw new Error('runtime_unavailable')
     }
-    const repo = await this.deps.resolveRepo(repoSelector)
-    const moved = store.moveProjectToGroup(repo.id, groupId, order)
+    const repo = await this.deps.resolveRepo(repoSelector, connectionId)
+    assertWslMoveRepoWritable(store, repo)
+    const moved = store.moveProjectToGroup(repo, groupId, order)
     if (!moved) {
       throw new Error('repo_not_found')
     }
@@ -150,16 +175,13 @@ export class RuntimeProjectGroupController {
     if (!group || !folderPath) {
       throw new FolderWorkspaceCreateRefusedError('folder_workspace_project_group_not_found')
     }
-    const status = await getFolderWorkspacePathStatusForPath(
-      {
-        folderPath,
-        projectGroupId: group.id,
-        connectionId: input.connectionId ?? group.connectionId ?? null,
-        projectGroups,
-        repos: store.getRepos()
-      },
-      { getSshFilesystemProvider }
-    )
+    const status = await getFolderWorkspacePathStatusForPath({
+      folderPath,
+      projectGroupId: group.id,
+      connectionId: input.connectionId ?? group.connectionId ?? null,
+      projectGroups,
+      repos: store.getRepos()
+    })
     const pathRefusal = folderWorkspacePathRefusal(status)
     if (pathRefusal) {
       throw new FolderWorkspaceCreateRefusedError(pathRefusal)
@@ -179,7 +201,7 @@ export class RuntimeProjectGroupController {
     if (!store) {
       throw new Error('runtime_unavailable')
     }
-    return getFolderWorkspacePathStatus(store, request, { getSshFilesystemProvider })
+    return getFolderWorkspacePathStatus(store, request)
   }
 
   async updateFolderWorkspace(
@@ -190,6 +212,14 @@ export class RuntimeProjectGroupController {
     if (!store?.updateFolderWorkspace) {
       throw new Error('runtime_unavailable')
     }
+    const existing = store.getFolderWorkspaces?.().find((entry) => entry.id === folderWorkspaceId)
+    if (
+      existing &&
+      isLocalWslMoveRow(existing) &&
+      shouldDropWslMoveProjectUpdate(store, { folderWorkspaceId }, updates)
+    ) {
+      return existing
+    }
     if (typeof updates.folderPath === 'string' && updates.folderPath.trim().length > 0) {
       const workspace = store
         .getFolderWorkspaces?.()
@@ -198,19 +228,16 @@ export class RuntimeProjectGroupController {
         return null
       }
       const projectGroups = store.getProjectGroups?.() ?? []
-      const status = await getFolderWorkspacePathStatusForPath(
-        {
-          folderPath: updates.folderPath,
-          projectGroupId: workspace.projectGroupId,
-          connectionId:
-            workspace.connectionId ??
-            projectGroups.find((entry) => entry.id === workspace.projectGroupId)?.connectionId ??
-            null,
-          projectGroups,
-          repos: store.getRepos()
-        },
-        { getSshFilesystemProvider }
-      )
+      const status = await getFolderWorkspacePathStatusForPath({
+        folderPath: updates.folderPath,
+        projectGroupId: workspace.projectGroupId,
+        connectionId:
+          workspace.connectionId ??
+          projectGroups.find((entry) => entry.id === workspace.projectGroupId)?.connectionId ??
+          null,
+        projectGroups,
+        repos: store.getRepos()
+      })
       assertFolderWorkspacePathUsable(status)
     }
     const updated = store.updateFolderWorkspace(folderWorkspaceId, updates)
@@ -226,6 +253,9 @@ export class RuntimeProjectGroupController {
       throw new Error('runtime_unavailable')
     }
     const workspace = store.getFolderWorkspaces?.().find((entry) => entry.id === folderWorkspaceId)
+    if (workspace && isLocalWslMoveRow(workspace)) {
+      assertWslMoveProjectWritable(store, { folderWorkspaceId })
+    }
     if (workspace) {
       const worktreeId = folderWorkspaceKey(folderWorkspaceId)
       // Why: a mixed-host group has no single PTY target; forgetting the

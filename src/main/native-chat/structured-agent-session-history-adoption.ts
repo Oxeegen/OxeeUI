@@ -1,22 +1,25 @@
 // Adopting an Agent Session History row into a brand-new structured chat.
 //
-// Kept out of the runtime class files because those are `@ts-nocheck`: this decides which
-// credential directory a provider child will launch against and which file gets imported into a
-// journal, and a call site written there would compile however wrong it was. The runtime hands over
-// the facts it owns — the account homes it recognises, the records it holds — and this decides.
+// Credential homes and transcripts must come from runtime-owned facts, never client-supplied paths.
 
+import { chatAgentsShareConversations } from '../../shared/structured-agent-cli-conversation-adoption'
 import { agentSessionRefusalError } from '../../shared/agent-session-wire-refusals'
 import type { AgentSessionOperationRow } from '../../shared/agent-session-operation-ledger'
-import {
-  agentSessionWireProviderHandle,
-  type AgentSessionWireProviderHandle
-} from '../../shared/agent-session-provider-handle-encoding'
-import type { StructuredAgentId } from '../../shared/agent-session-provider-handle'
+import type {
+  AgentSessionProviderHandle,
+  AgentSessionProviderHandleLink,
+  StructuredAgentId
+} from '../../shared/agent-session-provider-handle'
 import type { AgentSessionLease, AgentSessionRecord } from '../../shared/agent-session-record'
 import { agentSessionLeaseAdmitsWriter } from '../../shared/agent-session-lease-adjudication'
+import {
+  agentSessionAccountHomesEqual,
+  type AgentSessionAccountHome
+} from '../../shared/agent-session-account-home'
 
 export type StructuredAgentSessionAdoptionOwnership = {
   sessionId: string
+  workspaceId: string
   /** Any agent's chat may hold the conversation, though only one with an importer adopts. */
   provider: StructuredAgentId
   providerSessionId: string
@@ -24,20 +27,22 @@ export type StructuredAgentSessionAdoptionOwnership = {
 }
 
 export type StructuredAgentSessionAdoption = {
-  /** The account home the transcript was actually found under — never a client-supplied path. */
-  accountHomePath: string
+  /** The account home the transcript was actually found under — never a client-supplied one. */
+  accountHome: AgentSessionAccountHome
   transcriptPath: string
 }
 
 export type CommittedStructuredAgentSessionAdoptionReplay = {
   record: AgentSessionRecord
-  providerHandle: AgentSessionWireProviderHandle
+  providerHandle: AgentSessionProviderHandle
 }
 
 /** Exact committed-operation identity; attach still validates its fingerprint. */
 export function findCommittedStructuredAgentSessionAdoptionReplay(input: {
   agent: StructuredAgentId
   providerSessionId: string
+  /** The Session History row id a link of the agent's handle chain shows as. */
+  rowSessionId: (link: AgentSessionProviderHandleLink) => string
   selfSessionId: string
   callerKey: string
   operationId: string
@@ -63,12 +68,10 @@ export function findCommittedStructuredAgentSessionAdoptionReplay(input: {
   ) {
     return null
   }
-  // The replay re-sends the adoption as its create sent it, so it needs the wire's form.
-  const providerHandle = agentSessionWireProviderHandle(adopted.handle)
-  if (adopted.handle.nativeId !== input.providerSessionId || !providerHandle) {
+  if (input.rowSessionId(adopted) !== input.providerSessionId) {
     return null
   }
-  return { record, providerHandle }
+  return { record, providerHandle: adopted.handle }
 }
 
 /**
@@ -91,7 +94,7 @@ export function findConflictingStructuredAdoption(input: {
     input.ownership.find(
       (owner) =>
         owner.sessionId !== input.selfSessionId &&
-        owner.provider === input.agent &&
+        chatAgentsShareConversations(owner.provider, input.agent) &&
         owner.providerSessionId === input.providerSessionId
     ) ?? null
   )
@@ -106,7 +109,10 @@ export function structuredAdoptionConflictError(
     agentSessionLeaseAdmitsWriter(ownership.lease)
       ? 'agent_session_conflict'
       : 'agent_session_ownership_unknown',
-    { reason: 'conversationHeldElsewhere' }
+    {
+      reason: 'conversationHeldElsewhere',
+      owner: { sessionId: ownership.sessionId, workspaceId: ownership.workspaceId }
+    }
   )
 }
 
@@ -123,25 +129,30 @@ export function structuredAdoptionConflictError(
  */
 export async function resolveStructuredAgentSessionAdoption(input: {
   providerSessionId: string
-  candidateAccountHomes: readonly string[]
+  candidateAccountHomes: readonly AgentSessionAccountHome[]
   resolveTranscript: (args: {
     providerSessionId: string
-    accountHomePath: string
+    accountHome: AgentSessionAccountHome
+    launchEnv: NodeJS.ProcessEnv
+    workspaceCwd: string
   }) => Promise<string | null>
+  launchEnv: NodeJS.ProcessEnv
+  workspaceCwd: string
 }): Promise<StructuredAgentSessionAdoption> {
-  const seen = new Set<string>()
-  for (const accountHomePath of input.candidateAccountHomes) {
-    const trimmed = accountHomePath.trim()
-    if (!trimmed || seen.has(trimmed)) {
+  const seen: AgentSessionAccountHome[] = []
+  for (const accountHome of input.candidateAccountHomes) {
+    if (seen.some((home) => agentSessionAccountHomesEqual(home, accountHome))) {
       continue
     }
-    seen.add(trimmed)
+    seen.push(accountHome)
     const transcriptPath = await input.resolveTranscript({
       providerSessionId: input.providerSessionId,
-      accountHomePath: trimmed
+      accountHome,
+      launchEnv: input.launchEnv,
+      workspaceCwd: input.workspaceCwd
     })
     if (transcriptPath) {
-      return { accountHomePath: trimmed, transcriptPath }
+      return { accountHome, transcriptPath }
     }
   }
   // Refuse rather than fall back to the default home. Resuming under a home that does not hold the

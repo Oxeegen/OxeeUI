@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { agentSessionRecordFixture } from '../../shared/agent-session-record.test-fixture'
 import type { AgentSessionRecord } from '../../shared/agent-session-record'
 import { codexProviderHandle } from '../../shared/agent-session-provider-handle-encoding'
-import { runProcess } from '../../shared/child-process/run-process'
+import { runProcess } from '@orca/process-host'
 import {
   createCodexStructuredLaunchResolver,
   TEST_SPAWN_TOKEN
@@ -75,8 +75,7 @@ describe.skipIf(process.platform === 'win32')('workspace-relative Codex selectio
           resolveCommand: sources.resolveCommand,
           resolveEnvironment: () => environment.resolveAgentEnvironment('codex'),
           resolveLaunchArgs: () => [],
-          resolveWorkspacePath: async () => cwd,
-          resolveRollout: async () => null
+          resolveWorkspacePath: async () => cwd
         })
       )
       for (const resume of [false, true]) {

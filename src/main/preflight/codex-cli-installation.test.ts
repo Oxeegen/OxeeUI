@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readCodexCliInstallation } from './codex-cli-installation'
 
 const { runProcess } = vi.hoisted(() => ({ runProcess: vi.fn() }))
-vi.mock('../../shared/child-process/run-process', async (original) => ({
+vi.mock('@orca/process-host', async (original) => ({
   ...(await original<object>()),
   runProcess
 }))

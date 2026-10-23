@@ -38,8 +38,6 @@ vi.mock('./registered-worktree-roots-cache', () => ({
   invalidateAuthorizedRootsCache: vi.fn(),
   invalidateAuthorizedRootsCacheForRepo: vi.fn()
 }))
-vi.mock('../providers/ssh-git-dispatch', () => ({ getSshGitProvider: vi.fn() }))
-vi.mock('./ssh', () => ({ getActiveMultiplexer: vi.fn() }))
 
 type HandlerMap = Map<string, (_event: unknown, args: unknown) => unknown>
 
@@ -79,7 +77,10 @@ describe('repo IPC mutations notify paired clients', () => {
 
     await handlers.get('repos:removeForHost')!(null, { repoId: 'repo-1', hostId: 'ssh:host-1' })
 
-    expect(mockStore.removeProjectForHost).toHaveBeenCalledWith('repo-1', 'ssh:host-1')
+    expect(mockStore.removeProjectForHost).toHaveBeenCalledWith({
+      id: 'repo-1',
+      executionHostId: 'ssh:host-1'
+    })
     expect(notify).toHaveBeenCalledTimes(1)
     expect(mainWindow.webContents.send).toHaveBeenCalledWith('repos:changed')
   })

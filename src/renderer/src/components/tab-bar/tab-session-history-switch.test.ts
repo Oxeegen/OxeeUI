@@ -4,9 +4,13 @@ import type { AppState } from '@/store/types'
 import { makeRepo, makeTerminalTab, makeWorktree } from '../worktree-jump-palette-test-fixtures'
 import { makeAgentStatusEntry } from '@/runtime/sync-runtime-graph-test-harness'
 import { collectAiVaultTitleRequests } from '@/lib/ai-vault-tab-title-requests'
+import { resolveCliChatResumeSource } from './cli-chat-resume-source'
 import type { AiVaultListArgs, AiVaultSession } from '../../../../shared/ai-vault-types'
 import { getDefaultSettings } from '../../../../shared/constants'
-import { STRUCTURED_AGENT_SESSION_RUNTIME_CAPABILITY } from '../../../../shared/protocol-version'
+import {
+  STRUCTURED_AGENT_SESSION_REGISTERED_AGENTS_RUNTIME_CAPABILITY,
+  STRUCTURED_AGENT_SESSION_RUNTIME_CAPABILITY
+} from '../../../../shared/protocol-version'
 import {
   claimAiVaultForcedRescan,
   resetAiVaultForcedRescanThrottleForTest
@@ -35,7 +39,18 @@ const mocks = vi.hoisted(() => {
 // Staged host answers: its capabilities arrive over IPC at boot, and the platform from preload.
 vi.mock('@/runtime/local-runtime-capabilities', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  readLocalRuntimeCapabilitiesOrUnknown: () => [STRUCTURED_AGENT_SESSION_RUNTIME_CAPABILITY]
+  readLocalRuntimeCapabilitiesOrUnknown: () => [
+    STRUCTURED_AGENT_SESSION_RUNTIME_CAPABILITY,
+    STRUCTURED_AGENT_SESSION_REGISTERED_AGENTS_RUNTIME_CAPABILITY
+  ]
+}))
+vi.mock('@/runtime/host-structured-agents', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  readHostStructuredAgents: () =>
+    ['claude', 'codex', 'grok', 'omp', 'opencode', 'pi'].map((agent) => ({
+      agent,
+      capabilities: {}
+    }))
 }))
 vi.mock('@/lib/renderer-app-platform', () => ({ getRendererAppPlatform: () => mocks.platform }))
 
@@ -100,10 +115,10 @@ function makeState(
   return useAppStore.getState()
 }
 
-// What the Session History panel sends for this workspace: every path of its project, at the
-// panel's default depth, on the workspace's own host.
+// What the Session History panel sends for its default Workspace scope, at the panel's default
+// depth, on the workspace's own host.
 const PANEL_REQUEST = {
-  scopePaths: ['/repo/wt', '/repo/sibling', '/repos/repo-1'],
+  scopePaths: ['/repo/wt'],
   executionHostScope: 'local',
   sessionLimit: 250
 } as const
@@ -172,6 +187,20 @@ const exitedAgentRecords: Record<string, Partial<AppState>> = {
 }
 
 describe('resolveTabSessionHistorySubject', () => {
+  it('retains the chosen pane in the direct CLI create identity without a History row', () => {
+    expect(
+      resolveCliChatResumeSource(makeState(liveClaudeEntry), {
+        tab: { id: 'term-1', worktreeId: WORKTREE_ID }
+      })
+    ).toMatchObject({
+      tabId: 'term-1',
+      workspaceId: WORKTREE_ID,
+      paneKey: 'term-1:leaf-1',
+      agent: 'claude',
+      providerSessionId: 'claude-session-1',
+      executionHostId: 'local'
+    })
+  })
   it('finds a native chat tab by the chat it shows', () => {
     expect(
       resolveTabSessionHistorySubject(makeState(), {
@@ -181,24 +210,15 @@ describe('resolveTabSessionHistorySubject', () => {
     ).toEqual({ ...chatSubject })
   })
 
-  it('finds a chat of any agent whose CLI can open a copy', () => {
-    expect(
-      resolveTabSessionHistorySubject(makeState(), {
-        tab: { id: 'unified-1', worktreeId: WORKTREE_ID },
-        nativeChat: { sessionId: 'orca-chat-1', agent: 'grok' }
-      })
-    ).toEqual({ ...chatSubject })
-  })
-
-  it.each(['opencode', 'omp'] as const)(
-    'skips a %s chat, whose CLI cannot open a copy',
+  it.each(['grok', 'opencode', 'omp'] as const)(
+    'finds a %s chat, whose conversation can be copied to its CLI',
     (agent) => {
       expect(
         resolveTabSessionHistorySubject(makeState(), {
           tab: { id: 'unified-1', worktreeId: WORKTREE_ID },
           nativeChat: { sessionId: 'orca-chat-1', agent }
         })
-      ).toBeNull()
+      ).toEqual({ ...chatSubject })
     }
   )
 
@@ -276,6 +296,42 @@ describe('resolveTabSessionHistorySubject', () => {
     ).toEqual(cliSubject)
   })
 
+  it.each(['grok', 'omp', 'opencode', 'opencode2', 'pi'] as const)(
+    'finds a %s terminal tab, whose conversation a chat can take over',
+    (agentType) => {
+      const state = makeState({
+        'term-1:leaf-1': makeAgentStatusEntry({
+          agentType,
+          paneKey: 'term-1:leaf-1',
+          tabId: 'term-1',
+          worktreeId: WORKTREE_ID,
+          providerSession: { key: 'session_id', id: `${agentType}-session-1` }
+        })
+      })
+      expect(
+        resolveTabSessionHistorySubject(state, { tab: { id: 'term-1', worktreeId: WORKTREE_ID } })
+      ).toEqual({ ...cliSubject, agent: agentType, providerSessionId: `${agentType}-session-1` })
+    }
+  )
+
+  it.each(['gemini'] as const)(
+    'skips a %s terminal tab, whose conversation no chat can take over',
+    (agentType) => {
+      const state = makeState({
+        'term-1:leaf-1': makeAgentStatusEntry({
+          agentType,
+          paneKey: 'term-1:leaf-1',
+          tabId: 'term-1',
+          worktreeId: WORKTREE_ID,
+          providerSession: { key: 'session_id', id: `${agentType}-session-1` }
+        })
+      })
+      expect(
+        resolveTabSessionHistorySubject(state, { tab: { id: 'term-1', worktreeId: WORKTREE_ID } })
+      ).toBeNull()
+    }
+  )
+
   it('looks nothing up over SSH, where neither move is ever offered', () => {
     const state = makeState(liveClaudeEntry, { connectionId: 'dev-box' })
     expect(
@@ -322,16 +378,16 @@ describe('resolveTabSessionHistorySubject', () => {
 
 describe('one pane of a terminal tab', () => {
   const claudePane = 'term-1:leaf-1'
-  const grokPane = 'term-1:leaf-2'
+  const geminiPane = 'term-1:leaf-2'
   const splitTab = (activeLeafId: string): AppState => {
     makeState({
       [claudePane]: liveClaudeEntry['term-1:leaf-1'],
-      [grokPane]: makeAgentStatusEntry({
-        agentType: 'grok',
-        paneKey: grokPane,
+      [geminiPane]: makeAgentStatusEntry({
+        agentType: 'gemini',
+        paneKey: geminiPane,
         tabId: 'term-1',
         worktreeId: WORKTREE_ID,
-        providerSession: { key: 'session_id', id: 'grok-session-1' }
+        providerSession: { key: 'session_id', id: 'gemini-session-1' }
       })
     })
     useAppStore.setState({
@@ -349,13 +405,35 @@ describe('one pane of a terminal tab', () => {
 
   it("never stands in a sibling pane's conversation for a pane with no move", () => {
     const state = splitTab('leaf-2')
-    // The tab as a whole maps to the Claude pane; the Grok pane on its own has nothing.
+    // The tab as a whole maps to the Claude pane; the Gemini pane on its own has nothing.
     expect(
       resolveTabSessionHistorySubject(state, { tab: { id: 'term-1', worktreeId: WORKTREE_ID } })
     ).toEqual(cliSubject)
-    expect(paneSubject(state, grokPane)).toBeNull()
-    expect(paneGate(state, grokPane)).toBe(false)
+    expect(paneSubject(state, geminiPane)).toBeNull()
+    expect(paneGate(state, geminiPane)).toBe(false)
   })
+
+  it.each(['grok', 'omp', 'opencode', 'opencode2', 'pi'] as const)(
+    "finds a %s pane's own conversation",
+    (agentType) => {
+      const paneKey = 'term-1:leaf-1'
+      const state = makeState({
+        [paneKey]: makeAgentStatusEntry({
+          agentType,
+          paneKey,
+          tabId: 'term-1',
+          worktreeId: WORKTREE_ID,
+          providerSession: { key: 'session_id', id: `${agentType}-session-1` }
+        })
+      })
+      expect(paneSubject(state, paneKey)).toEqual({
+        ...cliSubject,
+        agent: agentType,
+        providerSessionId: `${agentType}-session-1`
+      })
+      expect(paneGate(state, paneKey)).toBe(true)
+    }
+  )
 
   it("finds the pane's own conversation", () => {
     const state = splitTab('leaf-1')
@@ -419,6 +497,21 @@ describe('findTabSessionHistoryRow', () => {
     })
     expect(findTabSessionHistoryRow([ownedRow], cliSubject)?.id).toBe('owned-row')
     expect(findTabSessionHistoryRow([row({ agent: 'codex' })], cliSubject)).toBeNull()
+    // An OpenCode 2.x pane reports `opencode`; Session History lists its conversation as `opencode2`.
+    const openCodeSubject = {
+      ...cliSubject,
+      agent: 'opencode' as const,
+      providerSessionId: 'ses_1'
+    }
+    expect(
+      findTabSessionHistoryRow(
+        [row({ id: 'oc2-row', agent: 'opencode2', sessionId: 'ses_1' })],
+        openCodeSubject
+      )?.id
+    ).toBe('oc2-row')
+    expect(
+      findTabSessionHistoryRow([row({ agent: 'grok', sessionId: 'ses_1' })], openCodeSubject)
+    ).toBeNull()
     expect(
       findTabSessionHistoryRow(
         [
@@ -437,14 +530,14 @@ describe('resolveTabSessionSwitch', () => {
     structuredSession: { sessionId: 'orca-chat-1', workspaceId: WORKTREE_ID }
   })
 
-  it('offers Resume in New CLI on a chat tab whose row can fork', () => {
+  it('offers Switch to Terminal on a chat tab whose row can fork', () => {
     expect(resolveTabSessionSwitch(makeState(), chatRow, chatSubject)).toEqual({
       action: 'resume-in-new-cli',
       worktreeId: WORKTREE_ID
     })
   })
 
-  it('hides Resume in New CLI for an empty or unresumable chat', () => {
+  it('hides Switch to Terminal for an empty or unresumable chat', () => {
     expect(
       resolveTabSessionSwitch(
         makeState(),
@@ -456,7 +549,7 @@ describe('resolveTabSessionSwitch', () => {
     expect(resolveTabSessionSwitch(makeState(), chatRow, chatSubject)).toBeNull()
   })
 
-  it('offers Resume in New Native Chat where the row is eligible, in the workspace it names', () => {
+  it('offers Switch to Chat where the row is eligible, in the workspace it names', () => {
     mocks.resumeInChat.mockReturnValue({
       available: true,
       workspaceId: WORKTREE_ID

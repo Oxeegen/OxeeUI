@@ -251,14 +251,14 @@ par défaut, **Yolo** ou **Manuel**.
 Oxeegen construit une **pile d'IA souveraine** : ses propres modèles, servis depuis ses
 propres serveurs d'inférence, et les applications de bureau qui les mettent au travail.
 
-| | |
-|---|---|
-| **Modèles Oxeegen** | Max, Pro, Flash et Instant, qui tournent sur les serveurs d'Oxeegen et sont servis par une API compatible OpenAI, avec des régions US et UE. |
-| **Oxeegen Hermes** | La version d'Oxeegen de l'agent Hermes, qui tourne sur les modèles d'Oxeegen — le moteur principal d'OxeeUI. |
-| **[OxeeOffice](https://github.com/Oxeegen/OxeeOffice)** | La suite bureautique IA : fichiers Word, Excel, PowerPoint et PDF, édités avec une IA qui tourne sur les modèles d'Oxeegen. |
-| **[VOxee](https://github.com/Oxeegen/VOxee)** | La voix en texte : dictée, transcription de réunions et notes, sur les modèles auto-hébergés d'Oxeegen. |
-| **OxeeUI** | L'environnement de développement agentique — ce dépôt. |
-| **[Ordinateurs cloud](https://www.oxeegen.com/computer)** | Des bureaux virtuels gérés dans le centre de données d'Oxeegen, avec l'Ultra-Support 24/7, dont une plateforme OxeeUI dédiée. |
+|                                                           |                                                                                                                                              |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Modèles Oxeegen**                                       | Max, Pro, Flash et Instant, qui tournent sur les serveurs d'Oxeegen et sont servis par une API compatible OpenAI, avec des régions US et UE. |
+| **Oxeegen Hermes**                                        | La version d'Oxeegen de l'agent Hermes, qui tourne sur les modèles d'Oxeegen — le moteur principal d'OxeeUI.                                 |
+| **[OxeeOffice](https://github.com/Oxeegen/OxeeOffice)**   | La suite bureautique IA : fichiers Word, Excel, PowerPoint et PDF, édités avec une IA qui tourne sur les modèles d'Oxeegen.                  |
+| **[VOxee](https://github.com/Oxeegen/VOxee)**             | La voix en texte : dictée, transcription de réunions et notes, sur les modèles auto-hébergés d'Oxeegen.                                      |
+| **OxeeUI**                                                | L'environnement de développement agentique — ce dépôt.                                                                                       |
+| **[Ordinateurs cloud](https://www.oxeegen.com/computer)** | Des bureaux virtuels gérés dans le centre de données d'Oxeegen, avec l'Ultra-Support 24/7, dont une plateforme OxeeUI dédiée.                |
 
 OxeeUI est le poste du développeur dans cette pile. Il fait tourner Oxeegen Hermes et les
 agents de code que votre équipe utilise déjà, sur votre propre machine ou dans un
@@ -266,10 +266,10 @@ ordinateur cloud Oxeegen — voir [Moteurs d'IA](#moteurs-dia).
 
 ## Téléchargement
 
-| Plateforme | Configuration requise | Téléchargement |
-|---|---|---|
-| **Windows** (x64) | Windows 10 ou plus récent | [`oxeeui-windows-setup.exe`](https://github.com/Oxeegen/OxeeUI/releases/latest/download/oxeeui-windows-setup.exe) |
-| **Linux** (x86_64) | Environnement FUSE 2 | [`oxeeui-linux-x86_64.AppImage`](https://github.com/Oxeegen/OxeeUI/releases/latest/download/oxeeui-linux-x86_64.AppImage) |
+| Plateforme         | Configuration requise     | Téléchargement                                                                                                            |
+| ------------------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| **Windows** (x64)  | Windows 10 ou plus récent | [`oxeeui-windows-setup.exe`](https://github.com/Oxeegen/OxeeUI/releases/latest/download/oxeeui-windows-setup.exe)         |
+| **Linux** (x86_64) | Environnement FUSE 2      | [`oxeeui-linux-x86_64.AppImage`](https://github.com/Oxeegen/OxeeUI/releases/latest/download/oxeeui-linux-x86_64.AppImage) |
 
 Toutes les versions et leurs notes sont sur la page [Releases](https://github.com/Oxeegen/OxeeUI/releases).
 Les installateurs **ne sont pas signés** : au premier lancement, Windows SmartScreen

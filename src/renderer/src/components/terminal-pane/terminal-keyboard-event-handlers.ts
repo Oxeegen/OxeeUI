@@ -163,7 +163,7 @@ export function createTerminalKeyboardEventHandlers(context: EventContext) {
     // Cmd+G / Cmd+Shift+G navigates terminal search matches even when focus
     // is inside the search input itself, so this check must run before the
     // editable-target guard would otherwise bypass all terminal shortcuts.
-    // stopImmediatePropagation prevents App.tsx's Cmd+Shift+G (source-control sidebar) from also firing.
+    // App owners run before this listener; source control's Cmd+Shift+G stands down while terminal search is open.
     const direction = matchSearchNavigate(e, isMac, searchOpenRef.current, searchStateRef.current)
     if (direction !== null) {
       if (e.repeat) {
@@ -223,11 +223,13 @@ export function createTerminalKeyboardEventHandlers(context: EventContext) {
     if (!action) {
       return
     }
-    // The chat covering this pane owns find, on whatever chord it is bound to; the hidden
-    // terminal buffer is not what the user sees.
+    // The chat covering this pane owns find, on whatever chord it is bound to, and its own
+    // selection; the hidden terminal buffer is not what the user sees.
     if (
       isInsideNativeChatCover(e.target) &&
       (action.type === 'toggleSearch' ||
+        action.type === 'selectAll' ||
+        action.type === 'copySelection' ||
         keybindingMatchesAction('chat.find', e, shortcutPlatform, keybindings))
     ) {
       return

@@ -4,8 +4,9 @@
  */
 import { ORCAD_TERMINAL_CENSUS_RUNTIME_CAPABILITY } from '../../shared/orcad-runtime-capabilities'
 import { ELECTRON_REMOTE_RUNTIME_CLIENT_CAPABILITIES } from '../../shared/electron-remote-runtime-client-capabilities'
+import type { PairedRuntimeConnection } from '../../shared/paired-runtime-connection'
 import {
-  getPreferredPairingOffer,
+  getPreferredPairedRuntimeConnection,
   type KnownRuntimeEnvironment
 } from '../../shared/runtime-environments'
 import {
@@ -14,9 +15,15 @@ import {
   type OrcadTerminalCensus
 } from '../../shared/orcad-terminal-census'
 import { sendRemoteRuntimeRequestWithStatusPreflight } from '../../shared/remote-runtime-client'
-import type { OrcadActivationRecord } from './orcad-activation-record'
-import { ensureOrcadManagedTunnel } from './orcad-managed-tunnel'
-import { verifyOrcadManagedServing } from './orcad-managed-serving-verify'
+import type { OrcadActivationRecord } from '../managed-server/activation/orcad-activation-record'
+import { ensureOrcadManagedTunnel } from '../managed-server/lifecycle/orcad-managed-tunnel'
+import { verifyOrcadManagedServing } from '../managed-server/lifecycle/orcad-managed-serving-verify'
+
+export type OrcadTerminalCensusRequestOptions = {
+  releaseFinishedAutomationTerminals?: boolean
+  /** Close the server's terminal admission this long before counting; 0 reopens it. */
+  closeAdmissionForMs?: number
+}
 
 const UNVERIFIABLE: OrcadTerminalCensus = {
   liveSessions: null,
@@ -33,7 +40,7 @@ export async function collectManagedTerminalCensus(
   environment: KnownRuntimeEnvironment,
   record: OrcadActivationRecord,
   timeoutMs = 15_000,
-  options: { releaseFinishedAutomationTerminals?: boolean } = {}
+  options: OrcadTerminalCensusRequestOptions = {}
 ): Promise<OrcadTerminalCensus> {
   if (!record.active) {
     return { liveSessions: 0, startedSinceActivation: 0, daemonProtocolVersion: null }
@@ -43,17 +50,41 @@ export async function collectManagedTerminalCensus(
     return UNVERIFIABLE
   }
   try {
-    await ensureOrcadManagedTunnel(userDataPath, environment.id)
+    // Why its answer, not `environment`: the tunnel may have re-paired, retiring that token.
+    const current = await ensureOrcadManagedTunnel(userDataPath, environment.id)
     // A server that idled out behind a forward still up is started first, or it never answers.
     await verifyOrcadManagedServing(userDataPath, environment.id)
+    return await requestOrcadTerminalCensus(
+      getPreferredPairedRuntimeConnection(current),
+      activatedAt,
+      timeoutMs,
+      options
+    )
+  } catch {
+    return UNVERIFIABLE
+  }
+}
+
+/** The census over an already-open connection; any failure is unverifiable, never zero. */
+export async function requestOrcadTerminalCensus(
+  connection: PairedRuntimeConnection,
+  activatedAt: number,
+  timeoutMs = 15_000,
+  options: OrcadTerminalCensusRequestOptions = {}
+): Promise<OrcadTerminalCensus> {
+  try {
     const response = await sendRemoteRuntimeRequestWithStatusPreflight<unknown>(
-      getPreferredPairingOffer(environment),
+      connection,
       ORCAD_TERMINAL_CENSUS_METHOD,
       {
         activatedAt,
         ...(options.releaseFinishedAutomationTerminals
           ? { releaseFinishedAutomationTerminals: true }
-          : {})
+          : {}),
+        // Safe for any server: an older one drops the field, and its answer omits the fence.
+        ...(options.closeAdmissionForMs === undefined
+          ? {}
+          : { closeAdmissionForMs: options.closeAdmissionForMs })
       },
       timeoutMs,
       (status) => {
@@ -61,7 +92,7 @@ export async function collectManagedTerminalCensus(
           !status.ok ||
           !status.result.capabilities?.includes(ORCAD_TERMINAL_CENSUS_RUNTIME_CAPABILITY)
         ) {
-          throw new Error('The managed Orca server does not report a terminal census.')
+          throw new Error('This host’s Orca server does not report a terminal census.')
         }
       },
       undefined,

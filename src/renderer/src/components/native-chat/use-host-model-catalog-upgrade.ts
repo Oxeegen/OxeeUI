@@ -11,11 +11,11 @@ import {
   settleStructuredAgentSessionBuiltinCatalog,
   type StructuredAgentSessionOptionState
 } from '../../../../shared/structured-agent-session-options'
-import type { RuntimeClientTarget } from '@/runtime/runtime-rpc-client'
+import type { RuntimeClientTarget } from '../../../../shared/runtime-client-target'
 import { callStructuredAgentSession } from '@/runtime/structured-agent-session-client'
 import { recordHostModelCatalogSnapshot } from '@/runtime/host-model-catalog-snapshots'
 import { structuredAgentSessionHostKey } from '@/runtime/structured-agent-session-host-capability'
-import type { NativeChatSessionOptionRecord } from '../../../../shared/native-chat-session-option-state'
+import type { StructuredAgentSessionOptionRecord } from '../../../../shared/structured-agent-session-option-state'
 import {
   isHostModelListingWaitInFlight,
   joinHostModelListingWait
@@ -61,7 +61,7 @@ export function useHostModelCatalogUpgrade(args: {
   providerRunning?: boolean
   /** A listing landed after the chat's options were read, which answered without it. */
   onListingLanded?: () => void
-  activeOptionRecordRef: MutableRefObject<NativeChatSessionOptionRecord>
+  activeOptionRecordRef: MutableRefObject<StructuredAgentSessionOptionRecord>
   updateOptionState: (
     update: (current: StructuredAgentSessionOptionState) => StructuredAgentSessionOptionState
   ) => void

@@ -11,20 +11,24 @@ import {
   type AgentPermissionsRenderer
 } from './AgentLaunchSettingsCatalog'
 import { HostAgentLaunchSettings } from './HostAgentLaunchSettings'
+import { SettingsHostScopeUnavailableNotice } from './SettingsHostScopePicker'
+import type { SettingsHostScope } from './settings-host-scope'
+import { runtimeTargetEnvironmentId } from '@/runtime/runtime-client-target'
 import { translate } from '@/i18n/i18n'
 
 export function AgentLaunchSettingsSection({
   settings,
   updateSettings,
-  environmentId,
+  hostScope,
   renderPermissions
 }: {
   settings: GlobalSettings
   updateSettings: (updates: Partial<GlobalSettings>) => void | Promise<void>
-  /** Active Server, or null for this computer; launch settings are edited in that host's store. */
-  environmentId: string | null
+  /** Host chosen in the Settings host menu; launch settings are edited in that host's store. */
+  hostScope: SettingsHostScope
   renderPermissions: AgentPermissionsRenderer
 }): React.JSX.Element {
+  const environmentId = runtimeTargetEnvironmentId(hostScope.target)
   const environment = useAppStore((state) =>
     environmentId ? state.runtimeEnvironments.find((entry) => entry.id === environmentId) : null
   )
@@ -44,6 +48,8 @@ export function AgentLaunchSettingsSection({
           hostName={environment.name}
           renderPermissions={renderPermissions}
         />
+      ) : !hostScope.available ? (
+        <SettingsHostScopeUnavailableNotice />
       ) : (
         <p className="text-sm text-muted-foreground">
           {translate('settings.agents.loadingHost', 'Loading agent settings…')}
@@ -81,6 +87,7 @@ function LocalAgentLaunchSettings({
       detectionTarget={LOCAL_DETECTION_TARGET}
       hostName={null}
       renderPermissions={renderPermissions}
+      nativeChatPermissionsSupported
       local={{ settings, updateSettings }}
     />
   )

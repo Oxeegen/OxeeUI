@@ -45,7 +45,9 @@ export const PAGE_STORAGE_KEY_PREFIXES = [
   /** `orca:nativeChatTabs:<hostId>:<worktreeId>`: which tabs of one workspace show the chat. */
   'orca:nativeChatTabs:',
   /** `orca:terminalLiveInputDisabled:<hostId>:<worktreeId>`: the handles typing goes around. */
-  'orca:terminalLiveInputDisabled:'
+  'orca:terminalLiveInputDisabled:',
+  /** Unsent command drafts, scoped to a host and workspace. */
+  'orca:terminalDrafts:'
 ] as const
 
 /** Long enough for a host's pinned ids, and far short of what a quota refuses. */
@@ -98,9 +100,27 @@ export function pageRouteWorkspace(
   }
 }
 
-/** Both workspace-scoped keys are built the same way, so the shape is written once. */
+const WORKSPACE_KEY_PREFIXES = [
+  'orca:nativeChatTabs:',
+  'orca:terminalLiveInputDisabled:',
+  'orca:terminalDrafts:'
+] as const
+
+/** Workspace-scoped keys are built the same way, so the shape is written once. */
 function workspaceScopedKey(prefix: string, hostId: string, worktreeId: string): string {
   return `${prefix}${encodeURIComponent(hostId)}:${encodeURIComponent(worktreeId)}`
+}
+
+/** A workspace-scoped key of this host, any workspace: what a host-area page may reach in-page.
+ *  The encoded host id holds no `:`, so the scope cannot match another host's keys. */
+export function isHostWorkspaceStorageKey(key: string, hostId: string): boolean {
+  const scope = `${encodeURIComponent(hostId)}:`
+  return (
+    isPageStorageKey(key) &&
+    WORKSPACE_KEY_PREFIXES.some(
+      (prefix) => key.startsWith(prefix + scope) && key.length > prefix.length + scope.length
+    )
+  )
 }
 
 /**
@@ -115,10 +135,9 @@ export function pageStorageKeysForRoute(hostId: string, routePathname: string): 
   const scoped =
     workspace === null || workspace.hostId !== hostId
       ? []
-      : [
-          workspaceScopedKey('orca:nativeChatTabs:', hostId, workspace.worktreeId),
-          workspaceScopedKey('orca:terminalLiveInputDisabled:', hostId, workspace.worktreeId)
-        ]
+      : WORKSPACE_KEY_PREFIXES.map((prefix) =>
+          workspaceScopedKey(prefix, hostId, workspace.worktreeId)
+        )
   return [...PAGE_STORAGE_EXACT_KEYS, `orca:pins:${hostId}`, ...scoped].filter(isPageStorageKey)
 }
 
@@ -134,11 +153,13 @@ export function pageStorageKeysForRoute(hostId: string, routePathname: string): 
 export function isPageStorageKeyForRoute(
   key: string,
   hostId: string,
-  routePathname: string
+  routePathname: string,
+  hostArea = false
 ): boolean {
   return (
     key.length <= PAGE_STORAGE_MAX_KEY_CHARS &&
-    pageStorageKeysForRoute(hostId, routePathname).includes(key)
+    (pageStorageKeysForRoute(hostId, routePathname).includes(key) ||
+      (hostArea && isHostWorkspaceStorageKey(key, hostId)))
   )
 }
 
@@ -155,11 +176,12 @@ export function pageMayWriteStorageKey(
   key: string,
   hostId: string,
   route: { pathname: string } | null,
-  held: PageStorageForInit
+  held: PageStorageForInit,
+  hostArea = false
 ): boolean {
   return (
     route !== null &&
-    isPageStorageKeyForRoute(key, hostId, route.pathname) &&
+    isPageStorageKeyForRoute(key, hostId, route.pathname, hostArea) &&
     !held.storageOversize.includes(key)
   )
 }

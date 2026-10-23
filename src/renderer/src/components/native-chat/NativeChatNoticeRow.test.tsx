@@ -1,14 +1,17 @@
 // @vitest-environment happy-dom
 import '@testing-library/jest-dom/vitest'
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { projectStructuredItemsToNativeChat } from '../../../../shared/structured-agent-session-projection'
 import type { AgentSessionFailureFact } from '../../../../shared/agent-session-failure'
 import type { AgentJournalStatusItem } from '../../../../shared/agent-session-journal-types'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { MessageRow } from './NativeChatMessageRow'
 import { NativeChatNoticeRow } from './NativeChatNoticeRow'
+import { useAppStore } from '@/store'
 import { i18n } from '@/i18n/i18n'
 import { agentSessionFailureWords } from '../../../../shared/agent-session-failure-words'
+import { agentSessionFailureFact } from '../../../../shared/agent-session-failure'
 import {
   NativeChatOrcaStopContext,
   type NativeChatOrcaStopView
@@ -30,20 +33,34 @@ it('keeps a skipped compaction warning truthful instead of showing the success s
   expect(screen.queryByText('Context compacted')).toBeNull()
 })
 
+type ContinueOffer = Pick<NativeChatOrcaStopView, 'offeredTurnItemId' | 'continueNow'> &
+  Partial<Pick<NativeChatOrcaStopView, 'usageLimitTurnItemId' | 'continueUsageLimit'>>
+
 function orcaStopView(
   hostLabel: string | null,
   continueAvailable: boolean,
-  remoteHost: boolean
+  remoteHost: boolean,
+  offer: ContinueOffer
 ): NativeChatOrcaStopView {
-  return { hostLabel, remoteHost, continueAvailable }
+  return {
+    hostLabel,
+    remoteHost,
+    continueAvailable,
+    usageLimitTurnItemId: null,
+    continueUsageLimit: () => {},
+    ...offer
+  }
 }
+
+const NO_OFFER = { offeredTurnItemId: null, continueNow: () => {} }
 
 function renderStatus(
   body: AgentJournalStatusItem,
   hostLabel: string | null = null,
   continueAvailable = false,
   remoteHost = false,
-  agentName?: string
+  agentName?: string,
+  offer: ContinueOffer = NO_OFFER
 ) {
   const [message] = projectStructuredItemsToNativeChat([
     {
@@ -55,16 +72,18 @@ function renderStatus(
       turnScope: { kind: 'turn', turnItemId: 'cut-turn' }
     }
   ])
-  const view = orcaStopView(hostLabel, continueAvailable, remoteHost)
+  const view = orcaStopView(hostLabel, continueAvailable, remoteHost, offer)
   return render(
-    <NativeChatOrcaStopContext.Provider value={view}>
-      <MessageRow
-        message={message!}
-        agentName={agentName}
-        expandSignal={false}
-        onScrollMessageToTop={vi.fn()}
-      />
-    </NativeChatOrcaStopContext.Provider>
+    <TooltipProvider>
+      <NativeChatOrcaStopContext.Provider value={view}>
+        <MessageRow
+          message={message!}
+          agentName={agentName}
+          expandSignal={false}
+          onScrollMessageToTop={vi.fn()}
+        />
+      </NativeChatOrcaStopContext.Provider>
+    </TooltipProvider>
   )
 }
 
@@ -89,7 +108,7 @@ describe('the row an Orca stop leaves', () => {
   ])('names a %s and the machine, muted', (cause, sentence) => {
     renderStatus(orcaStopRow(cause), 'studio-mac')
     const row = screen.getByText(`${sentence} You can continue in this conversation.`)
-    expect(row.parentElement?.parentElement).toHaveClass('text-muted-foreground')
+    expect(row.parentElement?.parentElement).toHaveClass('text-chat-foreground-faint')
     expect(screen.queryByText(LEGACY_TEXT)).toBeNull()
   })
 
@@ -102,12 +121,35 @@ describe('the row an Orca stop leaves', () => {
     ).toBeInTheDocument()
   })
 
+  it('carries Continue on the cut it is offered for, and only there', () => {
+    const continueNow = vi.fn()
+    renderStatus(orcaStopRow('quit'), 'studio-mac', true, false, undefined, {
+      offeredTurnItemId: 'cut-turn',
+      continueNow
+    })
+    const sentence = screen.getByText(
+      'Orca on studio-mac was closed while this response was in progress.'
+    )
+    const button = screen.getByRole('button', { name: 'Continue' })
+    // Beside the words that say why, in the same card.
+    expect(sentence.parentElement).toContainElement(button)
+    fireEvent.click(button)
+    expect(continueNow).toHaveBeenCalledOnce()
+    cleanup()
+
+    renderStatus(orcaStopRow('quit'), 'studio-mac', true, false, undefined, {
+      offeredTurnItemId: 'another-turn',
+      continueNow
+    })
+    expect(screen.queryByRole('button', { name: 'Continue' })).toBeNull()
+  })
+
   it("says a remote host's Orca stopped, not that it was closed", () => {
     renderStatus(orcaStopRow('quit'), 'QA SSH', true, true)
     expect(
       screen.getByText('Orca on QA SSH stopped while this response was in progress.').parentElement
         ?.parentElement
-    ).toHaveClass('text-muted-foreground')
+    ).toHaveClass('text-chat-foreground-faint')
     expect(screen.queryByText(/was closed/)).toBeNull()
   })
 
@@ -141,13 +183,13 @@ describe('the row an Orca stop leaves', () => {
       screen.getByText(
         'Orca on studio-mac stopped unexpectedly while this response was in progress.'
       ).parentElement?.parentElement
-    ).toHaveClass('text-muted-foreground')
+    ).toHaveClass('text-chat-foreground-faint')
     cleanup()
     renderStatus(represented, null, true)
     expect(
       screen.getByText('This response was interrupted. You can continue in this conversation.')
         .parentElement?.parentElement
-    ).toHaveClass('text-muted-foreground')
+    ).toHaveClass('text-chat-foreground-faint')
   })
 
   it('keeps the host words for a cause this build does not know', () => {
@@ -158,8 +200,18 @@ describe('the row an Orca stop leaves', () => {
   it('keeps the host words when the chat has no machine to name, muted all the same', () => {
     renderStatus(orcaStopRow('update'), null)
     expect(screen.getByText(LEGACY_TEXT).parentElement?.parentElement).toHaveClass(
-      'text-muted-foreground'
+      'text-chat-foreground-faint'
     )
+  })
+
+  it('calls a paired server with no name the remote server, so its words match the button', () => {
+    renderStatus(orcaStopRow('update'), null, true, true)
+    expect(
+      screen.getByText(
+        'Orca on the remote server restarted for an update while this response was in progress.'
+      )
+    ).toBeInTheDocument()
+    expect(screen.queryByText(LEGACY_TEXT)).toBeNull()
   })
 
   it('keeps the host words for a stop Orca did not cause', () => {
@@ -168,6 +220,45 @@ describe('the row an Orca stop leaves', () => {
     expect(screen.getByText(LEGACY_TEXT).parentElement?.parentElement).toHaveClass(
       'text-destructive'
     )
+  })
+})
+
+describe('the row a usage limit leaves', () => {
+  const resetsAt = new Date(2026, 9, 18, 15, 0).getTime()
+  const row: AgentJournalStatusItem = {
+    kind: 'status',
+    tone: 'warning',
+    ...agentSessionFailureWords(
+      agentSessionFailureFact('usageLimitReached', {
+        usageLimit: { window: 'session', resetsAt }
+      }),
+      { agentName: 'Claude', surface: 'row' }
+    )
+  }
+
+  it('says when the limit resets in this clock, and continues the turn it ended', () => {
+    vi.useFakeTimers({ now: new Date(2026, 9, 18, 12, 30), toFake: ['Date'] })
+    const continueUsageLimit = vi.fn()
+    renderStatus(row, null, false, false, 'Claude', {
+      ...NO_OFFER,
+      usageLimitTurnItemId: 'cut-turn',
+      continueUsageLimit
+    })
+    vi.useRealTimers()
+    const clock = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(
+      resetsAt
+    )
+    expect(
+      screen.getByText(`Claude hit its session limit. It resets at ${clock}.`)
+    ).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    expect(continueUsageLimit).toHaveBeenCalledTimes(1)
+  })
+
+  it('tells a chat that has no Continue to send a message', () => {
+    renderStatus(row, null, false, false, 'Claude')
+    expect(screen.getByText(/Send a message once it resets to continue\.$/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Continue' })).toBeNull()
   })
 })
 
@@ -305,10 +396,28 @@ describe('notice rows', () => {
       expect(screen.getByText('Future host guidance')).toBeInTheDocument()
     }
   )
+  it("shows the host's words for a background task the agent would not stop, as an older client does", async () => {
+    await i18n.changeLanguage('ja')
+    // A client that predates the kind reads no fact, so the row's own text is what it shows.
+    renderStatus(
+      {
+        kind: 'status',
+        ...agentSessionFailureWords(
+          agentSessionFailureFact('backgroundTaskNotStopped', { backgroundStop: 'task' }),
+          { surface: 'row' }
+        )
+      },
+      null,
+      false,
+      false,
+      'Codex'
+    )
+    expect(screen.getByText("The background task wasn't stopped.")).toBeInTheDocument()
+  })
   it('renders compaction as a centered separator', () => {
     renderStatus({ kind: 'status', text: 'Context compacted', presentation: 'compaction' })
     expect(screen.getByRole('separator', { name: 'Context compacted' })).toHaveClass(
-      'text-muted-foreground'
+      'text-chat-foreground-faint'
     )
     expect(
       screen.getByText('Context compacted').parentElement?.querySelectorAll('.bg-border')
@@ -349,6 +458,21 @@ describe('notice rows', () => {
     expect(disclosure?.querySelector('summary')).not.toHaveTextContent('Check the configuration')
     expect(disclosure?.querySelector('pre')).toHaveTextContent('Check the configuration')
   })
+  it('retains person-facing usage details without inventing a provider frame', () => {
+    renderStatus({
+      kind: 'status',
+      tone: 'warning',
+      ...agentSessionFailureWords(
+        agentSessionFailureFact('usageLimitReached', {
+          detail: { audience: 'person', text: 'Your allowance resets tomorrow.' }
+        }),
+        { surface: 'row' }
+      )
+    })
+    const disclosure = screen.getByText('Details').closest('details')
+    expect(disclosure?.querySelector('pre')).toHaveTextContent('Your allowance resets tomorrow.')
+    expect(screen.queryByText('codex')).not.toBeInTheDocument()
+  })
   it('keeps the column layout of command output in monospace', () => {
     const text =
       'Context Usage\n⛁ ⛁ ⛶   gpt-4o · 16.6k/128k tokens (13%)\n      ⛁ Skills: 304 tokens'
@@ -376,7 +500,7 @@ describe('notice rows', () => {
     ['history-item-too-large', 'This part of the chat was too large to show.']
   ])('words a %s row itself, as a muted status line', (presentation, words) => {
     renderStatus({ kind: 'status', text: 'Words an older host wrote', presentation })
-    expect(screen.getByText(words)).toHaveClass('text-muted-foreground', 'text-sm')
+    expect(screen.getByText(words)).toHaveClass('text-chat-foreground-faint', 'text-sm')
     expect(screen.queryByText('Words an older host wrote')).toBeNull()
   })
 })
@@ -417,4 +541,63 @@ describe('Codex installation in notice rows', () => {
       expect(screen.queryByRole('button')).toBeNull()
     }
   )
+})
+
+it('opens Antigravity accounts from its signed-out notice, and offers no link for other failures', () => {
+  const original = useAppStore.getState()
+  const openSettingsPage = vi.fn()
+  const openSettingsTarget = vi.fn()
+  useAppStore.setState({ openSettingsPage, openSettingsTarget })
+  try {
+    renderStatus(
+      {
+        kind: 'status',
+        tone: 'error',
+        ...agentSessionFailureWords(
+          { kind: 'notSignedIn' },
+          { agentName: 'Antigravity', surface: 'row' }
+        )
+      },
+      null,
+      false,
+      false,
+      'Antigravity'
+    )
+    const link = screen.getByRole('link', { name: 'Settings → Accounts → Antigravity' })
+    expect(link.parentElement).toHaveTextContent(
+      "Antigravity isn't signed in. Sign in under Settings → Accounts → Antigravity. Then send your message again."
+    )
+    expect(screen.queryByRole('button')).toBeNull()
+    fireEvent.click(link)
+    expect(openSettingsTarget).toHaveBeenCalledExactlyOnceWith({
+      pane: 'accounts',
+      repoId: null,
+      sectionId: 'accounts-antigravity'
+    })
+    expect(openSettingsPage).toHaveBeenCalledOnce()
+    cleanup()
+    for (const [agentName, kind] of [
+      ['Antigravity', 'startFailed'],
+      ['Claude', 'notSignedIn']
+    ] as const) {
+      renderStatus(
+        {
+          kind: 'status',
+          tone: 'error',
+          ...agentSessionFailureWords({ kind }, { agentName, surface: 'row' })
+        },
+        null,
+        false,
+        false,
+        agentName
+      )
+      expect(screen.queryByRole('link')).toBeNull()
+      cleanup()
+    }
+  } finally {
+    useAppStore.setState({
+      openSettingsPage: original.openSettingsPage,
+      openSettingsTarget: original.openSettingsTarget
+    })
+  }
 })

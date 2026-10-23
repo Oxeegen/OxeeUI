@@ -11,6 +11,7 @@ import { fileIdentity } from './session-search-file-cursor'
 import type { SessionSearchFileWrite } from './session-search-index-writer'
 import type { SessionSearchStore } from './session-search-store'
 
+// File-read assumptions are checked by session-search-transcript-dependencies.test.ts.
 export const SELF_CONTAINED_TRANSCRIPT_AGENTS = {
   claude: true,
   qoder: true,
@@ -35,7 +36,8 @@ export const SELF_CONTAINED_TRANSCRIPT_AGENTS = {
   devin: false, // sessions.db supplies metadata.
   kimi: false, // agents/main/wire.jsonl supplies messages.
   muse: true,
-  jcode: true
+  jcode: true,
+  kiro: false // A .jsonl sidecar supplies messages.
 } satisfies Record<AiVaultAgent, boolean>
 
 /**
@@ -119,6 +121,12 @@ class SessionSearchReadConsumer implements TranscriptReadConsumer {
   }
 
   finish(outcome: TranscriptReadOutcome): void {
+    if (outcome.cancelled) {
+      // Leaves the row as it was, which already says what the next pass owes;
+      // counting it as a failure would hold a healthy file out after three cancels.
+      this.write.discard()
+      return
+    }
     const { candidate } = this.start
     let committed = false
     try {

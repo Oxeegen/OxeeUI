@@ -14,18 +14,14 @@ const mocks = vi.hoisted(() => ({
   environmentIdFor: vi.fn()
 }))
 
-vi.mock('@/runtime/runtime-rpc-client', async () => {
-  // The real target resolution is the thing under test; only the transport is stubbed.
-  const { getActiveRuntimeTarget } = await import('@/runtime/runtime-client-target')
-  return {
-    getActiveRuntimeTarget,
-    callRuntimeRpc: mocks.call,
-    runtimeEnvironmentSupportsCapability: mocks.supports
-  }
-})
+// The real target resolution is the thing under test; only the transport is stubbed.
+vi.mock('@/runtime/runtime-rpc-client', () => ({
+  callRuntimeRpc: mocks.call,
+  runtimeEnvironmentSupportsCapability: mocks.supports
+}))
 
 vi.mock('./worktree-runtime-owner', () => ({
-  getRuntimeEnvironmentIdForWorktree: mocks.environmentIdFor
+  runtimeEnvironmentIdWithLegacyFallbackUnlessTwin: mocks.environmentIdFor
 }))
 
 import { revealStructuredSession } from './activate-ai-vault-structured-session'

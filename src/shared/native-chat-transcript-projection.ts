@@ -55,6 +55,16 @@ export function compareNativeChatTranscriptMessages(
   if (a.journalPosition || b.journalPosition) {
     return a.journalPosition ? -1 : 1
   }
+  if (
+    a.transcriptOrder !== undefined &&
+    b.transcriptOrder !== undefined &&
+    a.transcriptOrder !== b.transcriptOrder
+  ) {
+    return a.transcriptOrder - b.transcriptOrder
+  }
+  if ((a.transcriptOrder === undefined) !== (b.transcriptOrder === undefined)) {
+    return a.transcriptOrder === undefined ? 1 : -1
+  }
   return compareNativeChatMessagesByTime(a, b)
 }
 
