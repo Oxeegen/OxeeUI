@@ -22,6 +22,7 @@ env:
 
 jobs:
   linux-x11:
+    if: github.repository == 'stablyai/orca'
     name: Linux X11 terminal IME
     runs-on: ubuntu-22.04
     timeout-minutes: 25
@@ -81,6 +82,7 @@ jobs:
           if-no-files-found: ignore
 
   linux-wayland:
+    if: github.repository == 'stablyai/orca'
     name: Linux Wayland Hangul terminating digit
     runs-on: ubuntu-22.04
     timeout-minutes: 25

@@ -72,7 +72,7 @@ env:
 
 jobs:
   watch:
-    if: ${{ vars.ORCA_CLOUD_OPERATIONS_ENABLED == 'true' }}
+    if: ${{ github.repository == 'stablyai/orca' && (vars.ORCA_CLOUD_OPERATIONS_ENABLED == 'true') }}
     runs-on: blacksmith-2vcpu-ubuntu-2204
     # Six 55-minute segments cover the longest watch; under the 360-minute job limit.
     timeout-minutes: 350
@@ -254,7 +254,7 @@ jobs:
     needs: watch
     # Missing data is never healthy: a watch that crashed, timed out or was cancelled (by an
     # operator too) flips back like a trip. In dry-run this only plans the write.
-    if: ${{ always() && vars.ORCA_CLOUD_OPERATIONS_ENABLED == 'true' && needs.watch.result != 'skipped' && !contains(fromJSON('["completed","stopped","refused"]'), needs.watch.outputs.state) }}
+    if: ${{ github.repository == 'stablyai/orca' && (always() && vars.ORCA_CLOUD_OPERATIONS_ENABLED == 'true' && needs.watch.result != 'skipped' && !contains(fromJSON('["completed","stopped","refused"]'), needs.watch.outputs.state)) }}
     runs-on: blacksmith-2vcpu-ubuntu-2204
     # A flip back waits for the cell to lease every control: 8-50 minutes, scaled to its controls.
     timeout-minutes: 60

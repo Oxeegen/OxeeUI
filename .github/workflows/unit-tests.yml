@@ -66,7 +66,7 @@ permissions:
 
 jobs:
   test:
-    if: inputs.run_shards
+    if: github.repository == 'stablyai/orca' && (inputs.run_shards)
     name: ${{ inputs.artifact_prefix != 'unit' && format('{0} ', inputs.artifact_prefix) || '' }}tests node ${{ matrix.node }} ${{ matrix.shard.index }}/${{ matrix.shard.count }}
     runs-on: ${{ inputs.runner }}
     timeout-minutes: 60
@@ -207,7 +207,7 @@ jobs:
           if-no-files-found: warn
 
   relay_integration:
-    if: inputs.run_relay_integration
+    if: github.repository == 'stablyai/orca' && (inputs.run_relay_integration)
     name: relay integration node ${{ matrix.node }}
     strategy:
       fail-fast: false

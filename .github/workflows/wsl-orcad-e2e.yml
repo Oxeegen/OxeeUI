@@ -56,7 +56,7 @@ env:
 jobs:
   # The distro is linux-x64-glibc; its node-pty slot only builds on Linux, and nothing else is needed.
   template:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft != true
+    if: github.repository == 'stablyai/orca' && (github.event_name != 'pull_request' || github.event.pull_request.draft != true)
     name: Build the linux-x64-glibc orcad template
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -84,7 +84,7 @@ jobs:
 
   # Container images ship no systemd, so these families run the systemd-off distro only.
   container-rootfs:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft != true
+    if: github.repository == 'stablyai/orca' && (github.event_name != 'pull_request' || github.event.pull_request.draft != true)
     name: Export ${{ matrix.family }} rootfs
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -114,6 +114,7 @@ jobs:
           if-no-files-found: error
 
   wsl2:
+    if: github.repository == 'stablyai/orca'
     name: ${{ matrix.name }}
     needs: [template, container-rootfs]
     runs-on: windows-2025

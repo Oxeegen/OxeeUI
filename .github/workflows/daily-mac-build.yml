@@ -91,6 +91,7 @@ jobs:
 
   # As release-cut does: every SSH host runs orcad, deployed from the template this build ships.
   orcad-template:
+    if: github.repository == 'stablyai/orca'
     needs: resolve-main
     permissions:
       contents: read
@@ -564,7 +565,7 @@ jobs:
   # comes from main; checkout uses the exact commit this daily built.
   post-daily-e2e:
     needs: build-daily-mac
-    if: ${{ needs.build-daily-mac.outputs.published == 'true' && needs.build-daily-mac.outputs.head_sha != '' }}
+    if: ${{ github.repository == 'stablyai/orca' && (needs.build-daily-mac.outputs.published == 'true' && needs.build-daily-mac.outputs.head_sha != '') }}
     runs-on: ubuntu-latest
     permissions:
       actions: write
@@ -601,7 +602,7 @@ jobs:
     needs: build-daily-mac
     # Only once the mac release is actually live: there is no release to upload
     # into otherwise, and the Windows workflow refuses to create one.
-    if: needs.build-daily-mac.outputs.published == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.build-daily-mac.outputs.published == 'true')
     permissions:
       contents: read
       actions: read

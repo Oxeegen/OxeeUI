@@ -44,6 +44,8 @@ describe('PR workflow parallelism', () => {
     ]) {
       expect(
         runInNewContext(evidence.if.slice(3, -2), {
+          // Why: job `if`s carry this fork's repository guard; evaluate them as upstream runs them.
+          github: { repository: 'stablyai/orca' },
           cancelled: () => cancelled,
           needs: { test: { result } }
         })

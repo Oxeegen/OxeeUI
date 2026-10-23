@@ -21,6 +21,7 @@ on:
 
 jobs:
   android-build:
+    if: github.repository == 'stablyai/orca'
     runs-on: ubuntu-latest
 
     # Why: the "Create GitHub Release" step below uses the default GITHUB_TOKEN
@@ -225,7 +226,7 @@ jobs:
   # the site's APK download on the previous release and must not fail the release run.
   bump-apk-download:
     needs: android-build
-    if: needs.android-build.outputs.publish_release == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.android-build.outputs.publish_release == 'true')
     runs-on: ubuntu-latest
     continue-on-error: true
     permissions:

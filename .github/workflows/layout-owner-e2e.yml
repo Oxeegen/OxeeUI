@@ -19,6 +19,7 @@ concurrency:
 
 jobs:
   layout_owner_switch_on:
+    if: github.repository == 'stablyai/orca'
     name: layout owner (switch on)
     permissions:
       contents: read

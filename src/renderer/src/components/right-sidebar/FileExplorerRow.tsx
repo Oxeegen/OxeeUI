@@ -1,13 +1,6 @@
 import React from 'react'
-import {
-  ChevronRight,
-  CircleAlert,
-  CircleSlash,
-  Folder,
-  FolderOpen,
-  Link,
-  Loader2
-} from 'lucide-react'
+import { ChevronRight, CircleAlert, CircleSlash, Link, Loader2 } from 'lucide-react'
+import { BrandFolderIcon } from '@brand/file-icons/material-file-icons'
 import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { cn } from '@/lib/utils'
 import { FileTypeIcon } from '@/components/FileTypeIcon'
@@ -217,10 +210,12 @@ export function FileExplorerRow({
                 <Loader2 className="size-3 shrink-0 animate-spin text-muted-foreground" />
               ) : showLoadError ? (
                 <CircleAlert className="size-3 shrink-0 text-destructive" />
-              ) : isExpanded ? (
-                <FolderOpen className="size-3 shrink-0 text-muted-foreground" />
               ) : (
-                <Folder className="size-3 shrink-0 text-muted-foreground" />
+                <BrandFolderIcon
+                  name={node.name}
+                  expanded={isExpanded}
+                  className="size-3 shrink-0 text-muted-foreground"
+                />
               )}
             </>
           ) : (

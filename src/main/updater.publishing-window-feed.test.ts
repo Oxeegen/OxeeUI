@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { loadUpdaterModule, warmUpdaterModule } from './updater-test-module-loader'
+// Why the brand constant: this fork's fallback feed is its own releases, not
+// upstream's, so a literal upstream URL here would assert the fix away.
+import { LATEST_RELEASE_DOWNLOAD_URL } from '../shared/release-channel'
 
 const {
   appMock,
@@ -46,7 +49,7 @@ describe('updater', () => {
     // Setup pins the default generic feed; resolver only runs per check.
     expect(autoUpdaterMock.setFeedURL).toHaveBeenLastCalledWith({
       provider: 'generic',
-      url: 'https://github.com/stablyai/orca/releases/latest/download'
+      url: LATEST_RELEASE_DOWNLOAD_URL
     })
     expect(autoUpdaterMock.allowPrerelease).not.toBe(true)
 
@@ -104,7 +107,7 @@ describe('updater', () => {
     })
     expect(autoUpdaterMock.setFeedURL).toHaveBeenLastCalledWith({
       provider: 'generic',
-      url: 'https://github.com/stablyai/orca/releases/latest/download'
+      url: LATEST_RELEASE_DOWNLOAD_URL
     })
   })
 
@@ -135,7 +138,7 @@ describe('updater', () => {
     expect(autoUpdaterMock.setFeedURL.mock.calls.slice(feedCallsBeforeCheck)).not.toContainEqual([
       {
         provider: 'generic',
-        url: 'https://github.com/stablyai/orca/releases/latest/download'
+        url: LATEST_RELEASE_DOWNLOAD_URL
       }
     ])
   })
@@ -159,7 +162,7 @@ describe('updater', () => {
     })
     expect(autoUpdaterMock.setFeedURL).toHaveBeenLastCalledWith({
       provider: 'generic',
-      url: 'https://github.com/stablyai/orca/releases/latest/download'
+      url: LATEST_RELEASE_DOWNLOAD_URL
     })
     expect(sendMock).not.toHaveBeenCalledWith(
       'updater:status',
@@ -210,7 +213,7 @@ describe('updater', () => {
     expect(autoUpdaterMock.setFeedURL.mock.calls.slice(feedCallsBeforeCheck)).not.toContainEqual([
       {
         provider: 'generic',
-        url: 'https://github.com/stablyai/orca/releases/latest/download'
+        url: LATEST_RELEASE_DOWNLOAD_URL
       }
     ])
     expect(sendMock).not.toHaveBeenCalledWith(

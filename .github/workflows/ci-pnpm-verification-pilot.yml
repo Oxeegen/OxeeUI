@@ -18,7 +18,7 @@ env:
 
 jobs:
   seed:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft != true
+    if: github.repository == 'stablyai/orca' && (github.event_name != 'pull_request' || github.event.pull_request.draft != true)
     strategy:
       matrix:
         runner: [ubuntu-latest, ubuntu-24.04-arm]
@@ -38,6 +38,7 @@ jobs:
           key: ${{ steps.deps.outputs.verification-cache-key }}
 
   measure:
+    if: github.repository == 'stablyai/orca'
     needs: seed
     name: measure ${{ matrix.runner }} sample ${{ matrix.sample }} cache ${{ matrix.cache }}
     strategy:

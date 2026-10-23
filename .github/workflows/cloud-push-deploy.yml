@@ -28,8 +28,9 @@ defaults:
 jobs:
   deploy:
     if: >-
-      ${{ vars.ORCA_CLOUD_OPERATIONS_ENABLED == 'true' &&
-      github.ref == 'refs/heads/main' }}
+      ${{ github.repository == 'stablyai/orca' && (
+      vars.ORCA_CLOUD_OPERATIONS_ENABLED == 'true' && github.ref == 'refs/heads/main'
+      ) }}
     runs-on: blacksmith-2vcpu-ubuntu-2204
     environment: production
     env:

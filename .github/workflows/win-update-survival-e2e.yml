@@ -54,6 +54,7 @@ concurrency:
 
 jobs:
   survival:
+    if: github.repository == 'stablyai/orca'
     name: update ${{ inputs.from_release || 'branch' }} to branch (${{ inputs.expect || 'survival' }}, policy=${{ inputs.policy || 'inherited' }})
     runs-on: windows-2022
     timeout-minutes: 50

@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { runInNewContext } from 'node:vm'
+import { runInNewContext as runInNewContextRaw } from 'node:vm'
 import { expect, it, vi } from 'vitest'
 import { parse } from 'yaml'
 import { compileAggregateExpression } from './pr-aggregate-gate-context.mjs'
@@ -10,6 +10,15 @@ import {
 } from './node-server-native-compat-scope.mjs'
 import { classifyNodeServerChanges, collectNodeServerInputs } from './node-server-change-scope.mjs'
 import { NODE_SERVER_RUNNERS, nodeServerQualification } from './node-server-qualification.mjs'
+
+// Why: job `if`s carry this fork's repository guard, so conditions are evaluated
+// as they run in upstream's repository.
+const runInNewContext = (source, context = {}, ...rest) =>
+  runInNewContextRaw(
+    source,
+    { ...context, github: { repository: 'stablyai/orca', ...context.github } },
+    ...rest
+  )
 
 const root = 'src/main/persistence/profile-state/profile-state-recovery-crash-boundaries.test.ts'
 const support = 'src/main/native-chat/agent-session-journal/journal-host-database-test-support.ts'
@@ -329,8 +338,16 @@ it('builds server glibc slots on glibc 2.28 and the compat slot on glibc 2.17 (d
 
   const compat = workflow.jobs.linux_glibc217_compat
   expect(compat.needs).toBe('changes')
-  expect(compat.if).toContain(
-    floor.if.replace("needs.mobile_web_bundle.result == 'success' && ", '').slice(0, -3)
+  // Why unguard: this fork wraps every job `if` as `${{ <guard> && (<upstream>) }}`, so
+  // upstream's prefix relationship is compared on the conditions inside the guard.
+  const unguard = (expression) => {
+    const match = /^\$\{\{\s*github\.repository == 'stablyai\/orca' && \(([\s\S]*)\)\s*\}\}$/.exec(
+      expression.trim()
+    )
+    return match ? `${'$'}{{ ${match[1].trim()} }}` : expression
+  }
+  expect(unguard(compat.if)).toContain(
+    unguard(floor.if).replace("needs.mobile_web_bundle.result == 'success' && ", '').slice(0, -3)
   )
   expect(compat.if).toContain("needs.changes.outputs.native_compatibility != 'false'")
   expect(compat.if).toContain(

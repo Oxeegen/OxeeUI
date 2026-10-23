@@ -19,6 +19,7 @@ env:
 
 jobs:
   cache:
+    if: github.repository == 'stablyai/orca'
     runs-on: ${{ inputs.fast_runners && 'blacksmith-2vcpu-ubuntu-2404' || 'ubuntu-latest' }}
     timeout-minutes: 10
     outputs:
@@ -80,7 +81,7 @@ jobs:
       contents: read
       actions: read
     needs: cache
-    if: needs.cache.outputs.hit != 'true'
+    if: github.repository == 'stablyai/orca' && (needs.cache.outputs.hit != 'true')
     uses: ./.github/workflows/node-server-tests.yml
     with:
       ref: ${{ inputs.ref }}
@@ -89,7 +90,7 @@ jobs:
 
   save:
     needs: [cache, qualify]
-    if: needs.qualify.result == 'success'
+    if: github.repository == 'stablyai/orca' && (needs.qualify.result == 'success')
     runs-on: ${{ inputs.fast_runners && 'blacksmith-2vcpu-ubuntu-2404' || 'ubuntu-latest' }}
     timeout-minutes: 10
     steps:

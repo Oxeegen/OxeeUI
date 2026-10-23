@@ -15,7 +15,7 @@ env:
   ORCA_BACKGROUND_LAUNCH: '1'
 jobs:
   compare:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft != true
+    if: github.repository == 'stablyai/orca' && (github.event_name != 'pull_request' || github.event.pull_request.draft != true)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
     strategy:

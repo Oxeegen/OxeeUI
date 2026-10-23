@@ -61,8 +61,10 @@ concurrency:
 jobs:
   changes:
     if: >-
+      github.repository == 'stablyai/orca' && (
       github.event_name == 'push' ||
       (github.event_name == 'pull_request' && github.event.pull_request.draft != true)
+      )
     runs-on: ${{ inputs.fast_runners && 'blacksmith-2vcpu-ubuntu-2404' || 'ubuntu-latest' }}
     timeout-minutes: 5
     outputs:
@@ -145,9 +147,11 @@ jobs:
     # Missing/failed detection runs the full matrix; scheduled and manual runs stay unconditional.
     # Drafts re-trigger at readiness; inherited caller events must not depend on PR fields.
     if: >-
-      ${{ !cancelled() && needs.changes.outputs.should_run != 'false' &&
+      ${{ github.repository == 'stablyai/orca' && (
+       !cancelled() && needs.changes.outputs.should_run != 'false' &&
       (needs.changes.outputs.qualification == 'false' || needs.mobile_web_bundle.result == 'success') &&
-      (github.event_name != 'pull_request' || github.event.pull_request.draft != true) }}
+      (github.event_name != 'pull_request' || github.event.pull_request.draft != true) 
+      ) }}
     strategy:
       fail-fast: false
       matrix:
@@ -332,9 +336,11 @@ jobs:
   mobile_web_bundle:
     needs: changes
     if: >-
-      ${{ !cancelled() && needs.changes.outputs.should_run != 'false' &&
+      ${{ github.repository == 'stablyai/orca' && (
+       !cancelled() && needs.changes.outputs.should_run != 'false' &&
       needs.changes.outputs.qualification != 'false' &&
-      (github.event_name != 'pull_request' || github.event.pull_request.draft != true) }}
+      (github.event_name != 'pull_request' || github.event.pull_request.draft != true) 
+      ) }}
     runs-on: ${{ inputs.fast_runners && 'blacksmith-8vcpu-ubuntu-2404' || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:
@@ -361,11 +367,13 @@ jobs:
       cancel-in-progress: ${{ github.event_name == 'push' && !inputs.build_template && inputs.ref == '' }}
     # Each Linux lane owns its inputs; the template still requires every lane to pass.
     if: >-
-      ${{ !cancelled() &&
+      ${{ github.repository == 'stablyai/orca' && (
+       !cancelled() &&
       needs.changes.outputs.should_run != 'false' &&
       needs.changes.outputs.qualification != 'false' &&
       needs.mobile_web_bundle.result == 'success' &&
-      (github.event_name != 'pull_request' || github.event.pull_request.draft != true) }}
+      (github.event_name != 'pull_request' || github.event.pull_request.draft != true) 
+      ) }}
     strategy:
       fail-fast: false
       matrix:
@@ -434,12 +442,14 @@ jobs:
       group: node-server-linux_glibc217_compat-${{ github.event_name == 'push' && !inputs.build_template && inputs.ref == '' && github.ref || github.run_id }}
       cancel-in-progress: ${{ github.event_name == 'push' && !inputs.build_template && inputs.ref == '' }}
     if: >-
-      ${{ !cancelled() &&
+      ${{ github.repository == 'stablyai/orca' && (
+       !cancelled() &&
       needs.changes.outputs.should_run != 'false' &&
       needs.changes.outputs.qualification != 'false' &&
       (github.event_name != 'pull_request' || github.event.pull_request.draft != true) &&
       (github.event_name != 'pull_request' || inputs.build_template || inputs.ref != '' ||
-      needs.changes.outputs.native_compatibility != 'false') }}
+      needs.changes.outputs.native_compatibility != 'false') 
+      ) }}
     runs-on: ${{ inputs.fast_runners && 'blacksmith-8vcpu-ubuntu-2204' || 'ubuntu-22.04' }}
     timeout-minutes: 20
     env:
@@ -493,11 +503,13 @@ jobs:
       group: node-server-linux_musl-${{ matrix.os }}-${{ github.event_name == 'push' && !inputs.build_template && inputs.ref == '' && github.ref || github.run_id }}
       cancel-in-progress: ${{ github.event_name == 'push' && !inputs.build_template && inputs.ref == '' }}
     if: >-
-      ${{ !cancelled() &&
+      ${{ github.repository == 'stablyai/orca' && (
+       !cancelled() &&
       needs.changes.outputs.should_run != 'false' &&
       needs.changes.outputs.qualification != 'false' &&
       needs.mobile_web_bundle.result == 'success' &&
-      (github.event_name != 'pull_request' || github.event.pull_request.draft != true) }}
+      (github.event_name != 'pull_request' || github.event.pull_request.draft != true) 
+      ) }}
     strategy:
       fail-fast: false
       matrix:
@@ -565,10 +577,12 @@ jobs:
   desktop_template:
     needs: [persistence, mobile_web_bundle, linux_glibc_floor, linux_glibc217_compat, linux_musl]
     if: >-
-      ${{ !cancelled() && inputs.build_template &&
+      ${{ github.repository == 'stablyai/orca' && (
+       !cancelled() && inputs.build_template &&
       needs.persistence.result == 'success' && needs.mobile_web_bundle.result == 'success' &&
       needs.linux_glibc_floor.result == 'success' &&
-      needs.linux_glibc217_compat.result == 'success' && needs.linux_musl.result == 'success' }}
+      needs.linux_glibc217_compat.result == 'success' && needs.linux_musl.result == 'success' 
+      ) }}
     runs-on: ${{ inputs.fast_runners && 'blacksmith-4vcpu-ubuntu-2404' || 'ubuntu-latest' }}
     timeout-minutes: 30
     steps:

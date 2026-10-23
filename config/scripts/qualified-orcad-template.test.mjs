@@ -14,6 +14,9 @@ import { parse } from 'yaml'
 import { runProcessSync } from '@orca/process-host'
 import { writeOrcadTemplateTestFixture } from './orcad-template-test-fixture.mjs'
 
+// Why toContain for job `if`s: this fork prefixes every job `if` with a repository
+// guard, so exact matches would assert the guard away. Step conditions stay exact.
+
 const workflow = parse(readFileSync('.github/workflows/qualified-orcad-template.yml', 'utf8'))
 const identity = workflow.jobs.cache.steps.find((step) => step.id === 'identity')
 
@@ -79,14 +82,14 @@ it('separates runner provenance, embedded CLI commits, workflow policy and daily
 })
 
 it('qualifies cache misses and permits cache publication only after the full matrix succeeds', () => {
-  expect(workflow.jobs.qualify.if).toBe("needs.cache.outputs.hit != 'true'")
+  expect(workflow.jobs.qualify.if).toContain("needs.cache.outputs.hit != 'true'")
   expect(workflow.jobs.qualify.uses).toBe('./.github/workflows/node-server-tests.yml')
   expect(workflow.jobs.qualify.with).toMatchObject({
     build_template: true,
     fast_runners: '${{ inputs.fast_runners }}'
   })
   expect(workflow.jobs.save.needs).toContain('qualify')
-  expect(workflow.jobs.save.if).toBe("needs.qualify.result == 'success'")
+  expect(workflow.jobs.save.if).toContain("needs.qualify.result == 'success'")
   const restore = workflow.jobs.cache.steps.find((step) => step.id === 'restore')
   expect(restore.with['restore-keys']).toBeUndefined()
   const validate = workflow.jobs.cache.steps.find((step) => step.id === 'validate')

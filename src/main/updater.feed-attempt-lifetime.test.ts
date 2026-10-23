@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { loadUpdaterModule, warmUpdaterModule } from './updater-test-module-loader'
+// Why the brand constant: this fork's fallback feed is its own releases, not
+// upstream's, so a literal upstream URL here would assert the fix away.
+import { LATEST_RELEASE_DOWNLOAD_URL } from '../shared/release-channel'
 
 const { autoUpdaterMock, fetchNewerReleaseTagsMock, moduleFactories, resetUpdaterMocks } =
   await vi.hoisted(async () => (await import('./updater-test-harness')).createUpdaterMocks())
@@ -109,7 +112,7 @@ describe('updater feed preflight ownership', () => {
     },
     {
       result: { tags: [], state: 'no-newer' },
-      url: 'https://github.com/stablyai/orca/releases/latest/download'
+      url: LATEST_RELEASE_DOWNLOAD_URL
     }
   ])('keeps the active $result.state feed choice', async ({ result, url }) => {
     fetchNewerReleaseTagsMock.mockResolvedValueOnce(result)

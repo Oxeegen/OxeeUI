@@ -76,7 +76,7 @@ defaults:
 
 jobs:
   prove:
-    if: ${{ vars.ORCA_CLOUD_OPERATIONS_ENABLED == 'true' && (github.ref == 'refs/heads/main') && inputs.mode == 'prove' }}
+    if: ${{ github.repository == 'stablyai/orca' && (vars.ORCA_CLOUD_OPERATIONS_ENABLED == 'true' && (github.ref == 'refs/heads/main') && inputs.mode == 'prove') }}
     runs-on: [self-hosted, linux, x64, relay-asia-east2-load]
     timeout-minutes: 75
     environment: staging
@@ -321,7 +321,7 @@ jobs:
           retention-days: 7
 
   recover:
-    if: ${{ always() && github.ref == 'refs/heads/main' && inputs.mode == 'prove' }}
+    if: ${{ github.repository == 'stablyai/orca' && (always() && github.ref == 'refs/heads/main' && inputs.mode == 'prove') }}
     needs: prove
     runs-on: blacksmith-2vcpu-ubuntu-2204
     timeout-minutes: 15
@@ -374,7 +374,7 @@ jobs:
   # The staging auth service mints relay load principals only for this workflow file, so the
   # free-form staging load lives here rather than in a workflow of its own.
   load:
-    if: ${{ vars.ORCA_CLOUD_OPERATIONS_ENABLED == 'true' && (github.ref == 'refs/heads/main') && inputs.mode == 'load' }}
+    if: ${{ github.repository == 'stablyai/orca' && (vars.ORCA_CLOUD_OPERATIONS_ENABLED == 'true' && (github.ref == 'refs/heads/main') && inputs.mode == 'load') }}
     runs-on: ${{ inputs.load-region == 'asia-east2' && fromJSON('["self-hosted","linux","x64","relay-asia-east2-load"]') || 'ubuntu-latest' }}
     strategy:
       # One runner's failure must not drop the other half of the load mid-run.

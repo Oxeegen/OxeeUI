@@ -62,6 +62,7 @@ concurrency:
 
 jobs:
   update-e2e:
+    if: github.repository == 'stablyai/orca'
     name: update ${{ inputs.from_tag || 'v1.4.124-rc.8' }} -> ${{ inputs.to_tag || 'v1.4.124-rc.9' }} (${{ inputs.expect || 'cold-restore' }})
     runs-on: windows-2022
     timeout-minutes: 30

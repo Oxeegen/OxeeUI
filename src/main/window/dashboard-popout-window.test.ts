@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { BRAND } from '@brand/config/brand'
 
 type Display = { workArea: { x: number; y: number; width: number; height: number } }
 
@@ -199,7 +200,9 @@ describe('createOrFocusDashboardPopout', () => {
 
     expect(instances).toHaveLength(1)
     const opts = instances[0].options
-    expect(opts.title).toBe('Orca Agent Dashboard')
+    // Why brand-derived: the pop-out window title is what the taskbar shows, so
+    // an upstream literal here would assert the rebrand away.
+    expect(opts.title).toBe(`${BRAND.productName} Agent Dashboard`)
     expect(opts.minWidth).toBe(480)
     expect(opts.minHeight).toBe(360)
     // Native frame: neither a custom titleBarStyle nor frame:false is set.

@@ -241,7 +241,12 @@ describe('root directory guard', () => {
     // Only draft PRs skip the guard; verify skips with it, so no draft reports a result.
     const runsFor = (expression, draft) =>
       runInNewContext(expression.replace(/^\$\{\{(.*)\}\}$/s, '$1'), {
-        github: { event_name: 'pull_request', event: { pull_request: { draft } } },
+        // Why: job `if`s carry this fork's repository guard; evaluate them as upstream runs them.
+        github: {
+          repository: 'stablyai/orca',
+          event_name: 'pull_request',
+          event: { pull_request: { draft } }
+        },
         cancelled: () => false
       })
     expect(runsFor(guardJob.if, false)).toBe(true)

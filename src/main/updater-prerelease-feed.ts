@@ -1,16 +1,23 @@
 import { net } from 'electron'
 import { parse } from 'yaml'
 import { compareVersions, isPrereleaseVersion, isValidVersion } from './updater-fallback'
+import { MAIN_RELEASE_REPO, MAIN_RELEASE_TAG_PREFIX } from '../shared/release-channel'
 
-const ATOM_FEED_URL = 'https://github.com/stablyai/orca/releases.atom'
-const RELEASES_DOWNLOAD_BASE = 'https://github.com/stablyai/orca/releases/download'
+// Why derived rather than literal: this probe path activates whenever the running
+// version is a prerelease, so a fork shipping an RC would silently pull upstream
+// artifacts and replace itself. MAIN_RELEASE_REPO tracks the brand publish target.
+const ATOM_FEED_URL = `https://github.com/${MAIN_RELEASE_REPO}/releases.atom`
+const RELEASES_DOWNLOAD_BASE = `https://github.com/${MAIN_RELEASE_REPO}/releases/download`
 const FETCH_TIMEOUT_MS = 5000
 const MAX_MANIFEST_PROBE_CANDIDATES = 6
 
 // Why: GitHub's atom feed lists every release (prerelease or stable) in a
 // single flat list. Each entry has a /releases/tag/<tag> URL we can mine
 // without any channel filtering.
-const TAG_HREF_RE = /href="https:\/\/github\.com\/stablyai\/orca\/releases\/tag\/([^"]+)"/g
+const TAG_HREF_RE = new RegExp(
+  `href="https://github\\.com/${MAIN_RELEASE_REPO.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/releases/tag/([^"]+)"`,
+  'g'
+)
 
 export function getReleaseDownloadUrl(tag: string): string {
   return `${RELEASES_DOWNLOAD_BASE}/${encodeURIComponent(tag)}`
@@ -35,7 +42,10 @@ function getReleaseAssetUrl(tag: string, assetName: string): string {
 }
 
 export function normalizeTagToVersion(tag: string): string {
-  return tag.replace(/^v/i, '')
+  const withoutBrandPrefix = tag.startsWith(MAIN_RELEASE_TAG_PREFIX)
+    ? tag.slice(MAIN_RELEASE_TAG_PREFIX.length)
+    : tag
+  return withoutBrandPrefix.replace(/^v/i, '')
 }
 
 type ReleaseFeedTag = {
@@ -72,8 +82,16 @@ async function fetchReleaseFeedTags(): Promise<ReleaseFeedTag[] | null> {
       }
     }
 
-    tags.sort((left, right) => compareVersions(right.version, left.version))
-    return tags
+    // Why: this repo also carries the tags it was forked from, and GitHub lists
+    // a tag with no release in the atom feed just like a real one. Those entries
+    // have no manifest and no assets, and they outrank this product's own
+    // versions, so a check that considered them stalled on "not ready" forever.
+    // Falling back to every tag keeps behaviour unchanged for a feed that has
+    // none of our own — which is what upstream's own suites exercise.
+    const ownTags = tags.filter(({ tag }) => tag.startsWith(MAIN_RELEASE_TAG_PREFIX))
+    const feedTags = ownTags.length > 0 ? ownTags : tags
+    feedTags.sort((left, right) => compareVersions(right.version, left.version))
+    return feedTags
   } catch {
     return null
   }
@@ -153,7 +171,9 @@ async function getReleaseAssetReadiness(tag: string, assetName: string): Promise
   const isGitHubReleaseAsset =
     process.platform === 'win32' &&
     (isRelativeAsset ||
-      /^https:\/\/github\.com\/stablyai\/orca\/releases\/download\//i.test(assetName))
+      // Why derived: a literal here named upstream's repo, so an absolute asset URL
+      // on this product's own releases took the slower non-GitHub probe instead.
+      assetName.toLowerCase().startsWith(`${RELEASES_DOWNLOAD_BASE}/`.toLowerCase()))
   const assetUrl = isRelativeAsset
     ? getReleaseAssetUrl(tag, assetName.split('/').findLast(Boolean) ?? assetName)
     : assetName
