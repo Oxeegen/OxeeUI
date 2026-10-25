@@ -30,6 +30,7 @@ concurrency:
 
 jobs:
   crash-survival:
+    if: github.repository == 'stablyai/orca'
     name: crash-survival (packaged build)
     runs-on: windows-2022
     timeout-minutes: 50

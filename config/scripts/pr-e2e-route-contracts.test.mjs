@@ -398,7 +398,8 @@ describe('orcad-e2e-routing', () => {
 
   it('passes the requested managed-SSH specs to the sharded lane', () => {
     const lane = jobs['orcad-ssh-docker']
-    expect(lane.if).toBe(
+    // Why toContain: this fork prefixes every job `if` with a repository guard.
+    expect(lane.if).toContain(
       `inputs.test_files == '' || contains(inputs.test_files, '${MANAGED_SSH_E2E_SPEC_PREFIX}')`
     )
     expect(lane.strategy.matrix.shard).toBe(

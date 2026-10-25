@@ -5,6 +5,7 @@ import { defineConfig, type UserConfig } from 'electron-vite'
 import type { Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import { brandHtmlTitle } from './brand/vite/html-title'
 import { createBootstrapFatalExitBanner } from './config/build-plugins/bootstrap-fatal-exit-banner'
 import { createPdfjsViewerAssetsPlugin } from './config/build-plugins/pdfjs-viewer-assets'
 import { createProcessHostDevRebuildPlugin } from './config/build-plugins/process-host-dev-rebuild'
@@ -275,6 +276,7 @@ export const electronViteConfig: UserConfig = {
     // directly at the published main file so the bundler can inline it.
     resolve: {
       alias: {
+        '@brand': resolve('brand'),
         '@xterm/headless': resolve('node_modules/@xterm/headless/lib-headless/xterm-headless.js'),
         '@xterm/addon-serialize': resolve(
           'node_modules/@xterm/addon-serialize/lib/addon-serialize.js'
@@ -298,6 +300,7 @@ export const electronViteConfig: UserConfig = {
     },
     resolve: {
       alias: {
+        '@brand': resolve('brand'),
         ...markdownParserAliases,
         '@renderer': resolve('src/renderer/src'),
         '@': resolve('src/renderer/src')
@@ -307,7 +310,8 @@ export const electronViteConfig: UserConfig = {
       react(),
       tailwindcss(),
       createPdfjsViewerAssetsPlugin(),
-      createViteCacheRetentionPlugin()
+      createViteCacheRetentionPlugin(),
+      brandHtmlTitle()
     ],
     worker: {
       format: 'es'

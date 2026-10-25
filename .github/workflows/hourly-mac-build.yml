@@ -119,7 +119,7 @@ jobs:
   # As release-cut does: every SSH host runs orcad, deployed from the template this build ships.
   orcad-template:
     needs: preflight
-    if: needs.preflight.outputs.should_build == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.preflight.outputs.should_build == 'true')
     permissions:
       contents: read
       actions: read
@@ -133,7 +133,7 @@ jobs:
     needs:
       - preflight
       - orcad-template
-    if: needs.preflight.outputs.should_build == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.preflight.outputs.should_build == 'true')
     outputs:
       tag: ${{ steps.release.outputs.tag }}
       version: ${{ steps.hourly.outputs.version }}
@@ -518,7 +518,7 @@ jobs:
     needs: build-hourly-mac
     # Only once the mac release is actually live: there is no release to upload
     # into otherwise, and the Windows workflow refuses to create one.
-    if: needs.build-hourly-mac.outputs.published == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.build-hourly-mac.outputs.published == 'true')
     permissions:
       contents: read
       actions: read

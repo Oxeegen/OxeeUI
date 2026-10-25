@@ -2,9 +2,18 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { runProcess } from '@orca/process-host'
-import { runInNewContext } from 'node:vm'
+import { runInNewContext as runInNewContextRaw } from 'node:vm'
 import { expect, it, vi } from 'vitest'
 import { parse } from 'yaml'
+
+// Why: job `if`s carry this fork's repository guard, so conditions are evaluated
+// as they run in upstream's repository.
+const runInNewContext = (source, context = {}, ...rest) =>
+  runInNewContextRaw(
+    source,
+    { ...context, github: { repository: 'stablyai/orca', ...context.github } },
+    ...rest
+  )
 
 const release = parse(readFileSync('.github/workflows/release-cut.yml', 'utf8'))
 const security = parse(readFileSync('.github/workflows/dependency-security.yml', 'utf8'))

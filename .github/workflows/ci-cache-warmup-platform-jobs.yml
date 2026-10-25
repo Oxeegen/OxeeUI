@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   warm-linux-runtime:
-    if: github.event_name != 'pull_request'
+    if: github.repository == 'stablyai/orca' && (github.event_name != 'pull_request')
     concurrency:
       group: ci-cache-warmup-linux-runtime-${{ matrix.runner }}-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: ${{ github.event_name != 'schedule' }}
@@ -36,6 +36,7 @@ jobs:
         run: node config/scripts/ensure-native-runtime.mjs --check-only
 
   warm-windows:
+    if: github.repository == 'stablyai/orca'
     concurrency:
       group: ci-cache-warmup-windows-${{ matrix.os }}-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: ${{ github.event_name != 'schedule' }}
@@ -91,7 +92,7 @@ jobs:
           arches: arm64
 
   warm-linux-package-fixtures:
-    if: github.event_name != 'pull_request'
+    if: github.repository == 'stablyai/orca' && (github.event_name != 'pull_request')
     concurrency:
       group: ci-cache-warmup-linux-package-fixtures-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: ${{ github.event_name != 'schedule' }}

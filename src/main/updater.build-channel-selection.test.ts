@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { loadUpdaterModule, warmUpdaterModule } from './updater-test-module-loader'
+// Why the brand constant: this fork's fallback feed is its own releases, not
+// upstream's, so a literal upstream URL here would assert the fix away.
+import { LATEST_RELEASE_DOWNLOAD_URL } from '../shared/release-channel'
 
 const {
   appMock,
@@ -219,7 +222,7 @@ describe('updater', () => {
       expect(autoUpdaterMock.disableDifferentialDownload).toBe(false)
       expect(autoUpdaterMock.setFeedURL).toHaveBeenLastCalledWith({
         provider: 'generic',
-        url: 'https://github.com/stablyai/orca/releases/latest/download'
+        url: LATEST_RELEASE_DOWNLOAD_URL
       })
     }
   )
@@ -262,7 +265,7 @@ describe('updater', () => {
       })
       expect(autoUpdaterMock.setFeedURL).toHaveBeenLastCalledWith({
         provider: 'generic',
-        url: 'https://github.com/stablyai/orca/releases/latest/download'
+        url: LATEST_RELEASE_DOWNLOAD_URL
       })
     }
   )
@@ -302,7 +305,7 @@ describe('updater', () => {
       })
       expect(autoUpdaterMock.setFeedURL).toHaveBeenLastCalledWith({
         provider: 'generic',
-        url: 'https://github.com/stablyai/orca/releases/latest/download'
+        url: LATEST_RELEASE_DOWNLOAD_URL
       })
     }
   )
@@ -356,7 +359,7 @@ describe('updater', () => {
       expect(send).toHaveBeenCalledWith('updater:status', { state: 'not-available' })
       expect(autoUpdaterMock.setFeedURL).toHaveBeenLastCalledWith({
         provider: 'generic',
-        url: 'https://github.com/stablyai/orca/releases/latest/download'
+        url: LATEST_RELEASE_DOWNLOAD_URL
       })
     }
   )
@@ -402,7 +405,7 @@ describe('updater', () => {
       })
       expect(autoUpdaterMock.setFeedURL).toHaveBeenLastCalledWith({
         provider: 'generic',
-        url: 'https://github.com/stablyai/orca/releases/latest/download'
+        url: LATEST_RELEASE_DOWNLOAD_URL
       })
     }
   )

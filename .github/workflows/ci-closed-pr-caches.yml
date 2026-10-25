@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   clean:
+    if: github.repository == 'stablyai/orca'
     runs-on: blacksmith-2vcpu-ubuntu-2204
     timeout-minutes: 5
     steps:

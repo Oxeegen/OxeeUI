@@ -103,7 +103,7 @@ permissions:
 jobs:
   verify:
     name: Mobile verify
-    if: github.event_name == 'pull_request' && github.event.pull_request.draft != true
+    if: github.repository == 'stablyai/orca' && (github.event_name == 'pull_request' && github.event.pull_request.draft != true)
     # Why ARM: 209s of this job is Vitest and nothing here needs x86: no Android SDK, emulator, gradle,
     # Hermes or Watchman, no docker, and no artifacts. The Gemfile.lock lists the generic `ruby`
     # platform, so frozen bundler installs without an aarch64-linux entry.
@@ -260,7 +260,7 @@ jobs:
     name: Mobile tests on main
     env:
       ORCA_MOBILE_TYPECHECK_COMPILER: 'native'
-    if: github.event_name == 'push'
+    if: github.repository == 'stablyai/orca' && (github.event_name == 'push')
     # Why ARM: the same pure-Node Vitest run `verify` makes on a pull request.
     runs-on: blacksmith-4vcpu-ubuntu-2404-arm
 
