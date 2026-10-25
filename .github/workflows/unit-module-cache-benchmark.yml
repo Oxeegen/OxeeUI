@@ -15,7 +15,7 @@ jobs:
     if: github.repository == 'stablyai/orca'
     uses: ./.github/workflows/unit-tests.yml
     with:
-      node_versions: '["24.21.0"]'
+      node_versions: '["24.22.1"]'
       runner: ubuntu-24.04-arm
       shards: '[{"index":1,"count":5},{"index":2,"count":5},{"index":3,"count":5},{"index":4,"count":5},{"index":5,"count":5}]'
       artifact_prefix: baseline-unit
@@ -27,7 +27,7 @@ jobs:
     needs: baseline
     uses: ./.github/workflows/unit-tests.yml
     with:
-      node_versions: '["24.21.0"]'
+      node_versions: '["24.22.1"]'
       runner: ubuntu-24.04-arm
       shards: '[{"index":1,"count":5},{"index":2,"count":5},{"index":3,"count":5},{"index":4,"count":5},{"index":5,"count":5}]'
       artifact_prefix: producer-unit
@@ -42,7 +42,7 @@ jobs:
     needs: producer
     uses: ./.github/workflows/unit-tests.yml
     with:
-      node_versions: '["24.21.0"]'
+      node_versions: '["24.22.1"]'
       runner: ubuntu-24.04-arm
       shards: '[{"index":1,"count":5},{"index":2,"count":5},{"index":3,"count":5},{"index":4,"count":5},{"index":5,"count":5}]'
       artifact_prefix: warm-unit

@@ -23,6 +23,9 @@ on:
         required: false
         type: string
 
+permissions:
+  contents: read
+
 jobs:
   ios-build:
     if: github.repository == 'stablyai/orca'
@@ -63,6 +66,7 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 24
+          check-latest: true
 
       - name: Setup pnpm
         uses: pnpm/setup@v2

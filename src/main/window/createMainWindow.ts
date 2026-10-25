@@ -1,5 +1,4 @@
-import { BrowserWindow, nativeTheme, powerMonitor, screen } from 'electron'
-import { is } from '@electron-toolkit/utils'
+import { app, BrowserWindow, nativeTheme, powerMonitor, screen } from 'electron'
 import { BRAND } from '@brand/config/brand'
 import { join } from 'node:path'
 import { getAppIconPath } from '../app-icon'
@@ -40,7 +39,7 @@ export { WINDOW_QUIT_RENDERER_ACK_TIMEOUT_MS }
 
 export function loadMainWindow(mainWindow: BrowserWindow, observer?: MainWindowLoadObserver): void {
   const load =
-    is.dev && process.env.ELECTRON_RENDERER_URL
+    !app.isPackaged && process.env.ELECTRON_RENDERER_URL
       ? mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
       : mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   // Observe each load promise so failures cannot leave recovery waiting silently.

@@ -1,3 +1,4 @@
+import { dedupeLogicalLines } from './terminal-link-logical-line-deduplication'
 import { createTerminalPathExistenceBatch } from './terminal-path-existence-batch'
 import type { IDisposable, ILink, ILinkProvider, Terminal } from '@xterm/xterm'
 import { extractTerminalFileLinkCandidates, extractTerminalFileLinks } from '@/lib/terminal-links'
@@ -5,13 +6,10 @@ import { preferLongestNonOverlappingMatches } from '@/lib/longest-non-overlappin
 import type { PaneManager } from '@/lib/pane-manager/pane-manager'
 import {
   buildCandidateLogicalLinesForBufferPosition,
-  dedupeLogicalLines,
   openFilePathLinkAtBufferPosition
 } from './terminal-file-link-hit-testing'
-import {
-  isHtmlFilePath,
-  shouldOpenTerminalFileWithSystemDefault
-} from './terminal-file-open-routing'
+import { shouldOpenTerminalFileWithSystemDefault } from './terminal-file-open-routing'
+import { isHtmlFilePath, localHtmlFileDestinations } from './local-html-file-destinations'
 import { fileLinkTargetExists, resolveFileLinkTarget } from './terminal-file-link-target'
 import {
   buildHardWrappedPathLogicalLineCandidates,
@@ -30,6 +28,7 @@ import { isTerminalLinkDirectActivation } from './terminal-link-activation'
 import { getTerminalBufferPositionForMouseEvent } from './terminal-mouse-buffer-position'
 import type { TerminalLinkActionContext } from './terminal-link-action-request'
 import { handleTerminalFileLink } from './terminal-file-link-actions'
+import { showFileLinkOpenFailureToast } from '@/lib/file-link-open-failure-toast'
 
 export { openDetectedFilePath } from './terminal-file-open-routing'
 export { mapTerminalFilePath } from './terminal-file-open-routing'
@@ -157,7 +156,9 @@ export function createFilePathLinkProvider(
                           runtimeEnvironmentId,
                           wslDistro: deps.wslDistro,
                           terminalHandle,
-                          sourceTabId: deps.sourceTabId
+                          sourceTabId: deps.sourceTabId,
+                          onOpenFailure: (failure) =>
+                            showFileLinkOpenFailureToast(mappedPath, failure)
                         },
                         deps.getLinkActionContext?.(paneId)
                       )
@@ -177,7 +178,7 @@ export function createFilePathLinkProvider(
                       ? getTerminalWorktreePathOpenHint(canOpenWithSystemDefault, showActions)
                       : canOpenWithSystemDefault
                         ? isHtmlFilePath(mappedPath)
-                          ? getTerminalHtmlFileOpenHint(showActions)
+                          ? getTerminalHtmlFileOpenHint(localHtmlFileDestinations(), showActions)
                           : showActions
                             ? openLinkHint
                             : getTerminalFileOpenHint(false)
@@ -253,7 +254,8 @@ export function installFilePathLinkClickFallback(
         terminalHandle: deps.getRuntimeTerminalHandleForPane?.(paneId) ?? null,
         pathExistsCache: deps.pathExistsCache,
         openWithSystemDefault: Boolean(event.shiftKey),
-        sourceTabId: deps.sourceTabId
+        sourceTabId: deps.sourceTabId,
+        onOpenFailure: showFileLinkOpenFailureToast
       }
     )
     if (opened) {

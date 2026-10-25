@@ -18,10 +18,13 @@ on:
         required: false
 permissions:
   contents: read
+
+# Candidate source must not write caches in the dispatch branch's scope.
+cache-mode: read
 jobs:
   compatibility:
     if: github.repository == 'stablyai/orca'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v6
@@ -66,7 +69,7 @@ jobs:
           retention-days: 3
   layout-compat:
     if: github.repository == 'stablyai/orca'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6

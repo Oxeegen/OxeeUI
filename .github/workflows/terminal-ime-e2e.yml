@@ -24,7 +24,7 @@ jobs:
   linux-x11:
     if: github.repository == 'stablyai/orca'
     name: Linux X11 terminal IME
-    runs-on: ubuntu-22.04
+    runs-on: blacksmith-4vcpu-ubuntu-2204
     timeout-minutes: 25
 
     steps:
@@ -84,7 +84,7 @@ jobs:
   linux-wayland:
     if: github.repository == 'stablyai/orca'
     name: Linux Wayland Hangul terminating digit
-    runs-on: ubuntu-22.04
+    runs-on: blacksmith-4vcpu-ubuntu-2204
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v6

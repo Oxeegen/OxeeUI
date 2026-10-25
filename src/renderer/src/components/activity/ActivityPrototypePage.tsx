@@ -22,6 +22,11 @@ import {
 } from './activity-terminal-portal-status'
 import type { ActivityTerminalPortalSlotId } from './activity-thread-types'
 import { addAppKeyListener, removeAppKeyListener } from '@/lib/app-keyboard-router'
+import {
+  selectDetectedWorktreesByRepo,
+  selectFolderWorkspaces,
+  selectWorktreesByRepo
+} from '@/store/workspace-record-selectors'
 
 export * from './activity-prototype-page-exports'
 
@@ -260,19 +265,23 @@ export default function ActivityPrototypePage(): React.JSX.Element {
     setSelectedPaneKey
   })
 
+  const worktreesByRepo = selectWorktreesByRepo(storeData)
+  const detectedWorktreesByRepo = selectDetectedWorktreesByRepo(storeData)
+  const folderWorkspaces = selectFolderWorkspaces(storeData)
+
   const canJumpToWorkspace = useCallback(
     (thread: Parameters<typeof hasActivityThreadWorkspace>[0]) =>
       hasActivityThreadWorkspace(thread, {
-        worktreesByRepo: storeData.worktreesByRepo,
-        detectedWorktreesByRepo: storeData.detectedWorktreesByRepo,
-        folderWorkspaces: storeData.folderWorkspaces,
+        worktreesByRepo,
+        detectedWorktreesByRepo,
+        folderWorkspaces,
         floatingWorkspacePath: storeData.floatingWorkspacePath,
         defaultHostId: storeData.defaultHostId
       }),
     [
-      storeData.worktreesByRepo,
-      storeData.detectedWorktreesByRepo,
-      storeData.folderWorkspaces,
+      worktreesByRepo,
+      detectedWorktreesByRepo,
+      folderWorkspaces,
       storeData.floatingWorkspacePath,
       storeData.defaultHostId
     ]

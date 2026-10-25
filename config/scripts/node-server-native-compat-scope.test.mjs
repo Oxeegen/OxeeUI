@@ -1,5 +1,4 @@
 import { readFileSync } from 'node:fs'
-import { runInNewContext as runInNewContextRaw } from 'node:vm'
 import { expect, it, vi } from 'vitest'
 import { parse } from 'yaml'
 import { compileAggregateExpression } from './pr-aggregate-gate-context.mjs'
@@ -10,15 +9,6 @@ import {
 } from './node-server-native-compat-scope.mjs'
 import { classifyNodeServerChanges, collectNodeServerInputs } from './node-server-change-scope.mjs'
 import { NODE_SERVER_RUNNERS, nodeServerQualification } from './node-server-qualification.mjs'
-
-// Why: job `if`s carry this fork's repository guard, so conditions are evaluated
-// as they run in upstream's repository.
-const runInNewContext = (source, context = {}, ...rest) =>
-  runInNewContextRaw(
-    source,
-    { ...context, github: { repository: 'stablyai/orca', ...context.github } },
-    ...rest
-  )
 
 const root = 'src/main/persistence/profile-state/profile-state-recovery-crash-boundaries.test.ts'
 const support = 'src/main/native-chat/agent-session-journal/journal-host-database-test-support.ts'
@@ -288,37 +278,63 @@ it('checks the cleanup against the actual native build and smoke closure', async
   expect(result.nativeCompatibility).toBe(false)
 }, 60_000)
 
-it('limits the extra job guard to glibc 2.17 and preserves unconditional callers', () => {
+it('limits test-only native skip evidence to ordinary pull requests', () => {
   const workflow = parse(
     readFileSync(new URL('../../.github/workflows/node-server-tests.yml', import.meta.url), 'utf8')
   )
-  const compat = workflow.jobs.linux_glibc217_compat
-  expect(compat.if).toContain("needs.changes.outputs.native_compatibility != 'false'")
-  expect(compat.if).toContain(
-    "github.event_name != 'pull_request' || inputs.build_template || inputs.ref != ''"
-  )
-  for (const job of [
-    workflow.jobs.persistence,
-    workflow.jobs.linux_glibc_floor,
-    workflow.jobs.linux_musl
-  ]) {
-    expect(job.if).not.toContain('native_compatibility')
-  }
   const scope = workflow.jobs.changes.steps.find((step) => step.id === 'scope')
   const graph = workflow.jobs.changes.steps.find((step) => step.id === 'graph')
   expect(scope.run).toContain('git diff --raw --no-renames --no-abbrev -z HEAD^1 HEAD')
   for (const step of [scope, graph]) {
-    expect(step.env.ALLOW_TEST_ONLY_NATIVE_SKIP).toBe(
-      "${{ github.event_name == 'pull_request' && !inputs.build_template && inputs.ref == '' }}"
-    )
+    const allowSkip = compileAggregateExpression(step.env.ALLOW_TEST_ONLY_NATIVE_SKIP, [
+      'github',
+      'inputs'
+    ])
+    for (const [event, template, ref, expected] of [
+      ['pull_request', false, '', true],
+      ['push', false, '', false],
+      ['schedule', false, '', false],
+      ['workflow_dispatch', false, '', false],
+      ['workflow_call', false, '', false],
+      ['pull_request', true, '', false],
+      ['pull_request', false, 'refs/tags/v1', false]
+    ]) {
+      expect(
+        allowSkip({
+          github: { event_name: event },
+          inputs: { build_template: template, ref }
+        }).coerceString()
+      ).toBe(String(expected))
+    }
     expect(step.run).toContain('--pull-request --diff-paths "$RUNNER_TEMP/node-server-native-diff"')
+  }
+  for (const name of ['persistence', 'linux_glibc_floor', 'linux_musl']) {
+    const eligible = compileAggregateExpression(workflow.jobs[name].if, [
+      'needs',
+      'github',
+      'inputs'
+    ])
+    for (const native of ['true', 'false']) {
+      expect(
+        eligible({
+          github: { event_name: 'pull_request', event: { pull_request: { draft: false } } },
+          inputs: { build_template: false, ref: '' },
+          needs: {
+            changes: {
+              outputs: { should_run: 'true', qualification: 'true', native_compatibility: native }
+            },
+            mobile_web_bundle: { result: 'success' }
+          }
+        }).coerceString()
+      ).toBe('true')
+    }
   }
   expect(workflow.on).toHaveProperty('workflow_dispatch')
   expect(workflow.on).toHaveProperty('workflow_call')
   expect(workflow.on.schedule).toHaveLength(1)
 })
 
-it('builds server glibc slots on glibc 2.28 and the compat slot on glibc 2.17 (design D6)', () => {
+it('configures server glibc 2.28 slots and the glibc 2.17 compatibility lane', () => {
   const workflow = parse(
     readFileSync(new URL('../../.github/workflows/node-server-tests.yml', import.meta.url), 'utf8')
   )
@@ -338,24 +354,13 @@ it('builds server glibc slots on glibc 2.28 and the compat slot on glibc 2.17 (d
 
   const compat = workflow.jobs.linux_glibc217_compat
   expect(compat.needs).toBe('changes')
-  // Why unguard: this fork wraps every job `if` as `${{ <guard> && (<upstream>) }}`, so
-  // upstream's prefix relationship is compared on the conditions inside the guard.
-  const unguard = (expression) => {
-    const match = /^\$\{\{\s*github\.repository == 'stablyai\/orca' && \(([\s\S]*)\)\s*\}\}$/.exec(
-      expression.trim()
-    )
-    return match ? `${'$'}{{ ${match[1].trim()} }}` : expression
-  }
-  expect(unguard(compat.if)).toContain(
-    unguard(floor.if).replace("needs.mobile_web_bundle.result == 'success' && ", '').slice(0, -3)
-  )
-  expect(compat.if).toContain("needs.changes.outputs.native_compatibility != 'false'")
-  expect(compat.if).toContain(
-    "github.event_name != 'pull_request' || inputs.build_template || inputs.ref != ''"
-  )
-  expect(runInNewContext(compat['runs-on'].slice(3, -2), { inputs: { fast_runners: false } })).toBe(
-    'ubuntu-22.04'
-  )
+  const runner = compileAggregateExpression(compat['runs-on'], ['inputs', 'github'])
+  expect(
+    runner({
+      inputs: { fast_runners: false },
+      github: { event_name: 'workflow_dispatch' }
+    }).coerceString()
+  ).toBe('ubuntu-22.04')
   const run = compat.steps.map((step) => step.run ?? '').join('\n')
   expect(run).toMatch(/quay\.io\/pypa\/manylinux2014_x86_64@sha256:[0-9a-f]{64} /)
   expect(run).toContain('--slot=linux-x64-glibc217 --print-runtime')

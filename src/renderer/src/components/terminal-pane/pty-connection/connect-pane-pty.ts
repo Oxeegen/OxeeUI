@@ -78,6 +78,7 @@ export function connectPanePty(
   session.cleanupHiddenOutputRestoreDeferredRetry = (): void => {}
   session.cleanupHiddenOutputRestoreForegroundDeadline = (): void => {}
   session.cleanupHiddenOutputRestoreFloodRepaint = (): void => {}
+  session.flushRemoteProgramRedraw = (): void => {}
   session.resetRendererOrderedSeqForPtyExit = () => {}
   session.cleanupStartupDraftPasteTimers = (): void => {}
   session.unregisterE2ePtyDataInjection = (): void => {}

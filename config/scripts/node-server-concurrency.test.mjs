@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { runInNewContext } from 'node:vm'
 import { expect, it } from 'vitest'
 import { parse } from 'yaml'
+import { compileAggregateExpression } from './pr-aggregate-gate-context.mjs'
 
 // Why toContain for job `if`s: this fork prefixes every job `if` with a repository
 // guard, so exact matches would assert the guard away. Step conditions stay exact.
@@ -66,7 +67,19 @@ it.each(['persistence', 'linux_glibc_floor', 'linux_glibc217_compat', 'linux_mus
   '%s only supersedes eligible main qualification, isolating releases and nightly runs',
   (name) => {
     const job = workflow.jobs[name]
-    expect(job.if).toContain("needs.changes.outputs.should_run != 'false'")
+    const eligible = compileAggregateExpression(job.if, ['needs', 'github', 'inputs'])
+    for (const shouldRun of ['true', 'false']) {
+      const ctx = {
+        ...context('push', 1),
+        needs: {
+          changes: {
+            outputs: { should_run: shouldRun, qualification: 'true', native_compatibility: 'true' }
+          },
+          mobile_web_bundle: { result: 'success' }
+        }
+      }
+      expect(eligible(ctx).coerceString()).toBe(shouldRun)
+    }
     const policy = job.concurrency
     const first = context('push', 1)
     const second = context('push', 2)

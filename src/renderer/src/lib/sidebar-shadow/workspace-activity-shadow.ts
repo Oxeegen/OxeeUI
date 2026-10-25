@@ -13,6 +13,7 @@ import {
   isIdleWorkspaceActivity,
   type WorkspaceActivityFacts
 } from '../../../../shared/sidebar-list/workspace-activity-facts'
+import { selectFolderWorkspaces } from '@/store/workspace-record-selectors'
 
 /** The window's own activity facts, from the same store slices the sidebar filter reads. */
 export function readWindowWorkspaceActivityFacts(
@@ -81,7 +82,7 @@ export function toLocallyOwnedRows<Value>(
     const repo = repoById.get(worktree.repoId)
     own(worktree.id, worktree.hostId ?? (repo ? getRepoExecutionHostId(repo) : null))
   }
-  for (const folder of state.folderWorkspaces ?? []) {
+  for (const folder of selectFolderWorkspaces(state) ?? []) {
     own(folderWorkspaceKey(folder.id), getRepoExecutionHostId(folder))
   }
   const scoped = new Map<string, Value>()

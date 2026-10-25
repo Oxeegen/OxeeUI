@@ -82,40 +82,41 @@ it('starts independent Linux qualification without waiting for another platform'
   }
 })
 
-it('requires every platform and compatibility result before publishing a desktop template', () => {
+it('prepares template dependencies before waiting for every qualification lane', () => {
   const template = workflow.jobs.desktop_template
-  const required = [
-    'persistence',
-    'mobile_web_bundle',
-    'linux_glibc_floor',
-    'linux_glibc217_compat',
-    'linux_musl'
-  ]
-  expect(template.needs).toEqual(required)
-  const evaluate = compileAggregateExpression(template.if, ['needs', 'inputs'])
-  const needs = Object.fromEntries(required.map((name) => [name, { result: 'success' }]))
-  const ctx = { needs, inputs: { build_template: true } }
-  expect(evaluate(ctx).coerceString()).toBe('true')
-  expect(evaluate(ctx, true).coerceString()).toBe('false')
-  for (const name of required) {
-    for (const result of ['failure', 'cancelled', 'skipped']) {
-      expect(evaluate({ ...ctx, needs: { ...needs, [name]: { result } } }).coerceString()).toBe(
-        'false'
-      )
-    }
-  }
+  expect(template.needs).toBe('changes')
+  expect(template.permissions).toEqual({ contents: 'read', actions: 'read' })
+  const evaluate = compileAggregateExpression(template.if, ['inputs'])
+  expect(evaluate({ inputs: { build_template: true } }).coerceString()).toBe('true')
+  expect(evaluate({ inputs: { build_template: false } }).coerceString()).toBe('false')
+  expect(evaluate({ inputs: { build_template: true } }, true).coerceString()).toBe('false')
+  const wait = template.steps.findIndex(
+    (step) => step.name === 'Wait for every template qualification lane'
+  )
+  expect(
+    template.steps.findIndex((step) => step.uses?.includes('install-node-dependencies'))
+  ).toBeLessThan(wait)
+  expect(
+    template.steps.findIndex((step) => step.name === "Collect every lane's slot")
+  ).toBeGreaterThan(wait)
 })
 
 it('avoids template download-cache transfers while retaining native and verification caches', () => {
   const install = persistence.steps.find((step) => step.id === 'dependencies')
-  expect(install.with['native-runtime']).toContain("runner.os == 'Windows' && 'node'")
   expect(install.with['cache-pnpm-verification']).toBeUndefined()
   expect(install.with['persist-native-cache']).toBeUndefined()
   const source = install.with['cache-pnpm-store'].slice(3, -2)
   for (const os of ['Linux', 'macOS', 'Windows']) {
+    expect(runInNewContext(install.with['native-runtime'].slice(3, -2), { runner: { os } })).toBe(
+      os === 'Windows' ? 'node' : 'none'
+    )
     for (const buildTemplate of [true, false]) {
       expect(
-        runInNewContext(source, { inputs: { build_template: buildTemplate }, runner: { os } })
+        runInNewContext(source, {
+          inputs: { build_template: buildTemplate, fast_runners: false },
+          matrix: { os: '' },
+          runner: { os }
+        })
       ).toBe(!buildTemplate && os !== 'Windows')
     }
   }
@@ -138,7 +139,7 @@ it.each(['persistence', 'linux_glibc_floor', 'linux_musl'])(
   }
 )
 
-it('prepares every native lane and builds with the shared page', () => {
+it('configures native preparation before shared-page download and unconditional cleanup', () => {
   for (const name of ['persistence', 'linux_glibc_floor', 'linux_musl']) {
     const job = workflow.jobs[name]
     const download = job.steps.findIndex((step) => step.with?.name === 'orcad-mobile-web-bundle')
@@ -153,17 +154,6 @@ it('prepares every native lane and builds with the shared page', () => {
     expect(job.permissions).toEqual({ contents: 'read' })
   }
   const alpine = workflow.jobs.linux_musl.steps
-  const prepare = alpine.find((step) => step.name === 'Prepare native Alpine artifact')
-  const verify = alpine.find(
-    (step) => step.name === 'Verify native Alpine artifact and persistence'
-  )
   const cleanup = alpine.find((step) => step.name === 'Clean up the Alpine qualification container')
-  expect(prepare.run).toContain('mkdir -p out/mobile-web')
-  expect(prepare.run).toContain('--detach --name orcad-alpine')
-  expect(prepare.run).toContain('docker exec -i orcad-alpine')
-  expect(prepare.run).not.toContain('pnpm build:orcad\n')
-  expect(verify.run).toContain('docker exec -i orcad-alpine')
-  expect(verify.run).toContain('pnpm build:orcad\n')
-  expect(verify.run).toContain('pnpm test:node-server --artifact')
   expect(cleanup.if).toBe('always()')
 })

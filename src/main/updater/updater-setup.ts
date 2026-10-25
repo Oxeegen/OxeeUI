@@ -1,6 +1,5 @@
 import { app, powerMonitor } from 'electron'
 import type { BrowserWindow } from 'electron'
-import { is } from '@electron-toolkit/utils'
 import {
   LATEST_RELEASE_DOWNLOAD_URL,
   type ReleaseBuild,
@@ -141,10 +140,7 @@ export class UpdaterSetup extends UpdaterDownloadInstall {
       this.sendErrorStatus(`The server update did not complete: ${serveHandoffFailure}`, true)
     }
 
-    if (!app.isPackaged && !is.dev) {
-      return
-    }
-    if (is.dev) {
+    if (!app.isPackaged) {
       return
     }
 
