@@ -39,6 +39,17 @@ describe('release build inputs', () => {
     )
   })
 
+  // Why: native modules compile against the runner's glibc and packaging rejects
+  // anything newer than the supported Linux floor. A floating `-latest` label moved
+  // to a newer Ubuntu between two releases and broke the Linux package, so every
+  // build runner must be pinned to a named image.
+  it('pins every build runner to a named image', () => {
+    const runners = [...workflow.matchAll(/^\s+- os: (\S+)$/gm)].map((match) => match[1])
+    // Positive control: the matrix still lists one runner per platform.
+    expect(runners.length).toBeGreaterThanOrEqual(2)
+    expect(runners.filter((runner) => runner.endsWith('-latest'))).toEqual([])
+  })
+
   // Why: v1.4.220 made Windows packaging compile a Rust launcher from
   // electron-builder's native hook. A runner without cargo fails only after the
   // whole app has been built, so the workflow has to provide it up front.
