@@ -10,7 +10,7 @@ import {
   readDataFile,
   testState,
   writeDataFile
-} from './persistence-test-harness'
+} from './persistence/persistence-test-harness'
 
 // Why this lives in src/main rather than brand/: it drives the real Store, and brand/ is
 // also type-checked by the web project, which must not pull in the main process. The
@@ -18,7 +18,7 @@ import {
 //
 // Same seams as upstream's own Store tests (persistence-settings-ui-defaults.test.ts),
 // so this drives the real load path rather than the normalizer in isolation.
-vi.mock('./ssh/ssh-config-parser', () => ({
+vi.mock('./ssh/config/ssh-config-parser', () => ({
   loadUserSshConfig: vi.fn(),
   sshConfigHostsToTargets: vi.fn()
 }))

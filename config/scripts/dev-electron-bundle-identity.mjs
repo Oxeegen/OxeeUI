@@ -1,14 +1,8 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 
-// Why this module exists: the dev runner re-signs its copied Electron.app ad-hoc, so the bundle's
-// designated requirement is a bare cdhash derived from its contents. macOS Keychain ACLs key off
-// that requirement. Patching any branch-varying value into Info.plist therefore gave every branch a
-// different code identity, and safeStorage re-prompted for a password on each one.
-//
-// The invariant: every value patched here must be CONSTANT across branches and worktrees, so all dev
-// bundles share one cdhash and one Keychain ACL entry. Patching a key is fine; varying it is not.
-// Per-branch Dock names come from the .app directory name, which is not part of the signature.
+// Keep all signed Info.plist values branch-invariant: ad-hoc cdhash is the Keychain ACL identity, so branch drift re-prompts for passwords.
+// Branch Dock names belong in the unsigned .app directory name.
 
 // Why read the JSON directly rather than through the `@brand` alias: this module is
 // plain node, loaded by the dev runner outside any bundler, so the alias does not
@@ -31,10 +25,7 @@ export const BRAND_PRODUCT_NAME = brand.productName
 
 export const DEV_BUNDLE_ID = `${brand.appId}.dev`
 export const DEV_HELPER_BUNDLE_ID = `${DEV_BUNDLE_ID}.helper`
-// Why a constant display name rather than none: leaving the stock value makes every dev
-// notification and System Settings > Notifications row read "Electron", indistinguishable from any
-// other Electron app. A fixed name keeps that legible without reintroducing per-branch drift.
-//
+// Fixed display name distinguishes dev notifications from other Electron apps without branch-specific signature drift.
 // Brand-derived so it stays in step with app.setName(), which dev sets to
 // `<productName> Dev`; the sibling contract test asserts exactly that pairing.
 export const DEV_BUNDLE_DISPLAY_NAME = `${brand.productName} Dev`

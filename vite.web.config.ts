@@ -11,8 +11,7 @@ import { brandHtmlTitle } from './brand/vite/html-title'
 export default defineConfig({
   root: resolve('src/renderer'),
   cacheDir: resolve('.cache/vite/web'),
-  // Why: pairing URLs may live under a reverse-proxy path prefix like
-  // /orca/web-index.html, so built assets must resolve relative to the page.
+  // Resolve assets relatively for reverse-proxy pairing prefixes such as /orca/web-index.html.
   base: './',
   plugins: [
     react(),

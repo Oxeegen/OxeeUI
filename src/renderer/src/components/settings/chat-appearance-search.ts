@@ -46,6 +46,15 @@ export function getChatContrastSearchEntries(): SettingsSearchEntry[] {
 const getChatAppearanceCatalog = createLocalizedCatalog(
   () =>
     ({
+      fontFamily: {
+        targetSectionId: 'chat-font-family',
+        title: translate('settings.appearance.chat.fontFamily', 'Font family'),
+        description: translate(
+          'settings.appearance.chat.fontFamilyDescription',
+          'Font used for messages, activity, and the message box.'
+        ),
+        keywords: ['chat', 'font', 'family', 'typeface', 'typography']
+      },
       textSize: {
         targetSectionId: 'chat-text-size',
         title: translate('settings.appearance.chat.textSize', 'Text size'),

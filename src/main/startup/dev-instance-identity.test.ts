@@ -18,7 +18,6 @@ describe('dev-instance-identity', () => {
     const a = getDevInstanceIdentity(true, { ORCA_DEV_BRANCH: 'feature/a' })
     const b = getDevInstanceIdentity(true, { ORCA_DEV_BRANCH: 'feature/b' })
 
-    // Per-branch label differs (window title / app menu)...
     expect(a.name).not.toBe(b.name)
     // ...but the Keychain-driving appName is identical and distinct from prod.
     expect(a.appName).toBe(`${BRAND.productName} Dev`)
@@ -27,8 +26,7 @@ describe('dev-instance-identity', () => {
   })
 
   it('never renames a packaged build before ready', () => {
-    // Packaged builds must keep deriving the safeStorage key from their own CFBundleName;
-    // a pre-ready rename would repoint forks ("Orca ALab Edition") at Orca's key.
+    // Packaged forks must retain their CFBundleName-derived safeStorage key or encrypted secrets become orphaned.
     expect(shouldApplyPreReadyAppName(getDevInstanceIdentity(false, {}))).toBe(false)
     expect(shouldApplyPreReadyAppName({ isDev: false })).toBe(false)
   })

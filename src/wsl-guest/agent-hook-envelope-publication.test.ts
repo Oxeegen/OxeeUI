@@ -463,8 +463,7 @@ describe('publishAgentHookEnvelope shed marker', () => {
 
       const published = decodeEnvelopes(primary)
       expect(published).toHaveLength(1)
-      // Without this marker the renderer overwrites a populated roster with undefined, blanking live
-      // subagent rows and unblocking hibernation for a pane that is still working.
+      // A shed roster must be marked or clients may erase live subagents and unblock pane hibernation.
       expect(published[0].shedFields).toEqual([
         'lastAssistantMessage',
         createShedSubagentsField(makeSubagents(40))
@@ -477,7 +476,7 @@ describe('publishAgentHookEnvelope shed marker', () => {
   })
 
   it('omits the marker when nothing was shed and never stamps the caller envelope', () => {
-    const primary = makeBoundedClient(65536)
+    const primary = makeBoundedClient(16384)
     const dispatcher = new RelayDispatcher(primary.write, primary.options)
     try {
       const envelope = makeEnvelope({ lastAssistantMessage: 128, subagents: 2 })
@@ -486,6 +485,7 @@ describe('publishAgentHookEnvelope shed marker', () => {
 
       const shedding = makeEnvelope({ lastAssistantMessage: 20_000, subagents: 2 })
       publishAgentHookEnvelope(dispatcher, shedding)
+      expect(decodeEnvelopes(primary)[1].shedFields).toEqual(['lastAssistantMessage'])
       // The hook server replays this exact object, so the marker must live on the wire copy only.
       expect((shedding as PublishedEnvelope).shedFields).toBeUndefined()
       expect(shedding.payload.lastAssistantMessage).toBe('a'.repeat(20_000))
@@ -516,8 +516,7 @@ describe('publishAgentHookEnvelope redelivery', () => {
 
       primary.blocked = false
       primary.drain()
-      // Nothing in the pipeline republishes a hook envelope: it is fire-and-forget, and the only
-      // other delivery path is the reattach replay.
+      // Queue-full snapshots need their bounded retry path; otherwise only reconnect replay can repair a stale row.
       expect(decodeEnvelopes(primary)).toHaveLength(0)
 
       vi.advanceTimersByTime(250)

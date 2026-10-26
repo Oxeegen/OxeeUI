@@ -1,4 +1,5 @@
 import { callRuntimeRpc } from '@/runtime/runtime-rpc-client'
+import { getPairedWebClientEnvironmentId } from '@/lib/paired-web-client-host'
 import { assertEnvironmentSupportsExtraAgentArgs } from './automation-capability-probe'
 import type {
   Automation,
@@ -49,6 +50,16 @@ export function getAutomationTargetFromHostId(
   return parsed?.kind === 'runtime'
     ? { kind: 'environment', environmentId: parsed.environmentId }
     : { kind: 'local' }
+}
+
+/** Map paired web local/SSH hosts to the server runtime authority that the catalog lists. */
+export function getAutomationListedTargetFromHostId(
+  hostId: string | null | undefined,
+  state: { runtimeEnvironments?: readonly { id: string }[] }
+): AutomationHostTarget {
+  const target = getAutomationTargetFromHostId(hostId)
+  const environmentId = target.kind === 'local' ? getPairedWebClientEnvironmentId(state) : null
+  return environmentId ? { kind: 'environment', environmentId } : target
 }
 
 export function getAutomationAuthorityTarget(
@@ -114,11 +125,7 @@ export async function listAutomationsForTarget(
   return result.automations
 }
 
-/**
- * One automation's history, never a host's. Usage totals for the list come from
- * the authority's own list projection; fetching every run to compute them made
- * the page's cost scale with retained history rather than with what is on screen.
- */
+/** Fetch one automation’s history; list usage comes from authority projections so page cost cannot scale with all retained runs. */
 export async function listAutomationRunsForTarget(
   target: AutomationHostTarget,
   automationId: string

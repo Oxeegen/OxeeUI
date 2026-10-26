@@ -1,4 +1,5 @@
 import { dedupeLogicalLines } from './terminal-link-logical-line-deduplication'
+import type { TerminalPathExistsCache } from './terminal-path-exists-cache'
 import { createTerminalPathExistenceBatch } from './terminal-path-existence-batch'
 import type { IDisposable, ILink, ILinkProvider, Terminal } from '@xterm/xterm'
 import { extractTerminalFileLinkCandidates, extractTerminalFileLinks } from '@/lib/terminal-links'
@@ -43,7 +44,7 @@ export type LinkHandlerDeps = {
   getPaneLinkCwd?: (paneId: number) => string | null
   managerRef: React.RefObject<PaneManager | null>
   linkProviderDisposablesRef: React.RefObject<Map<number, IDisposable>>
-  pathExistsCache: Map<string, boolean>
+  pathExistsCache: TerminalPathExistsCache
   runtimeEnvironmentId?: string | null
   terminalHomePath?: string | null
   wslDistro?: string | null
@@ -167,8 +168,7 @@ export function createFilePathLinkProvider(
                     }
                   },
                   hover: () => {
-                    // Why: only local paths can offer the Shift+modifier system
-                    // default escape hatch; remote paths may not exist locally.
+                    // Only local paths can use the Shift+modifier OS escape hatch.
                     const canOpenWithSystemDefault =
                       shouldOpenTerminalFileWithSystemDefault(fileContext)
                     const showActions = deps.getLinkActionContext
@@ -213,8 +213,7 @@ export function createFilePathLinkProvider(
           callback(links.length > 0 ? links : undefined)
         })
         .catch(() => {
-          // Link discovery is best-effort; a stale xterm callback must not
-          // recreate the unhandled rejection this path is meant to contain.
+          // Stale xterm callbacks must not escape best-effort discovery as unhandled rejections.
         })
     }
   }
@@ -237,9 +236,7 @@ export function installFilePathLinkClickFallback(
     }
     const runtimeEnvironmentId =
       deps.getRuntimeEnvironmentIdForPane?.(paneId) ?? deps.runtimeEnvironmentId ?? null
-    // Why: xterm can show a wrapped provider link as active while still missing
-    // activation for the clicked wrapped row. Always retry file-path hit testing
-    // on modifier mouseup; openDetectedFilePath coalesces duplicate opens.
+    // Retry hit testing on modifier mouseup: wrapped links can hover active without clickable-row activation. Opening coalesces duplicates.
     const opened = openFilePathLinkAtBufferPosition(
       terminal.buffer.active,
       position,

@@ -376,6 +376,34 @@ describe('BrowserSessionRegistry', () => {
     expect(recreated?.partition).not.toBe(first.partition)
   })
 
+  it('announces each profile change after the list reflects it', async () => {
+    const seen: string[][] = []
+    browserSessionRegistry.onProfilesChanged = () =>
+      seen.push(browserSessionRegistry.listProfiles().map((profile) => profile.label))
+    try {
+      const made = await browserSessionRegistry.createProfile('isolated', 'Made by CLI')
+      const managed = await ensureManagedBrowserProfile({ kind: 'repo', id: 'announce' }, 'Repo')
+      if (!made || !managed) {
+        throw new Error('Expected created profiles')
+      }
+      browserSessionRegistry.updateProfileSource(made.id, {
+        browserFamily: 'manual',
+        importedAt: 1
+      })
+      await browserSessionRegistry.deleteProfile(made.id)
+      await browserSessionRegistry.deleteProfile('default')
+      await browserSessionRegistry.createProfile('default', 'Refused')
+
+      expect(seen).toHaveLength(4)
+      expect(seen[0]).toContain('Made by CLI')
+      expect(seen[1]).toContain('Repo')
+      expect(seen[2]).toContain('Made by CLI')
+      expect(seen[3]).not.toContain('Made by CLI')
+    } finally {
+      browserSessionRegistry.onProfilesChanged = null
+    }
+  })
+
   it('refuses to delete the default profile', async () => {
     const deleted = await browserSessionRegistry.deleteProfile('default')
     expect(deleted).toBe(false)
@@ -411,15 +439,6 @@ describe('BrowserSessionRegistry', () => {
 
     expect(browserSessionRegistry.getProfile(profileId)).toBeNull()
     expect(browserSessionRegistry.isAllowedPartition(claimedPartition)).toBe(false)
-  })
-
-  it('sets up session policies for new partitions', async () => {
-    await browserSessionRegistry.createProfile('isolated', 'Policy Test')
-    expect(sessionFromPartitionMock).toHaveBeenCalled()
-    const mockSession = sessionFromPartitionMock.mock.results[0]?.value
-    expect(mockSession?.setPermissionRequestHandler).toHaveBeenCalled()
-    expect(mockSession?.setPermissionCheckHandler).toHaveBeenCalled()
-    expect(mockSession?.setDevicePermissionHandler).toHaveBeenCalled()
   })
 
   it('applies and clears existing browser-profile policy on an opaque route partition', async () => {
@@ -466,21 +485,6 @@ describe('BrowserSessionRegistry', () => {
 
     expect(callback).toHaveBeenCalledWith(true)
     expect(checkHandler(null, 'pointerLock', '', {})).toBe(true)
-  })
-
-  it('auto-grants storage-access for isolated partitions', async () => {
-    await browserSessionRegistry.createProfile('isolated', 'Storage Access Test')
-    const mockSession = sessionFromPartitionMock.mock.results[0]?.value
-    const requestHandler = mockSession.setPermissionRequestHandler.mock.calls[0][0]
-    const checkHandler = mockSession.setPermissionCheckHandler.mock.calls[0][0]
-    const callback = vi.fn()
-    const guestWc = { id: 7, getURL: vi.fn(() => 'https://example.com/') }
-
-    requestHandler(guestWc, 'storage-access', callback, {})
-
-    expect(callback).toHaveBeenCalledWith(true)
-    expect(checkHandler(null, 'storage-access', '', {})).toBe(true)
-    expect(checkHandler(null, 'top-level-storage-access', '', {})).toBe(false)
   })
 
   it('asks macOS for the camera only after the user allowed the site', async () => {

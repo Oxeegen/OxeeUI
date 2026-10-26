@@ -1,19 +1,23 @@
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { resolve } from 'node:path'
-import { defaultExclude, defineConfig } from 'vitest/config'
+import { configDefaults, defaultExclude, defineConfig } from 'vitest/config'
 import { UNIT_INCLUDE, UNIT_EXCLUDE, UNIT_SETUP_FILES } from './scripts/ci-unit-files.mjs'
 import TimingSequencer from './scripts/ci-unit-sequencer.mjs'
 import RuntimeSequencer from './scripts/vitest-runtime-sequencer.mjs'
 import { getNodeRuntimeInclude } from './scripts/vitest-node-runtime-files.mjs'
 import { nodeRuntimePool } from './scripts/vitest-node-runtime-pool'
+import { readRunFilters } from './scripts/vitest-run-filters.mjs'
 import { createWorkspaceSourceResolver } from './scripts/workspace-source-exports.mjs'
 
-const nodeRuntimeInclude = process.versions.bun ? getNodeRuntimeInclude() : []
 // Why prepended here and not added to UNIT_INCLUDE: that list lives in
 // ci-unit-files.mjs, which upstream's CI sharding also reads, so keeping the
 // brand tests out of it leaves those scripts and their tests untouched.
 const unitInclude = ['brand/**/*.test.ts', ...UNIT_INCLUDE]
+
+const nodeRuntimeInclude = process.versions.bun
+  ? getNodeRuntimeInclude({ filters: readRunFilters() })
+  : []
 const balancedShards = process.env.ORCA_BALANCE_UNIT_SHARDS === '1'
 const measurementFile = 'src/main/foreign-sqlite-readers/foreign-sqlite-reader-event-loop.test.ts'
 const paletteMeasurementFile =
@@ -136,6 +140,15 @@ export default defineConfig({
   ...transforms,
   test: {
     ...testOptions,
+    experimental: { recordDependencies: !process.env.CI },
+    forceRerunTriggers: [
+      ...configDefaults.forceRerunTriggers,
+      '**/pnpm-lock.yaml',
+      '**/pnpm-workspace.yaml',
+      '**/config/**',
+      '**/patches/**',
+      '**/src/packages/**'
+    ],
     sequence: { sequencer: balancedShards ? TimingSequencer : RuntimeSequencer },
     ...(balancedShards
       ? {

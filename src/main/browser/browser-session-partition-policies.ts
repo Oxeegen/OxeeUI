@@ -10,6 +10,7 @@ import {
 import { hasSystemMediaAccess, requestSystemMediaAccess } from './browser-media-access'
 import { isAutoGrantedBrowserSessionPermission } from './browser-session-permission-policy'
 import {
+  answerBrowserLocalNetworkCheck,
   browserSitePermissionRequestingOrigin,
   browserSitePermissionsFor,
   decideBrowserSitePermissions,
@@ -89,6 +90,34 @@ const handleDeniedWillDownload = (
   noticeDocPreviewDownloadBlocked(webContents)
 }
 
+type RestrictedFileSystemAccessListener = (
+  event: Electron.Event,
+  details: Electron.FileSystemAccessRestrictedDetails,
+  callback: (action: 'allow' | 'deny' | 'tryAgain') => void
+) => void
+
+// Chromium waits for an answer on blocklisted system folders; without one the page hangs.
+const denyRestrictedFileSystemAccess: RestrictedFileSystemAccessListener = (
+  _event,
+  _details,
+  callback
+) => callback('deny')
+
+const handleRestrictedFileSystemAccess: RestrictedFileSystemAccessListener = (
+  _event,
+  details,
+  callback
+) => {
+  callback('deny')
+  if (details.webContents) {
+    browserManager.notifyPermissionDenied({
+      guestWebContentsId: details.webContents.id,
+      permission: 'fileSystem',
+      rawUrl: details.origin
+    })
+  }
+}
+
 function resolvePermissionNoticeUrl(
   webContents: Electron.WebContents,
   details: Electron.PermissionRequest | undefined
@@ -114,6 +143,8 @@ export async function installBrowserSessionPartitionPolicies(
     downloads?: BrowserPartitionDownloadPolicy
     permissions?: BrowserPartitionPermissionPolicy
     applyAppWideProxy?: boolean
+    /** Off where another machine can script pages and reuse their stored file handles. */
+    fileSystemAccess?: boolean
     userAgentExceptions?: boolean
     /** Session-only answers are not persisted to a browser profile. */
     sitePermissions?: 'saved' | 'session'
@@ -139,6 +170,12 @@ export async function installBrowserSessionPartitionPolicies(
     sess.setPermissionCheckHandler(() => false)
     clearBrowserWebAuthnAccessHandlers(sess)
   } else {
+    // Electron answers every File System Access grant here, overriding Chromium's own;
+    // the user's pick or drop is the consent, and handles a site stores keep their access.
+    const grantsFileSystem = options.fileSystemAccess !== false
+    const isAutoGranted = (permission: string): boolean =>
+      isAutoGrantedBrowserSessionPermission(permission) ||
+      (grantsFileSystem && permission === 'fileSystem')
     const siteMemory =
       options.sitePermissions === 'session'
         ? sessionBrowserSitePermissions(partition)
@@ -172,7 +209,7 @@ export async function installBrowserSessionPartitionPolicies(
       const mediaRequest = 'mediaTypes' in details ? details : undefined
       const sitePermissions = browserSitePermissionsFor(permission, mediaRequest?.mediaTypes)
       if (!sitePermissions) {
-        const allowed = isAutoGrantedBrowserSessionPermission(permission)
+        const allowed = isAutoGranted(permission)
         if (!allowed) {
           notifyDenied()
         }
@@ -213,21 +250,29 @@ export async function installBrowserSessionPartitionPolicies(
         details?.mediaType ? [details.mediaType] : undefined
       )
       if (sitePermissions) {
+        const source = {
+          // Service-worker checks have no WebContents; use their requesting origin.
+          pageUrl: webContents?.getURL() ?? requestingOrigin,
+          // Checks supply the frame's inherited origin.
+          frameOrigin: requestingOrigin
+        }
+        if (sitePermissions.includes('local-network')) {
+          return answerBrowserLocalNetworkCheck({
+            requester: webContents,
+            source,
+            memory: siteMemory
+          })
+        }
         return (
           isBrowserSitePermissionAllowed({
-            // Service-worker checks have no WebContents; use their requesting origin.
-            source: {
-              pageUrl: webContents?.getURL() ?? requestingOrigin,
-              // Checks supply the frame's inherited origin.
-              frameOrigin: requestingOrigin
-            },
+            source,
             memory: siteMemory,
             permissions: sitePermissions
           }) &&
           (permission !== 'media' || hasSystemMediaAccess(details?.mediaType))
         )
       }
-      return isAutoGrantedBrowserSessionPermission(permission)
+      return isAutoGranted(permission)
     })
     installBrowserWebAuthnAccessHandlers(sess)
   }
@@ -239,6 +284,14 @@ export async function installBrowserSessionPartitionPolicies(
   sess.on(
     'will-download',
     options?.downloads === 'deny' ? handleDeniedWillDownload : handleWillDownload
+  )
+  sess.removeListener('file-system-access-restricted', denyRestrictedFileSystemAccess)
+  sess.removeListener('file-system-access-restricted', handleRestrictedFileSystemAccess)
+  sess.on(
+    'file-system-access-restricted',
+    options?.permissions === 'deny'
+      ? denyRestrictedFileSystemAccess
+      : handleRestrictedFileSystemAccess
   )
   configuredPartitions.add(partition)
   return proxyReady
@@ -252,6 +305,8 @@ export function clearBrowserSessionPartitionPolicies(partition: string, sess: Se
   browserManager.removeCertificateRequestGuard(sess)
   sess.removeListener('will-download', handleWillDownload)
   sess.removeListener('will-download', handleDeniedWillDownload)
+  sess.removeListener('file-system-access-restricted', denyRestrictedFileSystemAccess)
+  sess.removeListener('file-system-access-restricted', handleRestrictedFileSystemAccess)
   clearBrowserWebAuthnAccessHandlers(sess)
   sess.setPermissionRequestHandler(null)
   sess.setPermissionCheckHandler(null)
