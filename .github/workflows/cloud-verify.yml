@@ -32,7 +32,7 @@ defaults:
 jobs:
   # Public-repository hosted runners preserve Blacksmith allowance for macOS.
   security:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft != true
+    if: github.repository == 'stablyai/orca' && (github.event_name != 'pull_request' || github.event.pull_request.draft != true)
     name: Secret scan
     runs-on: blacksmith-4vcpu-ubuntu-2204
     steps:
@@ -82,7 +82,7 @@ jobs:
 
   # Compile without Postgres: no database access occurs here, avoiding ~13s service startup.
   build:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft != true
+    if: github.repository == 'stablyai/orca' && (github.event_name != 'pull_request' || github.event.pull_request.draft != true)
     runs-on: blacksmith-4vcpu-ubuntu-2204
     steps:
       - uses: actions/checkout@v4
@@ -109,7 +109,7 @@ jobs:
       - run: pnpm typecheck
 
   containers:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft != true
+    if: github.repository == 'stablyai/orca' && (github.event_name != 'pull_request' || github.event.pull_request.draft != true)
     name: Container security (${{ matrix.app }})
     runs-on: blacksmith-4vcpu-ubuntu-2204
     strategy:
@@ -168,7 +168,7 @@ jobs:
 
   # Run tests beside build; pretest hooks compile their own workspace dependencies.
   test:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft != true
+    if: github.repository == 'stablyai/orca' && (github.event_name != 'pull_request' || github.event.pull_request.draft != true)
     runs-on: blacksmith-4vcpu-ubuntu-2204
     services:
       postgres:

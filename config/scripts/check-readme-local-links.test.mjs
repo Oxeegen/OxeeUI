@@ -164,7 +164,12 @@ describe('README local link check', () => {
     const step = guardJob.steps.find((candidate) => candidate.name === 'Check README local links')
     const runsFor = (draft) =>
       runInNewContext(guardJob.if, {
-        github: { event_name: 'pull_request', event: { pull_request: { draft } } }
+        // Why: job `if`s carry this fork's repository guard; evaluate them as upstream runs them.
+        github: {
+          repository: 'stablyai/orca',
+          event_name: 'pull_request',
+          event: { pull_request: { draft } }
+        }
       })
 
     expect(runsFor(false)).toBe(true)

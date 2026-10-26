@@ -67,7 +67,7 @@ on:
 jobs:
   build:
     name: build e2e app
-    if: inputs.test_files == '' || github.event_name != 'pull_request' || inputs.needs_build
+    if: github.repository == 'stablyai/orca' && (inputs.test_files == '' || github.event_name != 'pull_request' || inputs.needs_build)
     runs-on: blacksmith-8vcpu-ubuntu-2404
     timeout-minutes: 15
     outputs:
@@ -211,7 +211,7 @@ jobs:
   e2e:
     name: e2e ${{ matrix.shard_name }}
     needs: [build]
-    if: inputs.test_files == ''
+    if: github.repository == 'stablyai/orca' && (inputs.test_files == '')
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 30
     strategy:
@@ -327,7 +327,7 @@ jobs:
   changed-e2e:
     name: changed e2e specs (${{ matrix.shard }})
     needs: [build]
-    if: inputs.test_files != '' && (github.event_name != 'pull_request' || inputs.run_changed_e2e)
+    if: github.repository == 'stablyai/orca' && (inputs.test_files != '' && (github.event_name != 'pull_request' || inputs.run_changed_e2e))
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 45
     strategy:
@@ -451,7 +451,7 @@ jobs:
 
   ssh-browser-network-route:
     name: ssh browser network route
-    if: inputs.test_files == '' || contains(inputs.test_files, 'tests/e2e/ssh-browser-network-execution-route.docker.unit.test.ts')
+    if: github.repository == 'stablyai/orca' && (inputs.test_files == '' || contains(inputs.test_files, 'tests/e2e/ssh-browser-network-execution-route.docker.unit.test.ts'))
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
     steps:
@@ -473,9 +473,11 @@ jobs:
     name: orca serve Electron/orcad mode switch (D7)
     needs: [build]
     if: >-
+      github.repository == 'stablyai/orca' && (
       inputs.test_files == '' ||
       contains(inputs.test_files, 'tests/e2e/orcad-serve-mode-switch.spec.ts') ||
       contains(inputs.test_files, 'tests/e2e/workspace-layout-oracle-headless.spec.ts')
+      )
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 45
     env:
@@ -575,7 +577,7 @@ jobs:
   orcad-ssh-docker:
     name: ssh on managed orcad (Docker ${{ matrix.shard }})
     needs: [build]
-    if: inputs.test_files == '' || contains(inputs.test_files, 'tests/e2e/ssh-orcad-')
+    if: github.repository == 'stablyai/orca' && (inputs.test_files == '' || contains(inputs.test_files, 'tests/e2e/ssh-orcad-'))
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 60
     strategy:
@@ -677,7 +679,7 @@ jobs:
   # missing-AppData startup check and the explorer file-copy check, which need the same Windows e2e build.
   orcad-serve-mode-switch-windows:
     name: orca serve on Windows (D7 mode switch, missing AppData)
-    if: inputs.test_files == '' || contains(inputs.test_files, 'tests/e2e/orcad-serve-mode-switch.spec.ts') || contains(inputs.test_files, 'tests/e2e/windows-missing-appdata-startup.spec.ts') || contains(inputs.test_files, 'tests/e2e/file-explorer-copy-file-windows.spec.ts')
+    if: github.repository == 'stablyai/orca' && (inputs.test_files == '' || contains(inputs.test_files, 'tests/e2e/orcad-serve-mode-switch.spec.ts') || contains(inputs.test_files, 'tests/e2e/windows-missing-appdata-startup.spec.ts') || contains(inputs.test_files, 'tests/e2e/file-explorer-copy-file-windows.spec.ts'))
     runs-on: windows-2022
     timeout-minutes: 45
     env:

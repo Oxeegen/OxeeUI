@@ -4,6 +4,9 @@ import { setImmediate } from 'node:timers/promises'
 import { describe, expect, it } from 'vitest'
 import { parse } from 'yaml'
 
+// Why toContain for job `if`s: this fork prefixes every job `if` with a repository
+// guard, so exact matches would assert the guard away. Step conditions stay exact.
+
 const builderRequire = createRequire(createRequire(import.meta.url).resolve('electron-builder'))
 const require = createRequire(builderRequire.resolve('app-builder-lib'))
 // Initialize the package root before submodules to preserve its CJS dependency order.
@@ -129,7 +132,7 @@ describe('macOS build workflow policy', () => {
         "release-mac-build-${{ inputs.tag }}${{ inputs.qualification_only && '-qualification' || '' }}",
       'cancel-in-progress': false
     })
-    expect(source.jobs['qualification-template'].if).toBe('inputs.qualification_only')
+    expect(source.jobs['qualification-template'].if).toContain('inputs.qualification_only')
     expect(source.jobs['qualification-template'].with).toEqual({
       ref: '${{ github.sha }}'
     })

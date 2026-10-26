@@ -89,7 +89,7 @@ concurrency:
 
 jobs:
   mobile_web_bundle:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft != true
+    if: github.repository == 'stablyai/orca' && (github.event_name != 'pull_request' || github.event.pull_request.draft != true)
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
     steps:
@@ -109,8 +109,10 @@ jobs:
   hosts:
     needs: mobile_web_bundle
     if: >-
-      ${{ !cancelled() && needs.mobile_web_bundle.result == 'success' &&
-      (github.event_name != 'pull_request' || github.event.pull_request.draft != true) }}
+      ${{ github.repository == 'stablyai/orca' && (
+       !cancelled() && needs.mobile_web_bundle.result == 'success' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.draft != true) 
+      ) }}
     strategy:
       fail-fast: false
       matrix:

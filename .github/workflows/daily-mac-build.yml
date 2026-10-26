@@ -48,6 +48,7 @@ jobs:
 
   # As release-cut does: every SSH host runs orcad, deployed from the template this build ships.
   orcad-template:
+    if: github.repository == 'stablyai/orca'
     needs: resolve-main
     permissions:
       contents: read
@@ -426,7 +427,7 @@ jobs:
   # Dispatch E2E separately so main’s red full suite cannot fail an already-published daily. Use main’s workflow plus exact built SHA because daily tags live in another repo.
   post-daily-e2e:
     needs: build-daily-mac
-    if: ${{ needs.build-daily-mac.outputs.published == 'true' && needs.build-daily-mac.outputs.head_sha != '' }}
+    if: ${{ github.repository == 'stablyai/orca' && (needs.build-daily-mac.outputs.published == 'true' && needs.build-daily-mac.outputs.head_sha != '') }}
     runs-on: blacksmith-2vcpu-ubuntu-2404
     permissions:
       actions: write
@@ -452,7 +453,7 @@ jobs:
   build-daily-win:
     needs: build-daily-mac
     # Start Windows publication only after the mac release is live; its workflow refuses to create a missing release.
-    if: needs.build-daily-mac.outputs.published == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.build-daily-mac.outputs.published == 'true')
     permissions:
       contents: read
       actions: read
