@@ -69,7 +69,11 @@ jobs:
               dist/*.exe
               dist/*.blockmap
               dist/latest.yml
-          - os: ubuntu-latest
+          # Why pinned and not ubuntu-latest: native modules compile against the
+          # runner's glibc, and packaging refuses binaries that need a newer glibc
+          # than the supported Linux floor. ubuntu-latest moved to 26.04 (glibc
+          # 2.42) between two releases and the Linux package stopped building.
+          - os: ubuntu-24.04
             platform: linux
             script: build:linux:brand
             artifacts: |
