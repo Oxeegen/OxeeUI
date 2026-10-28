@@ -10,6 +10,7 @@ import {
 } from './structured-agent-session-gate'
 import {
   HandoffStatusParams,
+  ContinuationContextParams,
   ModelCatalogParams,
   OptionsParams
 } from './structured-agent-session-schemas'
@@ -21,6 +22,13 @@ import { structuredAgentSessionOptionModels } from '../../../native-chat/agent-s
 import { finishedListingIds } from '../../../../shared/structured-agent-session-options'
 
 export const STRUCTURED_AGENT_SESSION_OPTIONS_READ_METHODS = [
+  defineMethod({
+    name: 'agentSession.continuationContext',
+    permission: 'workspace',
+    params: ContinuationContextParams,
+    handler: async (params, ctx) =>
+      (await requireInstalledStructuredHost(ctx, params.sessionId)).continuationContext(params)
+  }),
   defineMethod({
     name: 'agentSession.handoffStatus',
     permission: 'workspace',
@@ -64,7 +72,7 @@ export const STRUCTURED_AGENT_SESSION_OPTIONS_READ_METHODS = [
           ? requireStructuredHost(ctx)
           : await requireInstalledStructuredHost(ctx, params.sessionId)
       const record =
-        params.sessionId === undefined ? null : host.deps.store.getRecord(params.sessionId)
+        params.sessionId === undefined ? null : host.deps.store.getConversation(params.sessionId)
       const coherent =
         ctx.clientKind === undefined ||
         ctx.clientCapabilities?.includes(AGENT_SESSION_COHERENT_MODEL_CATALOG_CAPABILITY) === true

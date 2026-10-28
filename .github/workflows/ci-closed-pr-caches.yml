@@ -11,7 +11,7 @@ permissions:
 jobs:
   clean:
     if: github.repository == 'stablyai/orca'
-    runs-on: blacksmith-2vcpu-ubuntu-2204
+    runs-on: ubuntu-22.04
     timeout-minutes: 5
     steps:
       - name: Cancel obsolete PR checks
@@ -29,6 +29,7 @@ jobs:
               ['ssh-hostile-hosts', 'ssh-hostile-hosts.yml'],
               ['mobile', 'mobile.yml'],
               ['computer-e2e', 'computer-e2e.yml'],
+              ['computer-macos-native', 'computer-macos-native.yml'],
               ['wsl-orcad-e2e', 'wsl-orcad-e2e.yml'],
               ['performance-contracts', 'performance-contracts.yml'],
               ['pr-test-loc', 'pr-test-loc.yml'],

@@ -60,6 +60,33 @@ export const LATEST_RELEASE_DOWNLOAD_URL = `https://github.com/${MAIN_RELEASE_RE
  */
 export const MAIN_RELEASE_TAG_PREFIX = 'oxeeui-v'
 
+// Why these live here rather than in the updater modules: upstream's updater tests
+// mock those modules wholesale, and the release feed module sits at its line cap.
+const MAIN_RELEASE_REPO_PATTERN = MAIN_RELEASE_REPO.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/** Links to this product's release pages in GitHub's releases Atom feed. */
+export const MAIN_RELEASE_TAG_HREF_RE = new RegExp(
+  `href="https://github\\.com/${MAIN_RELEASE_REPO_PATTERN}/releases/tag/([^"]+)"`,
+  'g'
+)
+
+/** Where GitHub's /releases/latest redirect lands for this product's Latest release. */
+export const MAIN_RELEASE_LATEST_TAG_PATH_RE = new RegExp(
+  `^/${MAIN_RELEASE_REPO_PATTERN}/releases/tag/([^/]+)$`
+)
+
+/**
+ * This repo also carries the tags it was forked from, and GitHub lists a tag with
+ * no release in the Atom feed just like a real one. Those entries have no manifest
+ * and outrank this product's versions, so a check that considered them stalled on
+ * "not ready". A feed with none of our own tags is returned unchanged, which is what
+ * upstream's own suites exercise.
+ */
+export function selectOwnReleaseTags<T extends { tag: string }>(tags: T[]): T[] {
+  const own = tags.filter(({ tag }) => tag.startsWith(MAIN_RELEASE_TAG_PREFIX))
+  return own.length > 0 ? own : tags
+}
+
 /** The dev channels, each published to its own repo rather than the main one. */
 const DEDICATED_REPO_CHANNELS = ['hourly', 'daily', 'adhoc'] as const
 

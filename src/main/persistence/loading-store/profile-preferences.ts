@@ -8,7 +8,7 @@ import {
   nativeChatUpgradeTipVariant,
   parseNativeChatUpgradeTipAudience,
   type NativeChatUpgradeTipVariant
-} from '../../../shared/native-chat-upgrade-tip-audience'
+} from '../../../shared/native-chat/native-chat-upgrade-tip-audience'
 import {
   updateSettings as updateSettingsOperation,
   type SettingsMutationOperations
@@ -220,7 +220,12 @@ export function notifyUIChanged(owner: ProfilePreferences): void {
   }
   const ui = owner.getUI()
   for (const listener of owner[profilePreferencesContext].runtime.uiChangeListeners) {
-    listener(ui)
+    // State is already applied; a broadcast failure must not fail the update (e.g. the shutdown checkpoint).
+    try {
+      listener(ui)
+    } catch (error) {
+      console.error('[preferences] UI change listener failed:', error)
+    }
   }
 }
 

@@ -90,7 +90,7 @@ function createCodexAdapter(context: StructuredAgentAdapterContext): StructuredA
     logger: deps.logger,
     onEvent: (event) => {
       // Every exit, expected or not: the host ends that child's record.
-      if (event.type === 'ended' && 'cause' in event) {
+      if (event.type === 'options-reported' || (event.type === 'ended' && 'cause' in event)) {
         context.deliverLifecycle(event)
       }
     }
@@ -102,9 +102,11 @@ function createClaudeAdapter(
 ): StructuredAgentRuntimeAdapter {
   const { deps, store, followUps, host } = context
   const overlay = claudeLaunchEnvOverlay(deps).resolveEnv
+  const resolveAccountHome = deps.resolveAgentAccountHome
   return createStructuredClaudeRuntimeAdapter({
     store,
     resolveWorkspacePath: deps.resolveWorkspacePath,
+    ...(resolveAccountHome ? { resolveAccountHome: () => resolveAccountHome('claude') } : {}),
     resolveLaunch: composeStructuredLaunch(
       CLAUDE_STRUCTURED_AGENT,
       structuredAgentLaunchSources(context),

@@ -41,7 +41,7 @@ function serveFeed(tags: readonly string[]): void {
     if (url === `${RELEASES_BASE}/releases.atom`) {
       return Promise.resolve({ ok: true, text: () => Promise.resolve(atomFeed(tags)) })
     }
-    const manifest = url.match(/\/releases\/download\/v([^/]+)\/latest(?:-[a-z]+)?\.yml$/)
+    const manifest = url.match(/\/releases\/download\/v([^/]+)\/latest(?:-[a-z0-9-]+)?\.yml$/)
     if (manifest) {
       const version = manifest[1]
       return Promise.resolve({

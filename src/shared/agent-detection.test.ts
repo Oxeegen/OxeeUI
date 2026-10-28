@@ -95,6 +95,19 @@ describe('MiMo title detection', () => {
   )
 })
 
+describe('permission keywords in agent titles', () => {
+  it.each([
+    ['Antigravity - fix permission bug', 'idle'],
+    ['agy waiting for CI', 'idle'],
+    ['codex permission-check', 'idle'],
+    ['claude awaiting', 'idle'],
+    ['agy | claude - action required', 'permission'],
+    ['Codex - waiting for approval', 'permission']
+  ])('classifies %j as %s', (title, status) => {
+    expect(detectAgentStatusFromTitle(title)).toBe(status)
+  })
+})
+
 describe('OpenCode native title detection', () => {
   // OC | names no agent token; native OpenCode titles need separate runtime corroboration.
   it.each(['OC | Implement the Kitty IME preview', 'tmux | OC | Implement the Kitty IME preview'])(
@@ -149,7 +162,10 @@ describe('Pi-compatible title detection', () => {
     ['Pi ready', 'Pi', 'idle'],
     // Old stored titles collapsed to Pi; re-detection must still classify idle.
     ['Pi', 'Pi', 'idle'],
-    ['Pi - action required', 'Pi', 'permission']
+    ['Pi - action required', 'Pi', 'permission'],
+    // Owner-rebranded session titles must not fall through to Claude's braille heuristic.
+    ['\u280b OMP - fixing the sidebar - orca', 'OMP', 'working'],
+    ['OMP - fixing the sidebar - orca', 'OMP', 'idle']
   ] as const)('classifies synthesized %s', (title, expectedLabel, expectedStatus) => {
     expect(getAgentLabel(title)).toBe(expectedLabel)
     expect(detectAgentStatusFromTitle(title)).toBe(expectedStatus)

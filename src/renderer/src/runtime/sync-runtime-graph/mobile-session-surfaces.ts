@@ -4,7 +4,7 @@ import { isClaudeManagementTitle } from '../../../../shared/agent-detection'
 import { isTerminalLeafId, makePaneKey } from '../../../../shared/stable-pane-id'
 import { isWebTerminalSurfaceTabId } from '../../../../shared/terminal-surface-id'
 import type { Tab } from '../../../../shared/tab-types'
-import { isRemoteRuntimePtyId } from '../../../../shared/remote-runtime-pty-id'
+import { isRemoteRuntimePtyId } from '../../../../shared/remote-runtime/remote-runtime-pty-id'
 import {
   isNativeChatTabWideFallbackSafe,
   nativeChatLaunchAgentForLeaf,
@@ -80,6 +80,10 @@ export function isMobileFileDiffSource(
 export function isMobilePublishableOpenFile(file: AppState['openFiles'][number]): boolean {
   // A tab mirrored from a paired host is that host's; republishing it echoes it back to the host.
   if (file.mirroredFromRuntimeSession === true) {
+    return false
+  }
+  // Virtual review/check views use display labels as paths, not readable files.
+  if (file.mode !== 'edit' && file.mode !== 'diff' && file.mode !== 'markdown-preview') {
     return false
   }
   // Combined diff tabs use display labels as paths and need the desktop renderer.

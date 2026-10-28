@@ -1,5 +1,6 @@
 import { Notification } from 'electron'
 import { BRAND } from '@brand/config/brand'
+import { translateMain } from '../i18n/main-i18n'
 import type { NotificationDeliveryProbeResult } from '../../shared/notification-settings-types'
 import { activeNotifications } from './native-notification-lifecycle'
 
@@ -38,9 +39,13 @@ export function probeNotificationDelivery(): Promise<NotificationDeliveryProbeRe
   permissionDialogTriggeredThisSession = true
 
   const probe = new Notification({
-    // Why BRAND: a literal never passes through the i18n rebrand.
-    title: `${BRAND.productName} notifications are on`,
-    body: `${BRAND.productName} will alert you when agents finish or terminals need attention.`,
+    // Why BRAND in the fallbacks: the probe can fire before i18n starts, and the
+    // English fallback never passes the rebrand post-processor.
+    title: translateMain('notifications.test.title', `${BRAND.productName} notifications are on`),
+    body: translateMain(
+      'notifications.permissionProbe.body',
+      `${BRAND.productName} will alert you when agents finish or terminals need attention.`
+    ),
     silent: true
   })
   activeNotifications.add(probe)

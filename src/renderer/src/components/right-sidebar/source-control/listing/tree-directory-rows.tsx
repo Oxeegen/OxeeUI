@@ -3,7 +3,7 @@ import { ChevronDown, Minus, Plus, Trash, Undo2 } from 'lucide-react'
 import { BrandFolderIcon } from '@brand/file-icons/material-file-icons'
 import { cn } from '@/lib/utils'
 import { translate } from '@/i18n/i18n'
-import type { DiscardAllArea } from '../commit/discard-all-sequence'
+import type { DiscardAllArea } from '../../../../../../shared/source-control-discard-all-sequence'
 import type {
   BranchSourceControlTreeDirectoryNode,
   SourceControlDirectoryActionPaths,

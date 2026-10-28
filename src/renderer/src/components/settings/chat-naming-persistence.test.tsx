@@ -18,7 +18,7 @@ import {
   persist,
   settingsModel,
   type SettingsPersistenceModel
-} from './settings-persistence-test-fixture'
+} from './__fixtures__/settings-persistence-test-fixture'
 import { ActiveSettingsSectionProvider } from './SettingsSection'
 import { TooltipProvider } from '../ui/tooltip'
 
@@ -59,7 +59,7 @@ it('keeps the Chat draft and guard after actual persistence fails, then saves it
   persist.mockRejectedValueOnce(new Error('Settings disk is unavailable'))
   render(<ChatPersistenceHarness model={model} />)
   const template = screen.getByText('Command template').nextElementSibling
-  const args = screen.getByText('CLI arguments').nextElementSibling
+  const args = screen.getByText('Arguments').nextElementSibling
   if (!(template instanceof HTMLTextAreaElement) || !(args instanceof HTMLInputElement)) {
     throw new Error('Chat recipe controls are missing')
   }

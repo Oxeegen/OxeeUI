@@ -1,3 +1,6 @@
+import { agentSessionRecordFixture } from '../../../native-chat/agent-session-record-test-fixture'
+import type { AgentSessionExecutionLocation } from '../../../../shared/agent-session-record'
+import { LOCAL_EXECUTION_HOST_ID, toSshExecutionHostId } from '../../../../shared/execution-host'
 import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AgentJournalSubmission } from '../../../../shared/agent-session-journal-types'
@@ -24,24 +27,26 @@ const { isUnknownWorkerStartOutcome } = await import('./orchestration/worker/wor
 const { structuredWorkerIdentities } = await import('../../structured-worker-identity')
 const { sealedChildEnv } = await import('../../structured-session-child-env.test-support')
 
-// oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: a host stub carrying only the members the worker start reaches.
-function installHost(location = { executionHostId: 'local', wslDistro: null as string | null }) {
+function installHost(
+  location: Pick<AgentSessionExecutionLocation, 'executionHostId' | 'wslDistro'> = {
+    executionHostId: LOCAL_EXECUTION_HOST_ID,
+    wslDistro: null
+  }
+) {
   const dispose = vi.fn()
-  const subscribe = vi.fn(async () => dispose)
+  const observeJournalPublications = vi.fn(() => dispose)
   hostRef.current = {
     setSessionTabVisibility: async () => {},
     close: async () => {},
     deps: {
       store: {
-        getRecord: () => ({
-          location,
-          lease: { runtimeFence: 2, runtimeKind: 'native', claimStatus: 'live' }
-        })
+        requireWritableRecord: (sessionId: string) =>
+          agentSessionRecordFixture({ sessionId, location })
       }
     },
-    subscribe
+    observeJournalPublications
   }
-  return { subscribe, dispose }
+  return { observeJournalPublications, dispose }
 }
 
 describe('structured worker session', () => {
@@ -54,8 +59,8 @@ describe('structured worker session', () => {
     }))
   })
 
-  it('binds only a redrive subscription at start, and settlement drops it', async () => {
-    const { subscribe, dispose } = installHost()
+  it('binds only a journal observer at start, and settlement drops it', async () => {
+    const { observeJournalPublications, dispose } = installHost()
     const created = await createStructuredWorkerSession({
       runtime: { ensureStructuredAgentSessionHost: async () => {} } as never,
       worktreeId: 'wt_1',
@@ -65,8 +70,9 @@ describe('structured worker session', () => {
     })
     // No hold: while the dispatch is open the idle sweep reads it from the orchestration database.
     expect(hostRef.current).not.toHaveProperty('hold')
-    expect(subscribe).toHaveBeenCalledWith(
-      expect.objectContaining({ sessionId: created.identity.sessionId })
+    expect(observeJournalPublications).toHaveBeenCalledWith(
+      created.identity.sessionId,
+      expect.any(Function)
     )
     expect(dispose).not.toHaveBeenCalled()
 
@@ -210,12 +216,7 @@ describe('structured worker session', () => {
   })
 
   it('refuses a session pinned to a non-local execution host', async () => {
-    installHost()
-    ;(hostRef.current as { deps: { store: { getRecord: () => unknown } } }).deps.store.getRecord =
-      () => ({
-        location: { executionHostId: 'ssh-1', wslDistro: null },
-        lease: { runtimeFence: 2, runtimeKind: 'native', claimStatus: 'live' }
-      })
+    installHost({ executionHostId: toSshExecutionHostId('ssh-1'), wslDistro: null })
     await expect(
       createStructuredWorkerSession({
         runtime: { ensureStructuredAgentSessionHost: async () => {} } as never,
@@ -246,7 +247,19 @@ describe('structured worker dispatch preamble', () => {
 
   function hostWithSubmission(submission: Settled, delivered?: Settled): PreambleHost {
     return {
-      deps: { store: { getRecord: () => ({ lease: { runtimeFence: 7 } }) } },
+      deps: {
+        store: {
+          selectWritableRecord: (sessionId) => ({
+            kind: 'writable',
+            record: agentSessionRecordFixture({ sessionId })
+          }),
+          requireWritableRecord: (sessionId) =>
+            agentSessionRecordFixture({
+              sessionId,
+              lease: { ...agentSessionRecordFixture({ sessionId }).lease, runtimeFence: 7 }
+            })
+        }
+      },
       send: async () => ({
         ok: true,
         replayed: false,

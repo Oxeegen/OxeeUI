@@ -1,3 +1,5 @@
+import { retireStructuredAgentSessionReadOwner } from '@/components/native-chat/structured-agent-session-read-owner-registry'
+import { structuredAgentSessionTargetForHost } from '@/runtime/structured-agent-session-owner'
 import { useSyncExternalStore } from 'react'
 import type { TuiAgent } from '../../../../../shared/tui-agent'
 import type { StructuredLaunchFailure } from '../../structured-agent-session-launch-failure'
@@ -82,10 +84,12 @@ export function subscribeStructuredAgentLaunchStatus(listener: () => void): () =
 export function structuredLaunchIdentity(
   worktreeId: string,
   agent: TuiAgent,
-  resumeFrom?: StructuredAgentSessionResumeSource
+  scope: { resumeFrom?: StructuredAgentSessionResumeSource; executionHostId?: string } = {}
 ): string {
+  const { resumeFrom, executionHostId = LOCAL_EXECUTION_HOST_ID } = scope
+  // A conversation id names a transcript on one host; never join a resume running on another.
   return resumeFrom
-    ? `${agent}:${worktreeId}:resume:${resumeFrom.providerSessionId}`
+    ? `${agent}:${worktreeId}:resume:${executionHostId}:${resumeFrom.providerSessionId}`
     : `${agent}:${worktreeId}`
 }
 
@@ -146,13 +150,6 @@ export function launchStateLifecycle(
   return state.callers.outcome === 'failed' ? 'failed' : 'pending'
 }
 
-function matchesLaunchWorktree(
-  state: StructuredLaunchState | undefined,
-  worktreeId: string
-): boolean {
-  return state?.intent.worktreeId === worktreeId
-}
-
 export function getStructuredAgentSessionLaunchLifecycle(
   worktreeId: string,
   sessionId: string
@@ -161,7 +158,7 @@ export function getStructuredAgentSessionLaunchLifecycle(
     return 'cancelled'
   }
   const state = getStructuredLaunchStateBySessionId(sessionId)
-  if (state && matchesLaunchWorktree(state, worktreeId)) {
+  if (state?.intent.worktreeId === worktreeId) {
     return launchStateLifecycle(state)
   }
   return getPersistedStructuredAgentLaunchRecord(sessionId)?.lifecycle ?? null
@@ -191,9 +188,7 @@ export function getStructuredAgentSessionLaunchFailure(
   sessionId: string
 ): StructuredLaunchFailure | null {
   const state = getStructuredLaunchStateBySessionId(sessionId)
-  return state &&
-    matchesLaunchWorktree(state, worktreeId) &&
-    launchStateLifecycle(state) === 'failed'
+  return state && state.intent.worktreeId === worktreeId && launchStateLifecycle(state) === 'failed'
     ? (state.failure ?? null)
     : null
 }
@@ -236,10 +231,12 @@ function markStructuredAgentSessionLaunchCancelledInternal(
 ): boolean {
   const alreadyCancelled = hasStructuredAgentLaunchCancellationTombstonePersisted(sessionId)
   const state = getStructuredLaunchStateBySessionId(sessionId)
-  const surfaceAddress =
-    state?.intent.surfaceAddress ??
-    getPersistedStructuredAgentLaunchRecord(sessionId)?.surfaceAddress
-  if (matchesLaunchWorktree(state, worktreeId) && state) {
+  const record = getPersistedStructuredAgentLaunchRecord(sessionId)
+  const surfaceAddress = state?.intent.surfaceAddress ?? record?.surfaceAddress
+  const matchingState = state?.intent.worktreeId === worktreeId ? state : undefined
+  const host = matchingState?.intent.executionHostId ?? record?.executionHostId ?? executionHostId
+  const target = matchingState?.intent.target ?? structuredAgentSessionTargetForHost(host)
+  if (state?.intent.worktreeId === worktreeId) {
     // The launch's own owner outranks the caller's: it is the host the create was sent to.
     if (ORCA_LAYOUT_OWNER_IS_MAIN && state.intent.executionHostId === LOCAL_EXECUTION_HOST_ID) {
       cancelStructuredAgentLaunchOnLocalHost(worktreeId, sessionId)
@@ -263,6 +260,9 @@ function markStructuredAgentSessionLaunchCancelledInternal(
     cancelStructuredAgentLaunchOnLocalHost(worktreeId, sessionId)
   } else if (!alreadyCancelled) {
     markStructuredAgentLaunchCancellation(sessionId, executionHostId, alreadyCancelled)
+  }
+  if ((!state || matchingState) && (!surfaceAddress || surfaceAddress.worktreeId === worktreeId)) {
+    retireStructuredAgentSessionReadOwner(sessionId, target, host)
   }
   if (owner && surfaceAddress) {
     removeStructuredLaunchSlot(owner, worktreeId, sessionId)

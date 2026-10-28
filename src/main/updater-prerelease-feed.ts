@@ -1,7 +1,17 @@
 import { net } from 'electron'
 import { parse } from 'yaml'
 import { compareVersions, isPrereleaseVersion, isValidVersion } from './updater-fallback'
-import { MAIN_RELEASE_REPO, MAIN_RELEASE_TAG_PREFIX } from '../shared/release-channel'
+import {
+  MAIN_RELEASE_LATEST_TAG_PATH_RE,
+  MAIN_RELEASE_REPO,
+  MAIN_RELEASE_TAG_HREF_RE,
+  normalizeTagToVersion,
+  selectOwnReleaseTags
+} from '../shared/release-channel'
+
+// Why re-exported: callers and tests import it from this module; the brand-aware
+// version (it reads this product's `oxeeui-v` tags) lives with the release helpers.
+export { normalizeTagToVersion }
 
 // Why derived rather than literal: this probe path activates whenever the running
 // version is a prerelease, so a fork shipping an RC would silently pull upstream
@@ -10,14 +20,6 @@ const ATOM_FEED_URL = `https://github.com/${MAIN_RELEASE_REPO}/releases.atom`
 const RELEASES_DOWNLOAD_BASE = `https://github.com/${MAIN_RELEASE_REPO}/releases/download`
 const FETCH_TIMEOUT_MS = 5000
 const MAX_MANIFEST_PROBE_CANDIDATES = 6
-
-// Atom includes stable and prerelease tags without channel filtering.
-// Why derived rather than upstream's literal: the feed is this product's own
-// releases, and a literal repo here would match none of their tags.
-const TAG_HREF_RE = new RegExp(
-  `href="https://github\\.com/${MAIN_RELEASE_REPO.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/releases/tag/([^"]+)"`,
-  'g'
-)
 
 export function getReleaseDownloadUrl(tag: string): string {
   return `${RELEASES_DOWNLOAD_BASE}/${encodeURIComponent(tag)}`
@@ -28,7 +30,8 @@ function getPlatformManifestName(): string {
     return 'latest-mac.yml'
   }
   if (process.platform === 'linux') {
-    return 'latest-linux.yml'
+    // Match electron-updater getChannelFilePrefix(): non-x64 Linux appends -${arch}.
+    return process.arch === 'x64' ? 'latest-linux.yml' : `latest-linux-${process.arch}.yml`
   }
   return 'latest.yml'
 }
@@ -39,13 +42,6 @@ function getReleaseManifestUrl(tag: string): string {
 
 function getReleaseAssetUrl(tag: string, assetName: string): string {
   return `${getReleaseDownloadUrl(tag)}/${encodeURIComponent(assetName)}`
-}
-
-export function normalizeTagToVersion(tag: string): string {
-  const withoutBrandPrefix = tag.startsWith(MAIN_RELEASE_TAG_PREFIX)
-    ? tag.slice(MAIN_RELEASE_TAG_PREFIX.length)
-    : tag
-  return withoutBrandPrefix.replace(/^v/i, '')
 }
 
 type ReleaseFeedTag = {
@@ -74,7 +70,9 @@ async function fetchReleaseFeedTags(): Promise<ReleaseFeedTag[] | null> {
     const body = await res.text()
     const tags: ReleaseFeedTag[] = []
 
-    for (const match of body.matchAll(TAG_HREF_RE)) {
+    // Atom lists stable and prerelease tags unfiltered. Why the brand-derived pattern:
+    // the feed is this product's own releases, and upstream's literal matched none.
+    for (const match of body.matchAll(MAIN_RELEASE_TAG_HREF_RE)) {
       const tag = match[1]
       const version = normalizeTagToVersion(tag)
       if (isValidVersion(version)) {
@@ -82,14 +80,8 @@ async function fetchReleaseFeedTags(): Promise<ReleaseFeedTag[] | null> {
       }
     }
 
-    // Why: this repo also carries the tags it was forked from, and GitHub lists
-    // a tag with no release in the atom feed just like a real one. Those entries
-    // have no manifest and no assets, and they outrank this product's own
-    // versions, so a check that considered them stalled on "not ready" forever.
-    // Falling back to every tag keeps behaviour unchanged for a feed that has
-    // none of our own — which is what upstream's own suites exercise.
-    const ownTags = tags.filter(({ tag }) => tag.startsWith(MAIN_RELEASE_TAG_PREFIX))
-    const feedTags = ownTags.length > 0 ? ownTags : tags
+    // Why: this repo also lists the tags it was forked from; see selectOwnReleaseTags.
+    const feedTags = selectOwnReleaseTags(tags)
     feedTags.sort((left, right) => compareVersions(right.version, left.version))
     return feedTags
   } catch {
@@ -123,17 +115,19 @@ function getManifestAssetNames(manifestText: string): string[] {
 
 type ReleaseReadiness = 'ready' | 'not-ready' | 'unavailable'
 
-function getGitHubReleaseAssetReadiness(assetUrl: string): Promise<ReleaseReadiness> {
+type ReleaseHeadResponse = { statusCode: number; redirectUrl?: string }
+
+function requestGitHubReleaseHead(assetUrl: string): Promise<ReleaseHeadResponse | null> {
   return new Promise((resolve) => {
     const request = net.request({ method: 'HEAD', url: assetUrl, redirect: 'manual' })
     let settled = false
-    const settle = (readiness: ReleaseReadiness): void => {
+    const settle = (response: ReleaseHeadResponse | null): void => {
       if (settled) {
         return
       }
       settled = true
       clearTimeout(timeout)
-      resolve(readiness)
+      resolve(response)
     }
     const timeout = setTimeout(() => {
       try {
@@ -141,29 +135,33 @@ function getGitHubReleaseAssetReadiness(assetUrl: string): Promise<ReleaseReadin
       } catch {
         // The request may already have been cancelled by Electron.
       }
-      settle('unavailable')
+      settle(null)
     }, FETCH_TIMEOUT_MS)
 
-    request.on('redirect', (statusCode) => {
+    request.on('redirect', (statusCode, _method, redirectUrl) => {
       // GitHub's redirect proves existence without fetching the signed storage URL.
-      settle(statusCode >= 300 && statusCode < 400 ? 'ready' : 'unavailable')
+      settle({ statusCode, redirectUrl })
     })
-    request.on('response', (response) => {
-      settle(
-        response.statusCode === 404
-          ? 'not-ready'
-          : response.statusCode >= 200 && response.statusCode < 300
-            ? 'ready'
-            : 'unavailable'
-      )
-    })
-    request.on('error', () => settle('unavailable'))
+    request.on('response', (response) => settle({ statusCode: response.statusCode }))
+    request.on('error', () => settle(null))
     try {
       request.end()
     } catch {
-      settle('unavailable')
+      settle(null)
     }
   })
+}
+
+async function getGitHubReleaseAssetReadiness(assetUrl: string): Promise<ReleaseReadiness> {
+  const response = await requestGitHubReleaseHead(assetUrl)
+  if (!response) {
+    return 'unavailable'
+  }
+  const ready =
+    response.redirectUrl !== undefined
+      ? response.statusCode >= 300 && response.statusCode < 400
+      : response.statusCode >= 200 && response.statusCode < 300
+  return response.statusCode === 404 ? 'not-ready' : ready ? 'ready' : 'unavailable'
 }
 
 async function getReleaseAssetReadiness(tag: string, assetName: string): Promise<ReleaseReadiness> {
@@ -226,6 +224,32 @@ async function getPlatformManifestReadiness(tag: string): Promise<ReleaseReadine
         : 'ready'
   } catch {
     return 'unavailable'
+  }
+}
+
+export async function fetchLatestStableReleaseTag(): Promise<string | null> {
+  try {
+    // Resolve only the release-page redirect; installer redirects continue on to signed storage URLs.
+    // Why derived: the stable fallback must resolve this product's own Latest release;
+    // upstream's literal pointed it at another product's tag, which this repo never has.
+    const latestUrl = `https://github.com/${MAIN_RELEASE_REPO}/releases/latest`
+    const response = await requestGitHubReleaseHead(latestUrl)
+    if (!response?.redirectUrl || response.statusCode < 300 || response.statusCode >= 400) {
+      return null
+    }
+    const target = new URL(response.redirectUrl, latestUrl)
+    const match = target.pathname.match(MAIN_RELEASE_LATEST_TAG_PATH_RE)
+    if (target.origin !== 'https://github.com' || !match) {
+      return null
+    }
+    const tag = decodeURIComponent(match[1])
+    const version = normalizeTagToVersion(tag)
+    if (!isValidVersion(version) || isPrereleaseVersion(version)) {
+      return null
+    }
+    return (await getPlatformManifestReadiness(tag)) === 'ready' ? tag : null
+  } catch {
+    return null
   }
 }
 
