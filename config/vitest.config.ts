@@ -11,6 +11,11 @@ import { nodeRuntimePool } from './scripts/vitest-node-runtime-pool'
 import { readRunFilters } from './scripts/vitest-run-filters.mjs'
 import { createWorkspaceSourceResolver } from './scripts/workspace-source-exports.mjs'
 
+// Why prepended here and not added to UNIT_INCLUDE: that list lives in
+// ci-unit-files.mjs, which upstream's CI sharding also reads, so keeping the
+// brand tests out of it leaves those scripts and their tests untouched.
+const unitInclude = ['brand/**/*.test.ts', ...UNIT_INCLUDE]
+
 const nodeRuntimeInclude = process.versions.bun
   ? getNodeRuntimeInclude({ filters: readRunFilters() })
   : []
@@ -71,6 +76,7 @@ const transforms = {
         ? [{ find: /^zod$/, replacement: process.env.ORCA_UNIT_ZOD_BUNDLE }]
         : []),
       ...createWorkspaceSourceResolver().aliases,
+      { find: '@brand', replacement: resolve('brand') },
       { find: '@renderer', replacement: resolve('src/renderer/src') },
       { find: '@', replacement: resolve('src/renderer/src') },
       { find: 'fs/promises', replacement: 'node:fs/promises' },
@@ -93,7 +99,7 @@ const testOptions = {
   // Node's storage globals and V8 retention checks require the existing child flags.
   execArgv: ['--no-experimental-webstorage', '--expose-gc'],
   setupFiles: UNIT_SETUP_FILES.map((file) => resolve(file)),
-  include: UNIT_INCLUDE,
+  include: unitInclude,
   exclude: balancedShards ? UNIT_EXCLUDE : defaultExclude,
   hookTimeout: 60_000,
   testTimeout: 30_000
@@ -105,7 +111,7 @@ const nodeProject = {
     ...testOptions,
     name: process.versions.bun ? 'node-runtime' : 'node',
     env: { ORCA_VITEST_RUNTIME: process.versions.bun ? 'node-runtime' : 'node' },
-    include: process.versions.bun ? nodeRuntimeInclude : UNIT_INCLUDE,
+    include: process.versions.bun ? nodeRuntimeInclude : unitInclude,
     exclude: [...testOptions.exclude, ...measurementFiles],
     sequence: { groupOrder: 1 },
     ...(process.versions.bun

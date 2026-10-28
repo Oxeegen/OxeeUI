@@ -26,6 +26,7 @@ permissions:
 
 jobs:
   ios-build:
+    if: github.repository == 'stablyai/orca'
     # Use macos-26/Xcode 26 for Expo SDK 55’s Swift 6 syntax/isolation; Xcode 16 runners cannot parse it.
     runs-on: macos-26
     # Archive + upload is ~30–40m when healthy; 90m leaves margin for setup.
@@ -144,6 +145,7 @@ jobs:
           if-no-files-found: ignore
 
   ios-distribute:
+    if: github.repository == 'stablyai/orca'
     name: Distribute to external TestFlight testers
     needs: ios-build
     runs-on: ubuntu-latest

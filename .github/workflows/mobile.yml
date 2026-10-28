@@ -103,7 +103,7 @@ permissions:
 jobs:
   verify:
     name: Mobile verify
-    if: github.event_name == 'pull_request' && github.event.pull_request.draft != true
+    if: github.repository == 'stablyai/orca' && (github.event_name == 'pull_request' && github.event.pull_request.draft != true)
     # Use ARM for pure Vitest; no x86 native toolchain is needed and Gemfile.lock’s ruby platform supports frozen install.
     runs-on: ubuntu-24.04-arm
 
@@ -267,7 +267,7 @@ jobs:
   # hashes project sources and dependency paths, never installed package contents.
   native-fingerprint:
     name: Mobile native fingerprint
-    if: github.event_name == 'pull_request' && github.event.pull_request.draft != true
+    if: github.repository == 'stablyai/orca' && (github.event_name == 'pull_request' && github.event.pull_request.draft != true)
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     continue-on-error: true
@@ -311,7 +311,7 @@ jobs:
     name: Mobile tests on main
     env:
       ORCA_MOBILE_TYPECHECK_COMPILER: 'bun'
-    if: github.event_name == 'push'
+    if: github.repository == 'stablyai/orca' && (github.event_name == 'push')
     # Why ARM: the same pure-Node Vitest run `verify` makes on a pull request.
     runs-on: ubuntu-24.04-arm
 

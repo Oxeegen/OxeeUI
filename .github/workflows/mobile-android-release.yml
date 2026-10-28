@@ -19,6 +19,7 @@ on:
 
 jobs:
   android-build:
+    if: github.repository == 'stablyai/orca'
     runs-on: ubuntu-latest
 
     # Grant contents:write for gh release create; build success alone does not authorize publication.
@@ -205,7 +206,7 @@ jobs:
   # Keep site bump advisory after publication; failure only leaves its download link on the prior APK.
   bump-apk-download:
     needs: android-build
-    if: needs.android-build.outputs.publish_release == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.android-build.outputs.publish_release == 'true')
     runs-on: ubuntu-latest
     continue-on-error: true
     permissions:

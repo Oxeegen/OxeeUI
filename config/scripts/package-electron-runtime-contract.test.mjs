@@ -1,8 +1,17 @@
 import { readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { runInNewContext } from 'node:vm'
+import { runInNewContext as runInNewContextRaw } from 'node:vm'
 import { describe, expect, it } from 'vitest'
 import { parse } from 'yaml'
+
+// Why: job `if`s carry this fork's repository guard, so conditions are evaluated
+// as they run in upstream's repository.
+const runInNewContext = (source, context = {}, ...rest) =>
+  runInNewContextRaw(
+    source,
+    { ...context, github: { repository: 'stablyai/orca', ...context.github } },
+    ...rest
+  )
 
 const projectDir = resolve(import.meta.dirname, '../..')
 const readProject = (file) => readFileSync(join(projectDir, file), 'utf8')

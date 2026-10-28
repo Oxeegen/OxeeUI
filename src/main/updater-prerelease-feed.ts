@@ -1,14 +1,25 @@
 import { net } from 'electron'
 import { parse } from 'yaml'
 import { compareVersions, isPrereleaseVersion, isValidVersion } from './updater-fallback'
+import {
+  MAIN_RELEASE_LATEST_TAG_PATH_RE,
+  MAIN_RELEASE_REPO,
+  MAIN_RELEASE_TAG_HREF_RE,
+  normalizeTagToVersion,
+  selectOwnReleaseTags
+} from '../shared/release-channel'
 
-const ATOM_FEED_URL = 'https://github.com/stablyai/orca/releases.atom'
-const RELEASES_DOWNLOAD_BASE = 'https://github.com/stablyai/orca/releases/download'
+// Why re-exported: callers and tests import it from this module; the brand-aware
+// version (it reads this product's `oxeeui-v` tags) lives with the release helpers.
+export { normalizeTagToVersion }
+
+// Why derived rather than literal: this probe path activates whenever the running
+// version is a prerelease, so a fork shipping an RC would silently pull upstream
+// artifacts and replace itself. MAIN_RELEASE_REPO tracks the brand publish target.
+const ATOM_FEED_URL = `https://github.com/${MAIN_RELEASE_REPO}/releases.atom`
+const RELEASES_DOWNLOAD_BASE = `https://github.com/${MAIN_RELEASE_REPO}/releases/download`
 const FETCH_TIMEOUT_MS = 5000
 const MAX_MANIFEST_PROBE_CANDIDATES = 6
-
-// Atom includes stable and prerelease tags without channel filtering.
-const TAG_HREF_RE = /href="https:\/\/github\.com\/stablyai\/orca\/releases\/tag\/([^"]+)"/g
 
 export function getReleaseDownloadUrl(tag: string): string {
   return `${RELEASES_DOWNLOAD_BASE}/${encodeURIComponent(tag)}`
@@ -31,10 +42,6 @@ function getReleaseManifestUrl(tag: string): string {
 
 function getReleaseAssetUrl(tag: string, assetName: string): string {
   return `${getReleaseDownloadUrl(tag)}/${encodeURIComponent(assetName)}`
-}
-
-export function normalizeTagToVersion(tag: string): string {
-  return tag.replace(/^v/i, '')
 }
 
 type ReleaseFeedTag = {
@@ -63,7 +70,9 @@ async function fetchReleaseFeedTags(): Promise<ReleaseFeedTag[] | null> {
     const body = await res.text()
     const tags: ReleaseFeedTag[] = []
 
-    for (const match of body.matchAll(TAG_HREF_RE)) {
+    // Atom lists stable and prerelease tags unfiltered. Why the brand-derived pattern:
+    // the feed is this product's own releases, and upstream's literal matched none.
+    for (const match of body.matchAll(MAIN_RELEASE_TAG_HREF_RE)) {
       const tag = match[1]
       const version = normalizeTagToVersion(tag)
       if (isValidVersion(version)) {
@@ -71,8 +80,10 @@ async function fetchReleaseFeedTags(): Promise<ReleaseFeedTag[] | null> {
       }
     }
 
-    tags.sort((left, right) => compareVersions(right.version, left.version))
-    return tags
+    // Why: this repo also lists the tags it was forked from; see selectOwnReleaseTags.
+    const feedTags = selectOwnReleaseTags(tags)
+    feedTags.sort((left, right) => compareVersions(right.version, left.version))
+    return feedTags
   } catch {
     return null
   }
@@ -158,7 +169,9 @@ async function getReleaseAssetReadiness(tag: string, assetName: string): Promise
   const isGitHubReleaseAsset =
     process.platform === 'win32' &&
     (isRelativeAsset ||
-      /^https:\/\/github\.com\/stablyai\/orca\/releases\/download\//i.test(assetName))
+      // Why derived: a literal here named upstream's repo, so an absolute asset URL
+      // on this product's own releases took the slower non-GitHub probe instead.
+      assetName.toLowerCase().startsWith(`${RELEASES_DOWNLOAD_BASE}/`.toLowerCase()))
   const assetUrl = isRelativeAsset
     ? getReleaseAssetUrl(tag, assetName.split('/').findLast(Boolean) ?? assetName)
     : assetName
@@ -217,13 +230,15 @@ async function getPlatformManifestReadiness(tag: string): Promise<ReleaseReadine
 export async function fetchLatestStableReleaseTag(): Promise<string | null> {
   try {
     // Resolve only the release-page redirect; installer redirects continue on to signed storage URLs.
-    const latestUrl = 'https://github.com/stablyai/orca/releases/latest'
+    // Why derived: the stable fallback must resolve this product's own Latest release;
+    // upstream's literal pointed it at another product's tag, which this repo never has.
+    const latestUrl = `https://github.com/${MAIN_RELEASE_REPO}/releases/latest`
     const response = await requestGitHubReleaseHead(latestUrl)
     if (!response?.redirectUrl || response.statusCode < 300 || response.statusCode >= 400) {
       return null
     }
     const target = new URL(response.redirectUrl, latestUrl)
-    const match = target.pathname.match(/^\/stablyai\/orca\/releases\/tag\/([^/]+)$/)
+    const match = target.pathname.match(MAIN_RELEASE_LATEST_TAG_PATH_RE)
     if (target.origin !== 'https://github.com' || !match) {
       return null
     }

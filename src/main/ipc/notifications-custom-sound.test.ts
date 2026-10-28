@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+// Why the brand name: the test notification's copy is built from BRAND.productName.
+import { BRAND } from '@brand/config/brand'
 import {
   getDispatchHandler,
   getLoadSoundHandler,
@@ -61,8 +63,8 @@ describe('registerNotificationHandlers', () => {
       const handler = getDispatchHandler()
       expect(await handler({}, { source: 'test' })).toEqual({ delivered: true })
       expect(notificationCtorMock).toHaveBeenCalledWith({
-        title: 'Orca notifications are on',
-        body: 'This is a test notification from Orca.'
+        title: `${BRAND.productName} notifications are on`,
+        body: `This is a test notification from ${BRAND.productName}.`
       })
     } finally {
       Object.defineProperty(process, 'platform', { value: originalPlatform, configurable: true })
@@ -88,8 +90,8 @@ describe('registerNotificationHandlers', () => {
       const handler = getDispatchHandler()
       expect(await handler({}, { source: 'test' })).toEqual({ delivered: true })
       expect(notificationCtorMock).toHaveBeenCalledWith({
-        title: 'Orca notifications are on',
-        body: 'This is a test notification from Orca.',
+        title: `${BRAND.productName} notifications are on`,
+        body: `This is a test notification from ${BRAND.productName}.`,
         silent: true
       })
     } finally {
@@ -113,8 +115,8 @@ describe('registerNotificationHandlers', () => {
     const handler = getDispatchHandler()
     expect(await handler({}, { source: 'test' })).toEqual({ delivered: true })
     expect(notificationCtorMock).toHaveBeenCalledWith({
-      title: 'Orca notifications are on',
-      body: 'This is a test notification from Orca.',
+      title: `${BRAND.productName} notifications are on`,
+      body: `This is a test notification from ${BRAND.productName}.`,
       silent: true
     })
   })

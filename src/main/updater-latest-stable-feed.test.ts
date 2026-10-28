@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { installNetRequestFetchAdapter } from './updater-net-request.fixture'
+// Why brand-derived: the lookup follows this product's own Latest page, so the
+// fixtures use the brand repo; upstream's literal would assert the fix away.
+import { MAIN_RELEASE_REPO } from '../shared/release-channel'
 
 const originalPlatform = process.platform
 const originalArch = process.arch
@@ -9,10 +12,10 @@ const { netFetchMock, netRequestMock } = vi.hoisted(() => ({
 }))
 vi.mock('electron', () => ({ net: { fetch: netFetchMock, request: netRequestMock } }))
 
-const latestUrl = 'https://github.com/stablyai/orca/releases/latest'
-const releaseUrl = 'https://github.com/stablyai/orca/releases/download/v1.4.241'
+const latestUrl = `https://github.com/${MAIN_RELEASE_REPO}/releases/latest`
+const releaseUrl = `https://github.com/${MAIN_RELEASE_REPO}/releases/download/v1.4.241`
 
-function serveLatestRelease(location = '/stablyai/orca/releases/tag/v1.4.241'): void {
+function serveLatestRelease(location = `/${MAIN_RELEASE_REPO}/releases/tag/v1.4.241`): void {
   netFetchMock.mockImplementation(async (url: string) => {
     if (url === latestUrl) {
       return new Response(null, { status: 302, headers: { location } })
@@ -65,12 +68,12 @@ describe('latest stable release fallback', () => {
   )
 
   it.each([
-    'https://other.example/stablyai/orca/releases/tag/v1.4.241',
+    `https://other.example/${MAIN_RELEASE_REPO}/releases/tag/v1.4.241`,
     '/other/repo/releases/tag/v1.4.241',
-    '/stablyai/orca/releases/tag/v1.4.242-rc.1',
-    '/stablyai/orca/releases/tag/mobile-android-v0.0.59',
-    '/stablyai/orca/releases/tag/%',
-    '/stablyai/orca/releases/latest'
+    `/${MAIN_RELEASE_REPO}/releases/tag/v1.4.242-rc.1`,
+    `/${MAIN_RELEASE_REPO}/releases/tag/mobile-android-v0.0.59`,
+    `/${MAIN_RELEASE_REPO}/releases/tag/%`,
+    `/${MAIN_RELEASE_REPO}/releases/latest`
   ])('rejects an invalid fallback redirect %s before probing assets', async (location) => {
     serveLatestRelease(location)
     const { fetchLatestStableReleaseTag } = await import('./updater-prerelease-feed')
@@ -99,7 +102,7 @@ describe('latest stable release fallback', () => {
     const { fetchLatestStableReleaseTag } = await import('./updater-prerelease-feed')
     await expect(fetchLatestStableReleaseTag()).resolves.toBeNull()
 
-    serveLatestRelease('https://github.com/stablyai/orca/releases/tag/v1.4.241')
+    serveLatestRelease(`https://github.com/${MAIN_RELEASE_REPO}/releases/tag/v1.4.241`)
     await expect(fetchLatestStableReleaseTag()).resolves.toBe('v1.4.241')
   })
 })

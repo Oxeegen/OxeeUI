@@ -1,9 +1,18 @@
 import { readFileSync } from 'node:fs'
-import { runInNewContext } from 'node:vm'
+import { runInNewContext as runInNewContextRaw } from 'node:vm'
 import { describe, expect, it } from 'vitest'
 import { parse } from 'yaml'
 import { classifyPrJobs } from './pr-code-change-scope.mjs'
 import { WINDOWS_BOUNDARY_TESTS } from './pr-package-test-paths.mjs'
+
+// Why: job `if`s carry this fork's repository guard, so conditions are evaluated
+// as they run in upstream's repository.
+const runInNewContext = (source, context = {}, ...rest) =>
+  runInNewContextRaw(
+    source,
+    { ...context, github: { repository: 'stablyai/orca', ...context.github } },
+    ...rest
+  )
 
 const read = (path) => parse(readFileSync(path, 'utf8'))
 const workflow = (name) => read(`.github/workflows/${name}.yml`)
@@ -358,7 +367,9 @@ describe('CI dependency download caches', () => {
         expect(runInNewContext(guard, context)).toBe(admitted)
         expect(runInNewContext(guard, contextFor(!draft))).toBe(event !== 'pull_request' || draft)
       }
-      expect(platforms.jobs['warm-windows'].if).toBeUndefined()
+      // Why the guard and not undefined: this fork prefixes every job `if` with a
+      // repository guard, so an unconditional job carries exactly that guard.
+      expect(platforms.jobs['warm-windows'].if).toBe("github.repository == 'stablyai/orca'")
       expect(platforms.jobs['warm-windows'].strategy.matrix.os).toEqual([
         'windows-2022',
         'windows-11-arm',

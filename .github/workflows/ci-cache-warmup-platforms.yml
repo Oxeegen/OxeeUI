@@ -79,5 +79,5 @@ concurrency:
 
 jobs:
   warm-platforms:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft != true
+    if: github.repository == 'stablyai/orca' && (github.event_name != 'pull_request' || github.event.pull_request.draft != true)
     uses: ./.github/workflows/ci-cache-warmup-platform-jobs.yml

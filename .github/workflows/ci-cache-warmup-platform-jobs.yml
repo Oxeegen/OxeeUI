@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   warm-linux-runtime:
-    if: github.event_name != 'pull_request'
+    if: github.repository == 'stablyai/orca' && (github.event_name != 'pull_request')
     concurrency:
       group: ci-cache-warmup-linux-runtime-${{ matrix.runner }}-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: ${{ github.event_name != 'schedule' }}
@@ -47,7 +47,7 @@ jobs:
 
   # node-server's hosted macOS lane needs nothing; this serves hosted macOS PR contracts and updater tests.
   warm-macos-runtime:
-    if: github.event_name != 'pull_request'
+    if: github.repository == 'stablyai/orca' && (github.event_name != 'pull_request')
     concurrency:
       group: ci-cache-warmup-macos-runtime-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: ${{ github.event_name != 'schedule' }}
@@ -72,6 +72,7 @@ jobs:
         run: node config/scripts/ensure-native-runtime.mjs --check-only
 
   warm-windows:
+    if: github.repository == 'stablyai/orca'
     concurrency:
       group: ci-cache-warmup-windows-${{ matrix.os }}-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: ${{ github.event_name != 'schedule' }}
@@ -164,6 +165,7 @@ jobs:
 
   # Windows packaging and E2E restore these; PRs no longer save their own copies.
   warm-windows-electron:
+    if: github.repository == 'stablyai/orca'
     concurrency:
       group: ci-cache-warmup-windows-electron-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: ${{ github.event_name != 'schedule' }}
@@ -182,6 +184,7 @@ jobs:
 
   # Hosted Linux packaging and packaged-browser E2E restore these; PRs no longer save their own copies.
   warm-linux-electron:
+    if: github.repository == 'stablyai/orca'
     concurrency:
       group: ci-cache-warmup-linux-electron-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: ${{ github.event_name != 'schedule' }}
@@ -225,7 +228,7 @@ jobs:
 
   # Mobile verify restores this bundle on pull requests without saving.
   warm-mobile-bundle:
-    if: github.event_name != 'pull_request'
+    if: github.repository == 'stablyai/orca' && (github.event_name != 'pull_request')
     concurrency:
       group: ci-cache-warmup-mobile-bundle-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: ${{ github.event_name != 'schedule' }}
@@ -266,7 +269,7 @@ jobs:
           bundle install --jobs 4
 
   warm-linux-package-fixtures:
-    if: github.event_name != 'pull_request'
+    if: github.repository == 'stablyai/orca' && (github.event_name != 'pull_request')
     concurrency:
       group: ci-cache-warmup-linux-package-fixtures-${{ matrix.runner }}-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: ${{ github.event_name != 'schedule' }}
