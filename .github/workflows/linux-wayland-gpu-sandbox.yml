@@ -8,6 +8,7 @@ permissions:
 
 jobs:
   verify:
+    if: github.repository == 'stablyai/orca'
     name: wayland terminal input
     runs-on: ubuntu-latest
     timeout-minutes: 30

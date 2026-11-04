@@ -19,6 +19,7 @@ on:
 jobs:
   # Ship the same qualified template as release-cut so the reseal over SignPath-rewritten binaries is rehearsed too.
   orcad-template:
+    if: github.repository == 'stablyai/orca'
     permissions:
       contents: read
       actions: read
@@ -29,6 +30,7 @@ jobs:
       fast_runners: false
 
   rehearse:
+    if: github.repository == 'stablyai/orca'
     needs: orcad-template
     # Why: SignPath origin verification requires GitHub-hosted runners, and
     # windows-2022 matches the real release job's build environment.

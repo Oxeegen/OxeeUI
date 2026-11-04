@@ -10,9 +10,18 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { delimiter, dirname, join } from 'node:path'
-import { runInNewContext } from 'node:vm'
+import { runInNewContext as runInNewContextRaw } from 'node:vm'
 import { expect, it } from 'vitest'
 import { parse } from 'yaml'
+
+// Why: job `if`s carry this fork's repository guard, so conditions are evaluated
+// as they run in upstream's repository.
+const runInNewContext = (source, context = {}, ...rest) =>
+  runInNewContextRaw(
+    source,
+    { ...context, github: { repository: 'stablyai/orca', ...context.github } },
+    ...rest
+  )
 
 const workflow = parse(readFileSync('.github/workflows/zcode-credential-contract.yml', 'utf8'))
 const accountWorkflow = parse(readFileSync('.github/workflows/zcode-account-contract.yml', 'utf8'))
@@ -65,7 +74,9 @@ it('shares one bootstrap across the original modules and operating systems', () 
     'config/scripts/zcode-credential-workflow.test.mjs'
   ])
   expect(accountWorkflow.on).toEqual({ workflow_dispatch: null })
+  // Why the `if`: this fork prefixes every job with a repository guard.
   expect(accountWorkflow.jobs['account-contract']).toEqual({
+    if: "github.repository == 'stablyai/orca'",
     uses: './.github/workflows/zcode-credential-contract.yml',
     with: { contract: 'account' }
   })

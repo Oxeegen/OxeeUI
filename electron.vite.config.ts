@@ -5,6 +5,7 @@ import { defineConfig, type UserConfig } from 'electron-vite'
 import type { Plugin, Rollup } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import { brandHtmlTitle } from './brand/vite/html-title'
 import { createBootstrapFatalExitBanner } from './config/build-plugins/bootstrap-fatal-exit-banner'
 import { createBrowserExtensionWorkerShimPlugin } from './config/build-plugins/browser-extension-worker-shim'
 import { createMainLocaleSubsetPlugin } from './config/build-plugins/main-locale-subset'
@@ -250,6 +251,7 @@ export const electronViteConfig: UserConfig = {
     // @xterm/headless declares exports:null; point Vite directly at its published CJS main to permit inlining.
     resolve: {
       alias: {
+        '@brand': resolve('brand'),
         '@xterm/headless': resolve('node_modules/@xterm/headless/lib-headless/xterm-headless.js'),
         '@xterm/addon-serialize': resolve(
           'node_modules/@xterm/addon-serialize/lib/addon-serialize.js'
@@ -275,6 +277,7 @@ export const electronViteConfig: UserConfig = {
     },
     resolve: {
       alias: {
+        '@brand': resolve('brand'),
         ...markdownParserAliases,
         '@renderer': resolve('src/renderer/src'),
         '@': resolve('src/renderer/src')
@@ -284,7 +287,8 @@ export const electronViteConfig: UserConfig = {
       react(),
       tailwindcss(),
       createPdfjsViewerAssetsPlugin(),
-      createViteCacheRetentionPlugin()
+      createViteCacheRetentionPlugin(),
+      brandHtmlTitle()
     ],
     worker: {
       format: 'es',

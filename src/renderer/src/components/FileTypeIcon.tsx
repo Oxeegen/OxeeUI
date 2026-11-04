@@ -6,6 +6,7 @@ import {
   getPluginFolderIconIndex
 } from '@/lib/file-type-icons'
 import { PLUGIN_ICON_ATTRIBUTE, useActivePluginIconTheme } from '@/store/plugin-icon-themes'
+import { BrandFolderIcon } from '@brand/file-icons/material-file-icons'
 
 type IconProps = { className?: string; style?: CSSProperties }
 
@@ -49,9 +50,15 @@ export function FolderIcon({
     folderPath,
     open
   )
-  return index === null ? (
-    createElement(open ? FolderOpen : Folder, { 'aria-hidden': true, className, style })
+  if (index !== null) {
+    return <PluginIcon index={index} className={className} style={style} />
+  }
+  // Why: without an icon-theme plugin, OxeeUI draws Material Icon Theme folders
+  // (brand/file-icons). One hook here covers every folder row in the app. A caller
+  // passing `style` keeps upstream's glyph, since the brand icon does not take one.
+  return style === undefined ? (
+    <BrandFolderIcon name={folderPath ?? ''} expanded={open} className={className} />
   ) : (
-    <PluginIcon index={index} className={className} style={style} />
+    createElement(open ? FolderOpen : Folder, { 'aria-hidden': true, className, style })
   )
 }

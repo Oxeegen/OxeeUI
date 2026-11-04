@@ -1,3 +1,4 @@
+import { BRAND } from '@brand/config/brand'
 import { formatAgentTypeLabel } from '../../shared/agent-type-label'
 import type { NotificationDispatchRequest } from '../../shared/notification-settings-types'
 
@@ -30,8 +31,13 @@ export function buildNotificationOptions(
 
   if (args.source === 'test') {
     return {
-      title: translate('notifications.test.title', 'Orca notifications are on'),
-      body: translate('notifications.test.body', 'This is a test notification from Orca.')
+      // Why BRAND in the fallbacks: the English fallback is used as-is by the default
+      // translator and before i18n starts, so it never passes the rebrand post-processor.
+      title: translate('notifications.test.title', `${BRAND.productName} notifications are on`),
+      body: translate(
+        'notifications.test.body',
+        `This is a test notification from ${BRAND.productName}.`
+      )
     }
   }
 

@@ -6,6 +6,7 @@ import { normalizeTerminalQuickCommands } from '../../../shared/terminal-quick-c
 import { normalizeOpenInApplications } from '../../../shared/open-in-applications'
 import { normalizeTerminalShortcutPolicy } from '../../../shared/keybindings'
 import { normalizeAppIconId } from '../../../shared/app-icon'
+import { resolveBrandAppIconId } from '@brand/settings/app-icons'
 import { normalizeTerminalCustomThemes } from '../../../shared/terminal-custom-themes'
 import { normalizePluginOwnedSettings } from '../../../shared/plugins/capabilities/plugin-owned-settings'
 import {
@@ -137,7 +138,9 @@ export function normalizeLoadedGlobalSettings(
       matchTerminalSidebarInputs,
       hasLegacyMatchTerminalSidebar(matchTerminalSidebarInputs)
     ),
-    appIcon: normalizeAppIconId(parsed.settings?.appIcon),
+    // Why the brand resolve: a profile carried over from upstream may hold an
+    // icon OxeeUI does not offer. See brand/settings/app-icons.ts.
+    appIcon: resolveBrandAppIconId(normalizeAppIconId(parsed.settings?.appIcon)),
     mobilePairingCustomAddress,
     mobilePairingCustomAddresses,
     machineName: normalizeMachineName(parsed.settings?.machineName),

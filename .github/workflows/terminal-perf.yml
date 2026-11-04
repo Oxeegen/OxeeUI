@@ -53,6 +53,7 @@ cache-mode: read
 
 jobs:
   terminal-perf:
+    if: github.repository == 'stablyai/orca'
     name: terminal scale perf
     # Presented-frame measurement only accepts GitHub-hosted Xvfb displays.
     runs-on: ubuntu-24.04

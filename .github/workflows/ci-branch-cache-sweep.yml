@@ -21,6 +21,7 @@ concurrency:
 
 jobs:
   sweep:
+    if: github.repository == 'stablyai/orca'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:

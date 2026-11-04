@@ -15,7 +15,9 @@ const families = (outputs) => {
 it('selects the Ubuntu canary without adding a detector runner or changing prerequisites', () => {
   expect(families({ families: '["ubuntu-24.04"]' })).toEqual(['ubuntu-24.04'])
   expect(workflow.jobs.wsl2.needs).toEqual(['template', 'container-rootfs'])
-  expect(workflow.jobs.wsl2.if).toBeUndefined()
+  // Why the guard and not undefined: this fork prefixes every job `if` with a
+  // repository guard, so an unconditional job carries exactly that guard.
+  expect(workflow.jobs.wsl2.if).toBe("github.repository == 'stablyai/orca'")
   expect(workflow.jobs.template.steps.indexOf(select)).toBeGreaterThan(
     workflow.jobs.template.steps.findIndex(
       (step) => step.uses === './.github/actions/install-node-dependencies'

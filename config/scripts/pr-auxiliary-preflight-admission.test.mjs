@@ -9,12 +9,21 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
-import { runInNewContext } from 'node:vm'
+import { runInNewContext as runInNewContextRaw } from 'node:vm'
 import { afterEach, describe, expect, it } from 'vitest'
 import { runProcessSync } from '@orca/process-host'
 import { parse } from 'yaml'
 import { classifyPrJobs } from './pr-code-change-scope.mjs'
 import { collectNodeServerInputs } from './node-server-change-scope.mjs'
+
+// Why: job `if`s carry this fork's repository guard, so conditions are evaluated
+// as they run in upstream's repository.
+const runInNewContext = (source, context = {}, ...rest) =>
+  runInNewContextRaw(
+    source,
+    { ...context, github: { repository: 'stablyai/orca', ...context.github } },
+    ...rest
+  )
 
 const workflow = parse(readFileSync('.github/workflows/pr.yml', 'utf8'))
 const unit = parse(readFileSync('.github/workflows/unit-tests.yml', 'utf8'))

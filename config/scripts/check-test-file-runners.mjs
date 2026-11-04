@@ -123,7 +123,14 @@ export const TEST_RUNNERS = [
     sources: ['.github/workflows/pr.yml', '.github/workflows/unit-tests.yml'],
     mirrors: DEDICATED_UNIT_FILES.map((glob) => glob.replace(/\*\*$/, ''))
   },
-  ...NON_UNIT_TEST_RUNNERS
+  ...NON_UNIT_TEST_RUNNERS,
+  {
+    // Why: brand tests join the unit run in config/vitest.config.ts rather than UNIT_INCLUDE.
+    name: 'brand (config/vitest.config.ts)',
+    include: ['brand/**/*.test.ts'],
+    sources: ['config/vitest.config.ts'],
+    mirrors: ["const unitInclude = ['brand/**/*.test.ts', ...UNIT_INCLUDE]"]
+  }
 ]
 
 const CODE_FILE = /\.[cm]?[jt]sx?$/

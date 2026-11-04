@@ -1,5 +1,6 @@
 import { app, BrowserWindow, nativeTheme, powerMonitor, screen } from 'electron'
 import { release } from 'node:os'
+import { BRAND } from '@brand/config/brand'
 import { join } from 'node:path'
 import { getAppIconPath } from './desktop-integration/app-icon'
 import { browserManager } from '../browser/browser-manager'
@@ -115,7 +116,9 @@ export function createMainWindow(
     ...(savedBounds ? { x: savedBounds.x, y: savedBounds.y } : {}),
     minWidth: MIN_WIDTH,
     minHeight: MIN_HEIGHT,
-    title: opts?.title ?? 'Orca',
+    // Why brand-derived: this is the window title before the renderer's own
+    // document.title takes over, and the taskbar reads it either way.
+    title: opts?.title ?? BRAND.productName,
     show: false,
     // Deliver the app-activating click on macOS instead of requiring a second click.
     acceptFirstMouse: true,

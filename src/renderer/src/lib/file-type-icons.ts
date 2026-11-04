@@ -1,4 +1,5 @@
 import { File, FileCog, FileLock, FileTerminal, type LucideIcon } from 'lucide-react'
+import { getBrandFileIcon } from '@brand/file-icons/material-file-icons'
 import { COMPOUND_EXTENSIONS, FILE_ICON_BY_EXTENSION } from './file-type-icon-extension-table'
 import { FILE_ICON_BY_NAME } from './file-type-icon-name-table'
 import type { ActivePluginIconTheme } from '../store/plugin-icon-themes'
@@ -36,6 +37,13 @@ export function getFileTypeIcon(filePath: string | undefined | null): LucideIcon
     return File
   }
   const lowerName = filename.toLowerCase()
+  // Why: OxeeUI draws Material Icon Theme icons (brand/file-icons). The two
+  // synthetic simulator tab labels below are not files, so they keep upstream's glyph.
+  const isSyntheticTabLabel = lowerName === 'mobile emulator' || lowerName === 'simulator'
+  const brandIcon = isSyntheticTabLabel ? null : getBrandFileIcon(filename)
+  if (brandIcon) {
+    return brandIcon
+  }
   const exactMatch = ownIcon(FILE_ICON_BY_NAME, lowerName)
   if (exactMatch) {
     return exactMatch

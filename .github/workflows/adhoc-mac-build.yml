@@ -93,6 +93,7 @@ jobs:
 
   # Resolve shared build identity while detecting whether this ref ships a template.
   orcad-template-support:
+    if: github.repository == 'stablyai/orca'
     needs: resolve-ref
     runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 5
@@ -173,7 +174,7 @@ jobs:
   # Ship managed-SSH orcad template from qualified per-target lanes at the vetted ref, as release-cut does.
   orcad-template:
     needs: [resolve-ref, orcad-template-support]
-    if: needs.orcad-template-support.outputs.ships == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.orcad-template-support.outputs.ships == 'true')
     permissions:
       contents: read
       actions: read
@@ -183,6 +184,7 @@ jobs:
       fast_runners: true
 
   release-javascript:
+    if: github.repository == 'stablyai/orca'
     needs: [resolve-ref, orcad-template-support]
     uses: ./.github/workflows/release-javascript.yml
     with:
@@ -469,7 +471,7 @@ jobs:
 
   build-adhoc-mac:
     needs: [resolve-ref, orcad-template-support, prepare-adhoc-mac-release, build-adhoc-mac-arch]
-    if: always() && needs.prepare-adhoc-mac-release.result == 'success'
+    if: github.repository == 'stablyai/orca' && (always() && needs.prepare-adhoc-mac-release.result == 'success')
     environment: adhoc-mac-build
     runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 35
@@ -645,8 +647,10 @@ jobs:
   publish-adhoc-win:
     needs: [orcad-template-support, build-adhoc-win]
     if: >-
+      github.repository == 'stablyai/orca' && (
       !cancelled() && needs.orcad-template-support.result == 'success' &&
       needs.build-adhoc-win.result == 'success'
+      )
     permissions:
       contents: read
       actions: read

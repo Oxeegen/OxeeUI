@@ -23,6 +23,7 @@ import type { PluginLanguagePackRegistration } from '../../../shared/plugins/art
 import { withTimeout } from '../../../shared/promise-timeout-fallback'
 import { supportedIntlLocale } from './intl-locale-support'
 import { createOrcaI18n } from '../../../shared/orca-i18n-instance'
+import { BRAND_POST_PROCESS, brandNamePostProcessor } from '@brand/i18n/rebrand'
 
 // Fetch catalogs as data: Chromium caches rejected module imports for the document's lifetime.
 const NON_DEFAULT_LOCALE_URLS: Record<Exclude<SupportedUiLocale, 'en'>, string> = {
@@ -72,8 +73,9 @@ const orcaI18n = createOrcaI18n({
   loadCatalog: loadLocaleCatalog,
   // Inline defaults cover most English; sync:localization-runtime-catalog retains plural/dynamic/edited entries. en.json remains the translator source for lazy catalogs.
   englishResources: enRuntimeRequired,
-  modules: [initReactI18next],
-  initOptions: { react: { useSuspense: false } }
+  // Why the brand post-processor: every rendered string carries the brand name.
+  modules: [initReactI18next, brandNamePostProcessor],
+  initOptions: { react: { useSuspense: false }, postProcess: BRAND_POST_PROCESS }
 })
 
 export const i18n = orcaI18n.i18n

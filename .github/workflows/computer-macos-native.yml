@@ -36,7 +36,7 @@ jobs:
   # Hosted macOS runners cannot receive persistent Accessibility/Screen Recording
   # grants. Keep the real native build/owner-loss checks on every matching trigger instead.
   mac-native-owner-smoke:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft != true
+    if: github.repository == 'stablyai/orca' && (github.event_name != 'pull_request' || github.event.pull_request.draft != true)
     runs-on: macos-15
     permissions:
       contents: read
