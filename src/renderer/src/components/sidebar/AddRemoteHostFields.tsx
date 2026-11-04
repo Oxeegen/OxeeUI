@@ -9,8 +9,11 @@ import {
   translateRemotePairingEndpointKind
 } from '@/lib/remote-pairing-copy'
 import type { ParseHostAccessLinkResult } from '../../../../shared/remote-pairing-address'
-import { applyParsedSshHostInput, type EditingTarget } from '../settings/ssh-target-draft'
-import { SshHostAdvancedFields } from '../settings/SshHostAdvancedFields'
+import {
+  applyParsedSshHostInput,
+  type EditingTarget
+} from '../settings/ssh/targets/ssh-target-draft'
+import { SshHostAdvancedFields } from '../settings/ssh/targets/SshHostAdvancedFields'
 
 export function SshHostFields({
   form,
@@ -181,7 +184,7 @@ export function RemoteServerFields({
     >
       <div className="space-y-1.5">
         <Label htmlFor="add-server-name">
-          {translate('auto.components.sidebar.AddRemoteHostDialog.serverName', 'Name in Orca')}
+          {translate('auto.components.sidebar.AddRemoteHostDialog.nameInOrca', 'Name in Orca')}
         </Label>
         <Input
           id="add-server-name"
@@ -197,7 +200,7 @@ export function RemoteServerFields({
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="add-server-pairing-code">
-          {translate('auto.components.sidebar.AddRemoteHostDialog.pairingCode', 'Access link')}
+          {translate('auto.components.sidebar.AddRemoteHostDialog.accessLink', 'Access link')}
         </Label>
         <Input
           id="add-server-pairing-code"

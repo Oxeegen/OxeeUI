@@ -62,9 +62,18 @@ export const BRAND_DEFAULT_SETTINGS: Partial<GlobalSettings> = {
  *
  * `global-settings-test-fixture.ts` deliberately keeps importing upstream's raw
  * builder: a fixture asserting upstream's shape should not inherit our palette.
+ *
+ * Why the call is not inside an object literal: check:focus-read-ratchet traces
+ * reads through returned calls but skips a returned `{ … }`. Spreading upstream's
+ * builder there hid every `getDefaultSettings` caller from it, and lint failed
+ * with "baseline still allows" on files nobody had touched.
  */
 export function buildDefaultSettings(
   args: Parameters<typeof upstreamBuildDefaultSettings>[0]
 ): GlobalSettings {
-  return { ...upstreamBuildDefaultSettings(args), ...BRAND_DEFAULT_SETTINGS }
+  return withBrandDefaults(upstreamBuildDefaultSettings(args))
+}
+
+function withBrandDefaults(settings: GlobalSettings): GlobalSettings {
+  return { ...settings, ...BRAND_DEFAULT_SETTINGS }
 }

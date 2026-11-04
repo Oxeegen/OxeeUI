@@ -79,19 +79,22 @@ describe('update feed', () => {
       'export const LATEST_RELEASE_DOWNLOAD_URL = `https://github.com/${MAIN_RELEASE_REPO}/releases/latest/download`'
     )
     // The initial feed at setup still uses the latest/download constant.
-    const setup = readFileSync(resolve('src/main/updater/updater-setup.ts'), 'utf8')
+    const setup = readFileSync(resolve('src/main/updater/lifecycle/updater-setup.ts'), 'utf8')
     expect(setup).toContain('LATEST_RELEASE_DOWNLOAD_URL')
     // Why the import location matters: upstream's updater tests mock the
     // updater modules, and an export pulled from a mocked module is undefined.
-    expect(setup).toMatch(/from '\.\.\/\.\.\/shared\/release-channel'/)
+    expect(setup).toMatch(/from '\.\.\/\.\.\/\.\.\/shared\/release-channel'/)
   })
 
   // Why: since v1.4.243 the stable fallback resolves the Latest release through
   // GitHub's /releases/latest redirect. Upstream wrote its own repository into both
-  // the URL and the redirect pattern; src/main/updater-latest-stable-brand.test.ts
+  // the URL and the redirect pattern; src/main/updater/releases/updater-latest-stable-brand.test.ts
   // drives the lookup itself.
   it('resolves the stable fallback against the brand repository', () => {
-    const feed = readFileSync(resolve('src/main/updater-prerelease-feed.ts'), 'utf8')
+    const feed = readFileSync(
+      resolve('src/main/updater/releases/updater-prerelease-feed.ts'),
+      'utf8'
+    )
     expect(feed).toContain('`https://github.com/${MAIN_RELEASE_REPO}/releases/latest`')
     expect(feed).toContain('target.pathname.match(MAIN_RELEASE_LATEST_TAG_PATH_RE)')
   })

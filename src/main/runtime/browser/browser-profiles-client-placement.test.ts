@@ -22,7 +22,7 @@ vi.mock('../../browser/browser-session-registry', () => ({
 vi.mock('../../browser/browser-manager', () => ({
   browserManager: { getSessionProfileIdForTab: mocks.getLocalProfile }
 }))
-vi.mock('../../ipc/browser-tab-registration-wait', () => ({
+vi.mock('../../ipc/browser/browser-tab-registration-wait', () => ({
   waitForTabRegistration: mocks.wait
 }))
 import { RuntimeBrowserProfiles } from './browser-profiles'
@@ -66,6 +66,7 @@ function fixture(currentProfile = 'isolated') {
   })
   const runtime = new RuntimeBrowserProfiles(
     {
+      getRuntimeId: () => 'owner',
       getRuntimeBrowserPageRegistry: () => pages,
       getAuthoritativeWindow: window,
       getBrowserHostLeaseRegistry: () => leases,

@@ -23,6 +23,12 @@ const NON_UNIT_TEST_RUNNERS = [
     mirrors: ["testDir: './e2e'", "testMatch: '**/*.spec.ts'"]
   },
   {
+    name: 'component fixtures Playwright',
+    include: ['tests/component-fixtures/**/*.spec.ts'],
+    sources: ['tests/component-fixtures/playwright.config.ts'],
+    mirrors: ["testDir: '.'", "testMatch: '*.spec.ts'"]
+  },
+  {
     name: 'computer-use e2e',
     include: ['tests/e2e/computer-*.e2e.ts'],
     sources: ['tests/e2e/vitest.config.ts'],
@@ -58,7 +64,7 @@ const NON_UNIT_TEST_RUNNERS = [
       "'src/**/*.test.ts', 'src/**/*.test.tsx', 'scripts/**/*.test.ts'"
     ]
   },
-  ...['connector', 'push', 'relay'].map((app) => ({
+  ...['push', 'relay'].map((app) => ({
     name: `cloud ${app}`,
     include: [`cloud/apps/${app}/src/**/*.test.ts`],
     sources: [`cloud/apps/${app}/vitest.config.ts`],
@@ -90,6 +96,13 @@ const NON_UNIT_TEST_RUNNERS = [
     ]
   },
   {
+    // `orca plugin test` runs every example's own tests in Node; the unit test drives it.
+    name: 'example plugin tests (orca plugin test)',
+    include: ['examples/plugins/*/src/**/*.test.ts', 'examples/plugins/*/src/**/*.test.tsx'],
+    sources: ['src/cli/plugin-authoring/plugin-test-runner.test.ts'],
+    mirrors: ['readdirSync(EXAMPLES)']
+  },
+  {
     name: 'docs site',
     include: ['docs/site/tests/*.test.mjs'],
     sources: ['docs/site/package.json'],
@@ -110,7 +123,14 @@ export const TEST_RUNNERS = [
     sources: ['.github/workflows/pr.yml', '.github/workflows/unit-tests.yml'],
     mirrors: DEDICATED_UNIT_FILES.map((glob) => glob.replace(/\*\*$/, ''))
   },
-  ...NON_UNIT_TEST_RUNNERS
+  ...NON_UNIT_TEST_RUNNERS,
+  {
+    // Why: brand tests join the unit run in config/vitest.config.ts rather than UNIT_INCLUDE.
+    name: 'brand (config/vitest.config.ts)',
+    include: ['brand/**/*.test.ts'],
+    sources: ['config/vitest.config.ts'],
+    mirrors: ["const unitInclude = ['brand/**/*.test.ts', ...UNIT_INCLUDE]"]
+  }
 ]
 
 const CODE_FILE = /\.[cm]?[jt]sx?$/

@@ -1,22 +1,29 @@
 // Real disk tail → isolated translator → deferred sink → on-disk journal contracts.
 import { describe, expect, it, vi } from 'vitest'
-import { createClaudeJournalTranslator } from './claude-structured-journal-translation'
+import { createClaudeJournalTranslator } from './structured/journal/claude-structured-journal-translation'
 import * as sessionFileResolver from '../native-chat/session-file-resolver'
 import * as transcriptTail from './claude-transcript-tail'
 import {
   isStructuredRewindTarget,
   structuredRewindCut
 } from '../native-chat/agent-session-wire/structured-rewind-cut'
-import { agentJournalItemKey } from '../../shared/agent-session-journal-item-key'
+import { agentJournalItemKey } from '../../shared/agent-session/journal/agent-session-journal-item-key'
 import { readAgentSessionHistory } from '../native-chat/agent-session-wire/agent-session-history-page'
 import { projectJournalBatch } from '../native-chat/agent-session-wire/agent-session-journal-batch'
-import { replacePage, mergeItems } from '../../shared/structured-agent-session-history-state'
-import { AgentJournalRenderItemSchema } from '../../shared/agent-session-journal-schemas'
-import { projectStructuredItemToNativeChat } from '../../shared/structured-agent-session-projection'
-import { agentSessionSendBodyFingerprint } from '../../shared/structured-agent-session-send-mutation'
-import { dispatchClaudeTurn } from './claude-structured-dispatch'
+import {
+  replacePage,
+  mergeItems
+} from '../../shared/agent-session/view/structured-agent-session-history-state'
+import { AgentJournalRenderItemSchema } from '../../shared/agent-session/journal/agent-session-journal-schemas'
+import { projectStructuredItemToNativeChat } from '../../shared/agent-session/view/structured-agent-session-projection'
+import { agentSessionSendBodyFingerprint } from '../../shared/agent-session/requests/structured-agent-session-send-mutation'
+import { dispatchClaudeTurn } from './structured/claude-structured-dispatch'
 import { claudePromptUuidForSubmission } from './structured/claude-structured-session-id'
-import { childExited, sessionFor, userMessage } from './claude-structured-dispatch-test-support'
+import {
+  childExited,
+  sessionFor,
+  userMessage
+} from './structured/claude-structured-dispatch-test-support'
 import {
   SESSION,
   SID,
@@ -407,10 +414,23 @@ describe('Claude chat catch-up', () => {
     const c = await chat('-old-work', '/new-work')
     await c.write([...chatTurn, ...outsideTurn])
     const lookup = Promise.withResolvers<string | null>()
+    const lookupStarted = Promise.withResolvers<void>()
     const resolve = vi
       .spyOn(sessionFileResolver, 'resolveSessionFilePath')
-      .mockReturnValueOnce(lookup.promise)
-    expect(await c.open('a1', { timeoutMs: 5 })).toBe(false)
+      .mockImplementationOnce(() => {
+        lookupStarted.resolve()
+        return lookup.promise
+      })
+    // Fire the deadline only once the lookup is in flight; a real 5 ms timer raced slow runners.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+    try {
+      const opened = c.open('a1', { timeoutMs: 5 })
+      await lookupStarted.promise
+      vi.advanceTimersByTime(5)
+      expect(await opened).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
     expect(resolve.mock.calls[0]?.[3]?.aborted).toBe(true)
     lookup.resolve(null)
     await new Promise<void>((done) => setImmediate(done))
@@ -446,6 +466,38 @@ describe('Claude chat catch-up', () => {
     expect(c.warn).not.toHaveBeenCalled()
   })
 
+  it('keeps an outside Stop hook row inside the turn it sent back', async () => {
+    const c = await chat()
+    await c.live()
+    await c.write([
+      ...chatTurn,
+      prompt('p2', 'a1', 'ask 2', 3),
+      reply('a2', 'p2', 'msg_b', { type: 'text', text: 'answer 2' }, 4),
+      {
+        ...prompt('h2', 'a2', 'Stop hook feedback:\n[/hook.sh]: Cite evidence.\n', 5),
+        isMeta: true
+      },
+      reply('a3', 'h2', 'msg_c', { type: 'text', text: 'evidence' }, 6),
+      ...bookkeeping
+    ])
+    await c.open('a1')
+    expect(c.rows()).toEqual([
+      'user:ask 1',
+      'assistant:answer 1',
+      '(continued-outside)',
+      'user:ask 2',
+      'assistant:answer 2',
+      '(hook-sent-back)',
+      'assistant:evidence'
+    ])
+    const scopes = c.journal
+      .snapshot()
+      .items.filter((item) => item.body.kind !== 'turn')
+      .slice(-3)
+      .map((item) => JSON.stringify(item.turnScope))
+    expect(new Set(scopes).size).toBe(1)
+  })
+
   it('imports a later outside batch from the retained leaf without reusing its old divider', async () => {
     const c = await chat()
     await c.live()
@@ -464,7 +516,7 @@ describe('Claude chat catch-up', () => {
     expect(c.warn).not.toHaveBeenCalled()
   })
 
-  // P saved aliases plus P unacknowledged queued prompts: P×J scope work and one J-item index.
+  // P saved aliases plus P unacknowledged queued prompts: two J-item indexes, not P×J scans.
   it.each([10, 100].flatMap((prompts) => [1_000, 10_000].map((items) => ({ prompts, items }))))(
     'bounds retained-leaf work for $prompts aliases and local misses over $items journal items',
     async ({ prompts, items }) => {
@@ -556,8 +608,7 @@ describe('Claude chat catch-up', () => {
       expect(c.journal.canonicalItemId(alias)).toBe(canonical)
       expect(committed).not.toHaveBeenCalled()
       expect(c.warn).not.toHaveBeenCalled()
-      expect(associationVisits).toBeGreaterThan(prompts * itemCount)
-      expect(associationVisits).toBeLessThanOrEqual((prompts + 1) * itemCount)
+      expect(associationVisits).toBeLessThanOrEqual(2 * itemCount)
       expect(viewVisits).toBeLessThanOrEqual(2 * itemCount)
       console.info('retained-leaf operation counts', {
         prompts,

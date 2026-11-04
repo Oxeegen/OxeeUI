@@ -1,10 +1,10 @@
-import type { AgentSessionAccountKind } from '../../shared/agent-session-availability'
+import type { AgentSessionAccountKind } from '../../shared/agent-session/agent-session-availability'
 import {
   CODEX_STRUCTURED_HANDLE_NAMESPACE,
   isAgentSessionProviderHandleInNamespace
-} from '../../shared/agent-session-provider-handle-encoding'
+} from '../../shared/agent-session/lifecycle/agent-session-provider-handle-encoding'
 import {
-  AgentSessionPreSpawnError,
+  launchPreparationFailure,
   type AgentSessionAcquisition,
   type StructuredAgentSessionAcquireInput
 } from '../native-chat/agent-session-wire/structured-agent-session-adapter'
@@ -15,14 +15,19 @@ import {
 import { CodexSubagentExecutions } from './codex-subagent-executions'
 import { createCodexDispatchEchoes } from './codex-structured-dispatch-echo'
 import { createCodexSessionJournalTranslator } from './codex-structured-session-journal'
-import { spawnCodexAppServerConnection } from './codex-app-server-connection'
+import { spawnCodexAppServerConnection } from './app-server/codex-app-server-connection'
 import { codexSpawnedProcessIdentity } from './codex-structured-owner-identity'
 import {
   closeCodexPublishedSession,
   handleCodexSessionExit
 } from './codex-structured-session-close'
 import { openCodexStructuredSession } from './codex-structured-session-start'
-import { agentSessionFailureFact, providerDiagnosticOf } from '../../shared/agent-session-failure'
+import {
+  agentSessionFailureFact,
+  providerDiagnosticOf
+} from '../../shared/agent-session/failures/agent-session-failure'
+import { providerSpawnAbsent } from '../provider-process/provider-executable-missing'
+import { providerStartupFailureFact } from '../native-chat/agent-session-wire/structured-agent-session-failure-text'
 import {
   assertCodexConnectionOpen,
   mintCodexAcquisitionGeneration,
@@ -35,6 +40,7 @@ import type { CodexStructuredSessionTeardown } from './codex-structured-session-
 import type { CodexStructuredNotificationRetry } from './codex-structured-notification-retry'
 import type { deliverCodexServerRequest } from './codex-structured-provider-events'
 import { codexAcquisitionNotificationHandler } from './codex-structured-acquisition-notification'
+import { codexStartFailure } from './app-server/codex-startup-outcome'
 
 export async function acquireCodexStructuredSession(input: {
   input: StructuredAgentSessionAcquireInput
@@ -71,6 +77,9 @@ export async function acquireCodexStructuredSession(input: {
   let account: AgentSessionAccountKind | undefined
   // Frame row identities include this generation.
   const acquisitionGeneration = mintCodexAcquisitionGeneration(deps)
+  acquisitions.endings.admit(sessionId, acquisitionGeneration)
+  // Codex ending on its own before acquire returns; acquire fails with it, not a generic error.
+  let exitedOnItsOwn: Error | undefined
   const translator = createCodexSessionJournalTranslator({
     sink: acquireInput.events,
     account: () => account,
@@ -110,7 +119,7 @@ export async function acquireCodexStructuredSession(input: {
         ...(acquireInput.permissionMode ? { permissionMode: acquireInput.permissionMode } : {})
       })
       .catch((error: unknown) => {
-        throw new AgentSessionPreSpawnError(error)
+        throw launchPreparationFailure(error)
       })
     const { model: _savedNextModel, ...launchSettings } = resolvedLaunch
     const launch =
@@ -158,6 +167,17 @@ export async function acquireCodexStructuredSession(input: {
         onExit: (error, exit) => {
           acquisition.appliedSettings.end()
           try {
+            // Orca's own close or cancel ends no start; Codex ending on its own does, from the
+            // moment its process is seen, before spawn bookkeeping finishes.
+            if (!exit?.expected && !attempt.cancelled) {
+              exitedOnItsOwn ??= error
+              acquireInput.events?.observeRootExit?.()
+              acquisitions.endings.record(
+                sessionId,
+                acquisitionGeneration,
+                codexStartFailure(error)
+              )
+            }
             if (attempt.acquisitionGeneration && !sessions.has(sessionId)) {
               attempt.exitProven = true
               attempt.exitError = error
@@ -175,9 +195,11 @@ export async function acquireCodexStructuredSession(input: {
                     : 'unexpected-exit',
                 failure: attempt.cancelled
                   ? agentSessionFailureFact('hostFault')
-                  : agentSessionFailureFact('providerExited', {
-                      detail: providerDiagnosticOf(error)
-                    }),
+                  : providerSpawnAbsent(error)
+                    ? providerStartupFailureFact(error)
+                    : agentSessionFailureFact('providerExited', {
+                        detail: providerDiagnosticOf(error)
+                      }),
                 observedAt: deps.now?.() ?? Date.now()
               })
             }
@@ -215,6 +237,9 @@ export async function acquireCodexStructuredSession(input: {
     acquisitions.assertCurrent(sessionId, attempt)
     const process = await spawnIdentity.read(connection.pid)
     acquisitions.assertCurrent(sessionId, attempt)
+    if (connection.closed && exitedOnItsOwn) {
+      throw exitedOnItsOwn
+    }
     assertCodexConnectionOpen(connection, sessionId)
     attempt.acquisitionGeneration = acquisitionGeneration
     let disposed = false
@@ -252,6 +277,7 @@ export async function acquireCodexStructuredSession(input: {
       )
     return { process, acquisitionGeneration }
   } catch (error) {
+    acquisitions.endings.retire(sessionId, acquisitionGeneration)
     if (sessions.get(sessionId)?.connection !== acquisition.connection) {
       return closeFailedCodexAcquisition({
         sessionId,

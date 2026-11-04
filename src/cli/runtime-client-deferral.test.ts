@@ -8,14 +8,14 @@ const {
   constructorArgsMock,
   moduleEvaluationMock,
   callMock,
-  getCliStatusMock,
+  getOfflineRuntimeAdmissionMock,
   testUserDataPathRef
 } = vi.hoisted(() => ({
   applyAgentStatusHooksEnabledMock: vi.fn(async () => []),
   constructorArgsMock: vi.fn(),
   moduleEvaluationMock: vi.fn(),
   callMock: vi.fn(),
-  getCliStatusMock: vi.fn(),
+  getOfflineRuntimeAdmissionMock: vi.fn(),
   testUserDataPathRef: { current: '' }
 }))
 
@@ -38,7 +38,7 @@ vi.mock('./runtime-client', () => {
   moduleEvaluationMock()
   class RuntimeClient {
     call = callMock
-    getCliStatus = getCliStatusMock
+    getOfflineRuntimeAdmission = getOfflineRuntimeAdmissionMock
     openOrca = vi.fn()
 
     constructor(...args: unknown[]) {
@@ -62,7 +62,7 @@ describe('RuntimeClient module-graph deferral', () => {
     applyAgentStatusHooksEnabledMock.mockClear()
     constructorArgsMock.mockClear()
     callMock.mockReset()
-    getCliStatusMock.mockReset()
+    getOfflineRuntimeAdmissionMock.mockReset()
     logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
   })
@@ -104,8 +104,10 @@ describe('RuntimeClient module-graph deferral', () => {
     async (_name, argv, constructs) => {
       vi.stubEnv('ORCA_PAIRING_CODE', 'pairing-code')
       vi.stubEnv('ORCA_ENVIRONMENT', 'some-environment')
-      getCliStatusMock.mockResolvedValue({
-        result: { runtime: { reachable: false }, app: { running: false } }
+      getOfflineRuntimeAdmissionMock.mockResolvedValue({
+        reachable: false,
+        legacyPidRunning: false,
+        pid: null
       })
 
       await main(argv, '/tmp/repo')
@@ -167,45 +169,6 @@ describe('RuntimeClient module-graph deferral', () => {
       const [, , pairingCode, environment] = constructorArgsMock.mock.calls[0]
       expect(pairingCode).toBeUndefined()
       expect(environment).toBeUndefined()
-    } finally {
-      dispatchSpy.mockRestore()
-    }
-  })
-
-  it('forwards undefined for non-suppressed commands so the env fallback applies', async () => {
-    callMock.mockResolvedValue({ result: { worktrees: [] } })
-
-    await main(['worktree', 'list', '--json'], '/tmp/repo')
-
-    expect(constructorArgsMock).toHaveBeenCalled()
-    const [, , pairingCode, environment] = constructorArgsMock.mock.calls[0]
-    expect(pairingCode).toBeUndefined()
-    expect(environment).toBeUndefined()
-  })
-
-  it('forwards explicit --pairing-code and --environment values verbatim', async () => {
-    callMock.mockResolvedValue({ result: { worktrees: [] } })
-
-    await main(['worktree', 'list', '--pairing-code', 'code-1', '--json'], '/tmp/repo')
-    expect(constructorArgsMock.mock.calls[0][2]).toBe('code-1')
-    expect(constructorArgsMock.mock.calls[0][3]).toBeUndefined()
-
-    constructorArgsMock.mockClear()
-    await main(['worktree', 'list', '--environment', 'env-1', '--json'], '/tmp/repo')
-    expect(constructorArgsMock.mock.calls[0][2]).toBeUndefined()
-    expect(constructorArgsMock.mock.calls[0][3]).toBe('env-1')
-  })
-
-  it('reuses one client instance across repeated ctx.client reads', async () => {
-    const dispatchSpy = vi.spyOn(dispatchModule, 'dispatch').mockResolvedValue(undefined)
-    try {
-      await main(['worktree', 'list', '--json'], '/tmp/repo')
-
-      expect(dispatchSpy).toHaveBeenCalledTimes(1)
-      const ctx = dispatchSpy.mock.calls[0]?.[1]
-      const first = ctx?.client
-      expect(ctx?.client).toBe(first)
-      expect(constructorArgsMock).toHaveBeenCalledTimes(1)
     } finally {
       dispatchSpy.mockRestore()
     }

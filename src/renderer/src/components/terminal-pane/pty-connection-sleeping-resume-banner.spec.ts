@@ -137,7 +137,7 @@ export function registerPtyConnectionSleepingResumeBannerTests(): void {
       expect(transport.connect).toHaveBeenCalledWith(
         expect.objectContaining({
           // The record holds no launch recipe, so the resume adds no permission bypass.
-          command: "codex 'resume' 'codex-session-1'",
+          command: "codex '-c' 'disable_paste_burst=true' 'resume' 'codex-session-1'",
           launchAgent: 'codex',
           env: expect.objectContaining({
             ORCA_PANE_KEY: paneKey,
@@ -181,7 +181,11 @@ export function registerPtyConnectionSleepingResumeBannerTests(): void {
 
       expect(deps.onShowSessionRestoredBanner).toHaveBeenCalledTimes(1)
       expect(deps.onShowSessionRestoredBanner).toHaveBeenCalledWith(2, 'restored')
-      expect(mockStoreState.clearSleepingAgentSession).toHaveBeenCalledWith(paneKey)
+      expect(mockStoreState.sleepingAgentSessionsByPaneKey[paneKey]).toMatchObject({
+        paneKey,
+        origin: 'quit',
+        restoreOnTabOpenOnly: true
+      })
     })
 
     it('says the fresh-spawn resume started fresh when main declined it', async () => {

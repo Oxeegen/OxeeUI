@@ -21,6 +21,8 @@ const HOOKS: [file: string, markers: string[]][] = [
     'config/vitest.config.ts',
     ["find: '@brand', replacement: resolve('brand')", "'brand/**/*.test.ts'"]
   ],
+  // Lint fails on any test file no runner collects; this row names the brand tests' runner.
+  ['config/scripts/check-test-file-runners.mjs', ["include: ['brand/**/*.test.ts']"]],
   ['tsconfig.json', ['"@brand/*"']],
   ['config/tsconfig.node.json', ['"@brand/*"', '"../brand/**/*"']],
   ['config/tsconfig.web.json', ['"@brand/*"', '"../brand/**/*"']],
@@ -44,9 +46,10 @@ const HOOKS: [file: string, markers: string[]][] = [
   // Tag discovery. Losing the prefix is silent and total: every release this
   // product publishes stops looking like a version, the inherited upstream tags
   // in this repo win instead, and every update check ends in "not ready".
-  // src/main/updater-prerelease-feed-brand-tags.test.ts is the regression test.
+  // src/main/updater/releases/updater-prerelease-feed-brand-tags.test.ts is the
+  // regression test.
   [
-    'src/main/updater-prerelease-feed.ts',
+    'src/main/updater/releases/updater-prerelease-feed.ts',
     [
       'MAIN_RELEASE_REPO',
       'MAIN_RELEASE_TAG_HREF_RE',
@@ -55,6 +58,10 @@ const HOOKS: [file: string, markers: string[]][] = [
       'export { normalizeTagToVersion }'
     ]
   ],
+  // The readiness probe that checks a release's installers exist before offering
+  // it. Upstream wrote its own download base here, so every update would have
+  // been probed, and judged, against another product's release assets.
+  ['src/main/updater/releases/updater-release-readiness.ts', ['MAIN_RELEASE_REPO']],
   ['src/renderer/src/hooks/useSettingsNavigationMetadata.ts', ['isBrandSettingsSectionHidden']],
   // Keeps the packaged and dev profiles out of upstream's %APPDATA%/orca, so an
   // installed Orca and an installed OxeeUI do not share one settings store and
@@ -82,36 +89,28 @@ const HOOKS: [file: string, markers: string[]][] = [
   // The appearance layer a fresh profile starts with. Relative import, not the
   // @brand alias: shared code is compiled by plain tsc for the packaged CLI.
   ['src/shared/constants.ts', ['./brand-default-settings']],
-  // Material Icon Theme icons. Files resolve in the one shared helper; folders
-  // are drawn per tree, so each tree row carries its own hook. Losing one is
-  // silent — that tree just goes back to grey glyphs.
+  // Material Icon Theme icons. Files resolve in the one shared helper, folders in
+  // the one FolderIcon component every tree row draws. Losing either is silent:
+  // the trees just go back to grey glyphs.
   ['src/renderer/src/lib/file-type-icons.ts', ['getBrandFileIcon']],
-  ['src/renderer/src/components/right-sidebar/FileExplorerRow.tsx', ['BrandFolderIcon']],
-  [
-    'src/renderer/src/components/right-sidebar/file-explorer-inline-input-row.tsx',
-    ['BrandFolderIcon']
-  ],
-  [
-    'src/renderer/src/components/right-sidebar/source-control/listing/tree-directory-rows.tsx',
-    ['BrandFolderIcon']
-  ],
-  [
-    'src/renderer/src/components/editor/combined-diff/browse-files/combined-diff-file-tree-row.tsx',
-    ['BrandFolderIcon']
-  ],
-  ['src/renderer/src/components/editor/ConflictReviewFileTree.tsx', ['BrandFolderIcon']],
-  ['src/renderer/src/components/sidebar/RemoteFileBrowserEntryList.tsx', ['BrandFolderIcon']],
+  ['src/renderer/src/components/FileTypeIcon.tsx', ['BrandFolderIcon']],
   // The updater's fallback feed. brand/updater-feed.test.ts also fails on any
   // upstream release URL anywhere in shipped code, which catches new call sites.
-  ['src/main/updater/updater-setup.ts', ['LATEST_RELEASE_DOWNLOAD_URL']],
+  ['src/main/updater/lifecycle/updater-setup.ts', ['LATEST_RELEASE_DOWNLOAD_URL']],
   // App icon: OxeeUI offers only its own mark. Losing the load hook lets a
   // profile carried over from upstream keep upstream's artwork as the app icon.
   [
     'src/main/persistence/loading-store/normalize-loaded-global-settings.ts',
     ['resolveBrandAppIconId']
   ],
-  ['src/renderer/src/components/settings/AppearancePane.tsx', ['IS_APP_ICON_CHOICE_OFFERED']],
-  ['src/renderer/src/components/settings/appearance-search.ts', ['IS_APP_ICON_CHOICE_OFFERED']]
+  [
+    'src/renderer/src/components/settings/appearance/AppearancePane.tsx',
+    ['IS_APP_ICON_CHOICE_OFFERED']
+  ],
+  [
+    'src/renderer/src/components/settings/appearance/appearance-search.ts',
+    ['IS_APP_ICON_CHOICE_OFFERED']
+  ]
 ]
 
 describe('upstream hooks', () => {

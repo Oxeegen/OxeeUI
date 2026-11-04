@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Session } from './session'
 import { TerminalSessionTeardown } from './terminal-session-teardown'
-import { SESSION_FORCE_KILL_RETRY_MS } from './session-termination-controller'
+import {
+  IMMEDIATE_KILL_PHYSICAL_EXIT_TIMEOUT_MS,
+  SESSION_FORCE_KILL_RETRY_MS
+} from './session-termination-controller'
 import type { SessionState, ShellReadyState } from './types'
 import type { TuiAgent } from '../../shared/tui-agent'
 import {
@@ -10,7 +13,7 @@ import {
 } from '../../shared/pty-owner-color-query-colors'
 
 const killWithDescendantSweepMock = vi.hoisted(() => vi.fn())
-vi.mock('../pty-descendant-termination', () => ({
+vi.mock('../pty/process-retirement/pty-descendant-termination', () => ({
   killWithDescendantSweep: killWithDescendantSweepMock
 }))
 
@@ -119,6 +122,7 @@ describe('Session', () => {
     wslDistro?: string
     reportReadinessEvent?: (event: string, details: Record<string, unknown>) => void
     historySeedChunks?: readonly string[]
+    onWslGuestRoot?: (root: { pid: number; startTime: string }) => void
   }): Session {
     session = new Session({
       sessionId: 'test-session',
@@ -129,6 +133,7 @@ describe('Session', () => {
       wslDistro: opts?.wslDistro,
       subprocess,
       historySeedChunks: opts?.historySeedChunks,
+      ...(opts?.onWslGuestRoot ? { onWslGuestRoot: opts.onWslGuestRoot } : {}),
       ...(opts?.ownerBackend ? { ownerBackend: opts.ownerBackend } : {}),
       shellReadySupported: opts?.shellReadySupported ?? false,
       ...(opts?.startupIngress ? { startupIngress: opts.startupIngress } : {}),
@@ -167,6 +172,20 @@ describe('Session', () => {
   })
 
   describe('data flow', () => {
+    it('records a WSL pane’s guest root from its launch output, even split, and keeps the bytes', () => {
+      const onWslGuestRoot = vi.fn()
+      const onData = vi.fn()
+      createSession({ wslDistro: 'Ubuntu', onWslGuestRoot })
+      session.attachClient({ onData, onExit: () => {} })
+      const boot = '0b1d2c3e-4f50-4617-8293-a4b5c6d7e8f9'
+      subprocess.simulateData(`\x1b]777;orca-wsl-root:4242:${boot.slice(0, 10)}`)
+      subprocess.simulateData(`${boot.slice(10)}:98765\x07$ `)
+      // Later output is the user's own and can never name the root.
+      subprocess.simulateData(`\x1b]777;orca-wsl-root:7777:${boot}:1\x07`)
+      expect(onWslGuestRoot.mock.calls).toEqual([[{ pid: 4242, startTime: `${boot}:98765` }]])
+      expect(onData.mock.calls.map(([data]) => data).join('')).toContain('$ ')
+    })
+
     it('does not confirm shell ownership from historical replay bytes', () => {
       createSession({
         historySeedChunks: ['\x1b[?1049hOLD-TUI\x1b]133;D;137\x07old-shell-marker']
@@ -727,6 +746,48 @@ describe('Session', () => {
       await shutdown
 
       expect(session.state).toBe('exited')
+    })
+
+    it('starts a joining caller’s exit budget only after the shared force kill is sent', async () => {
+      const signalsSent = Promise.withResolvers<void>()
+      let forceKillAttempts = 0
+      subprocess.forceKill = () => {
+        forceKillAttempts++
+        return signalsSent.promise
+      }
+      createSession()
+
+      const first = session.forceKillAndWaitForExit()
+      const joined = session.forceKillAndWaitForExit()
+      let joinedSettled = false
+      void joined.then(
+        () => (joinedSettled = true),
+        () => (joinedSettled = true)
+      )
+      await vi.advanceTimersByTimeAsync(IMMEDIATE_KILL_PHYSICAL_EXIT_TIMEOUT_MS)
+      expect(joinedSettled).toBe(false)
+
+      signalsSent.resolve()
+      subprocess.simulateExit(137)
+      await Promise.all([first, joined])
+      expect(forceKillAttempts).toBe(1)
+    })
+
+    it('lets dispose join an in-flight force kill instead of starting a second sweep', async () => {
+      const signalsSent = Promise.withResolvers<void>()
+      let forceKillAttempts = 0
+      subprocess.forceKill = () => {
+        forceKillAttempts++
+        return signalsSent.promise
+      }
+      createSession()
+
+      // Dispose ends the session without a physical exit, so this waiter is not the subject here.
+      void session.forceKillAndWaitForExit().catch(() => {})
+      session.dispose()
+      signalsSent.resolve()
+      await vi.advanceTimersByTimeAsync(0)
+      expect(forceKillAttempts).toBe(1)
     })
 
     it('retries a rejected graceful-deadline force kill', async () => {

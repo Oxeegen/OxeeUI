@@ -1,9 +1,10 @@
 import { useBundledSkillInstallAction } from '@/hooks/use-bundled-skill-install-action'
-import { bundledSkillSetupActionLabel } from '../settings/bundled-skill-setup-copy'
+import { bundledSkillSetupActionLabel } from '../skills/setup/bundled-skill-setup-copy'
 import { ORCA_CLI_SKILL_NAME } from '@/lib/agent-feature-skill-names'
 import { useActiveProjectSkillRuntime } from '@/hooks/useActiveProjectSkillRuntime'
 import { FeatureSetupInlineTerminal } from '../onboarding/FeatureSetupInlineTerminal'
 import { buildAgentFeatureSkillInstallCommand } from '@/lib/agent-feature-install-commands'
+import { buildSkillCommandForRuntime } from '../../lib/skill-runtime-command'
 import type { OnboardingFeatureSetupRuntimeContext } from '../onboarding/onboarding-feature-setup-runtime'
 import { useCallback, useState } from 'react'
 import { ArrowUpRight, Download, Loader2 } from 'lucide-react'
@@ -17,7 +18,7 @@ import {
   bundledSkillInstallNeedsAttention,
   useBundledSkillInstall
 } from '@/hooks/use-bundled-skill-install'
-import { BundledSkillInstallStatus } from '../settings/BundledSkillInstallStatus'
+import { BundledSkillInstallStatus } from '../skills/setup/BundledSkillInstallStatus'
 import {
   onboardingFeatureSetupRunTelemetry,
   runOnboardingFeatureSetup,
@@ -125,7 +126,9 @@ function BrowserSkillInstallButton(): React.JSX.Element {
       // COMPAT(wsl-bridge): removed when WSL runs as an orcad host.
       if (legacyWsl) {
         const command = buildAgentFeatureSkillInstallCommand(result.skillNames)
-        await window.api.ui.writeClipboardText(command)
+        await window.api.ui.writeClipboardText(
+          buildSkillCommandForRuntime(command, activeRuntime.agentRuntime)
+        )
         setWslSetup({ command, runtime: activeRuntime })
         return
       }

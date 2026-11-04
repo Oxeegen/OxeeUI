@@ -83,7 +83,8 @@ export function classifyProjectError(
   ) {
     return {
       type: 'auth_required',
-      message: `Sign in to GitHub to load project tasks. Run \`gh auth login --hostname ${selectedHost}\`.`
+      message: `Sign in to GitHub to load project tasks. Run \`gh auth login --hostname ${selectedHost}\`.`,
+      host: selectedHost
     }
   }
   if (
@@ -93,7 +94,8 @@ export function classifyProjectError(
   ) {
     return {
       type: 'scope_missing',
-      message: `GitHub project access needs additional scopes. Run \`gh auth refresh --hostname ${selectedHost} -s project -s read:org -s repo\`.`
+      message: `GitHub project access needs additional scopes. Run \`gh auth refresh --hostname ${selectedHost} -s project -s read:org -s repo\`.`,
+      host: selectedHost
     }
   }
   if (s.includes('rate limit') || s.includes('api rate limit exceeded')) {
@@ -119,13 +121,19 @@ export function classifyProjectError(
     return {
       type: 'not_found',
       message: 'Project or view not found.',
+      reason: 'project_or_view_not_found',
       details: firstNotFound
         ? { path: firstNotFound.path, code: firstNotFound.extensions?.code }
         : undefined
     }
   }
   if (s.includes('http 422') || s.includes('validation failed')) {
-    return { type: 'validation_error', message: `Invalid request — ${stderr.trim()}` }
+    return {
+      type: 'validation_error',
+      message: `Invalid request — ${stderr.trim()}`,
+      reason: 'request_invalid',
+      detail: stderr.trim()
+    }
   }
   if (errors.length > 0) {
     const first = errors[0]
@@ -144,7 +152,9 @@ export function classifyProjectError(
   const safe = firstLine.length > 200 ? `${firstLine.slice(0, 200)}…` : firstLine
   return {
     type: 'unknown',
-    message: safe ? `GitHub request failed: ${safe}` : 'GitHub request failed.'
+    message: safe ? `GitHub request failed: ${safe}` : 'GitHub request failed.',
+    reason: 'request_failed',
+    ...(safe ? { detail: safe } : {})
   }
 }
 
@@ -152,7 +162,12 @@ export function driftError(
   reason: string,
   details?: { path?: (string | number)[]; code?: string }
 ): GitHubProjectViewError {
-  return { type: 'schema_drift', message: `Could not read this project view: ${reason}.`, details }
+  return {
+    type: 'schema_drift',
+    message: `Could not read this project view: ${reason}.`,
+    detail: reason,
+    details
+  }
 }
 
 // Shape pre-spawn breaker failures like classified rate limits; the guard already handles missing snapshots.
@@ -165,6 +180,7 @@ export function rateLimitedError(blocked: {
   const mins = Math.ceil(resetIn / 60)
   return {
     type: 'rate_limited',
-    message: `GitHub rate limit nearly exhausted (${blocked.remaining}/${blocked.limit} left). Resets in ~${mins}m.`
+    message: `GitHub rate limit nearly exhausted (${blocked.remaining}/${blocked.limit} left). Resets in ~${mins}m.`,
+    rateLimit: { remaining: blocked.remaining, limit: blocked.limit, resetMinutes: mins }
   }
 }

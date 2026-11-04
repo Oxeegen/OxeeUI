@@ -64,10 +64,13 @@ export const MAIN_RELEASE_TAG_PREFIX = 'oxeeui-v'
 // mock those modules wholesale, and the release feed module sits at its line cap.
 const MAIN_RELEASE_REPO_PATTERN = MAIN_RELEASE_REPO.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-/** Links to this product's release pages in GitHub's releases Atom feed. */
+/**
+ * A link to one of this product's release pages in GitHub's releases Atom feed.
+ * Non-global: the feed is matched entry by entry, and String#match with a global
+ * pattern returns every match instead of the captured tag.
+ */
 export const MAIN_RELEASE_TAG_HREF_RE = new RegExp(
-  `href="https://github\\.com/${MAIN_RELEASE_REPO_PATTERN}/releases/tag/([^"]+)"`,
-  'g'
+  `href="https://github\\.com/${MAIN_RELEASE_REPO_PATTERN}/releases/tag/([^"]+)"`
 )
 
 /** Where GitHub's /releases/latest redirect lands for this product's Latest release. */

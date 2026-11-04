@@ -1,3 +1,4 @@
+import { normalizeAgentDefaultSurface } from '../../../shared/native-chat/native-chat-providers'
 import { normalizeNativeChatAppearanceSettings } from '../../../shared/native-chat/native-chat-appearance-settings'
 import { getDefaultVoiceSettings } from '../../../shared/constants'
 import { normalizePRBotAuthorOverrides } from '../../../shared/pr-bot-author-overrides'
@@ -7,12 +8,17 @@ import { normalizeTerminalShortcutPolicy } from '../../../shared/keybindings'
 import { normalizeAppIconId } from '../../../shared/app-icon'
 import { resolveBrandAppIconId } from '@brand/settings/app-icons'
 import { normalizeTerminalCustomThemes } from '../../../shared/terminal-custom-themes'
+import { normalizePluginOwnedSettings } from '../../../shared/plugins/capabilities/plugin-owned-settings'
+import {
+  hasLegacyMatchTerminalSidebar,
+  syncLegacyMatchTerminalSidebar
+} from '../../../shared/plugin-theme-settings'
 import { normalizeTerminalDefaultShell } from '../../../shared/terminal-default-shell'
 import { projectSourceControlAiToLegacyCommitMessageAi } from '../../../shared/source-control-ai'
 import { normalizeNativeChatShellEnvironmentVariables } from '../../../shared/native-chat/native-chat-shell-environment'
 import { publishedLegacyChatPermissionMode } from '../../../shared/agent-chat-permission-mode'
 import {
-  savedChatUiWithTerminalDefaultView,
+  expandWorkspaceDirHome,
   stripRetiredGlobalSettings
 } from '../applying-settings/terminal-settings-migrations'
 import { readLegacySidekickFlag } from '../applying-settings/onboarding-normalization'
@@ -35,6 +41,7 @@ export function normalizeLoadedGlobalSettings(
     migratedOptionAsAlt,
     migratedFloatingTerminalEnabled,
     migratedOsc52Clipboard,
+    migratedTerminalColorOverrides,
     migratedFloatingTerminalCwd,
     migratedFloatingTerminalTrustedCwds
   } = terminal
@@ -42,6 +49,7 @@ export function normalizeLoadedGlobalSettings(
     migratedPortugueseUiLanguage,
     migratedExperimentalActivity,
     migratedAutoRenameBranchFromWork,
+    migratedPluginSystemEnabled,
     migratedTerminalCursorStyle,
     migratedTerminalLineHeight,
     terminalRightClickToPasteDefaultedForPlatform,
@@ -61,15 +69,18 @@ export function normalizeLoadedGlobalSettings(
     normalizedNotifications,
     normalizedSourceControlGroupOrder
   } = profile
+  const pluginOwnedSettings = normalizePluginOwnedSettings(parsed.settings ?? {})
+  const matchTerminalSidebarInputs = {
+    pluginAppThemeLight: pluginOwnedSettings.pluginAppThemeLight,
+    pluginAppThemeDark: pluginOwnedSettings.pluginAppThemeDark,
+    leftSidebarAppearanceMode: parsed.settings?.leftSidebarAppearanceMode
+  }
 
   return {
     ...defaults.settings,
     // Legacy stored booleans cannot distinguish opt-in from the old default; retain explicit true.
-    ...stripRetiredGlobalSettings(parsed.settings),
-    // Preserve terminal-first new tabs when retiring the old default-view switch.
-    ...(savedChatUiWithTerminalDefaultView(parsed.settings)
-      ? { experimentalNativeChat: false }
-      : {}),
+    ...expandWorkspaceDirHome(stripRetiredGlobalSettings(parsed.settings)),
+    agentDefaultSurface: normalizeAgentDefaultSurface(parsed.settings?.agentDefaultSurface),
     nativeChatAppearance: normalizeNativeChatAppearanceSettings(
       parsed.settings?.nativeChatAppearance
     ),
@@ -88,6 +99,7 @@ export function normalizeLoadedGlobalSettings(
     primarySelectionMiddleClickPasteDefaultedForTerminalDefaults:
       primarySelectionDefaultedForTerminalDefaults || stampPrimarySelectionTerminalDefaults,
     ...migratedAutoRenameBranchFromWork,
+    ...migratedPluginSystemEnabled,
     ...migratedTerminalCursorStyle,
     terminalLineHeight: migratedTerminalLineHeight,
     // False was always explicit; the old true default may be reset once.
@@ -111,6 +123,7 @@ export function normalizeLoadedGlobalSettings(
     localAccountRuntime: migratedLocalAccountRuntime,
     localAccountRuntimeDefaultedToAutoForAllUsers: true,
     ...migratedOsc52Clipboard,
+    ...migratedTerminalColorOverrides,
     floatingTerminalEnabled: migratedFloatingTerminalEnabled,
     floatingTerminalDefaultedForAllUsers: true,
     floatingTerminalCwd: migratedFloatingTerminalCwd,
@@ -120,6 +133,11 @@ export function normalizeLoadedGlobalSettings(
     terminalDefaultShell: normalizeTerminalDefaultShell(parsed.settings?.terminalDefaultShell),
     terminalQuickCommands: normalizeTerminalQuickCommands(parsed.settings?.terminalQuickCommands),
     terminalCustomThemes: normalizeTerminalCustomThemes(parsed.settings?.terminalCustomThemes),
+    ...pluginOwnedSettings,
+    ...syncLegacyMatchTerminalSidebar(
+      matchTerminalSidebarInputs,
+      hasLegacyMatchTerminalSidebar(matchTerminalSidebarInputs)
+    ),
     // Why the brand resolve: a profile carried over from upstream may hold an
     // icon OxeeUI does not offer. See brand/settings/app-icons.ts.
     appIcon: resolveBrandAppIconId(normalizeAppIconId(parsed.settings?.appIcon)),

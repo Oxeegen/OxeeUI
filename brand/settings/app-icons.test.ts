@@ -42,11 +42,11 @@ describe('app icon hooks', () => {
   })
 
   it('hides the picker and its search entry when there is no choice', () => {
-    expect(source('src/renderer/src/components/settings/AppearancePane.tsx')).toContain(
+    expect(source('src/renderer/src/components/settings/appearance/AppearancePane.tsx')).toContain(
       'IS_APP_ICON_CHOICE_OFFERED && appIconMatches'
     )
-    expect(source('src/renderer/src/components/settings/appearance-search.ts')).toContain(
-      '...(IS_APP_ICON_CHOICE_OFFERED ? getAppIconEntries() : [])'
-    )
+    expect(
+      source('src/renderer/src/components/settings/appearance/appearance-search.ts')
+    ).toContain('...(IS_APP_ICON_CHOICE_OFFERED ? getAppIconEntries() : [])')
   })
 })

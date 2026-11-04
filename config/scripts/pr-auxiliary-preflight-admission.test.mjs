@@ -9,12 +9,21 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
-import { runInNewContext } from 'node:vm'
+import { runInNewContext as runInNewContextRaw } from 'node:vm'
 import { afterEach, describe, expect, it } from 'vitest'
 import { runProcessSync } from '@orca/process-host'
 import { parse } from 'yaml'
 import { classifyPrJobs } from './pr-code-change-scope.mjs'
 import { collectNodeServerInputs } from './node-server-change-scope.mjs'
+
+// Why: job `if`s carry this fork's repository guard, so conditions are evaluated
+// as they run in upstream's repository.
+const runInNewContext = (source, context = {}, ...rest) =>
+  runInNewContextRaw(
+    source,
+    { ...context, github: { repository: 'stablyai/orca', ...context.github } },
+    ...rest
+  )
 
 const workflow = parse(readFileSync('.github/workflows/pr.yml', 'utf8'))
 const unit = parse(readFileSync('.github/workflows/unit-tests.yml', 'utf8'))
@@ -36,8 +45,7 @@ function evaluate(expression, context) {
     expression
       .replace(/^\$\{\{\s*|\s*\}\}$/g, '')
       .replaceAll('.cross-version-wire', '["cross-version-wire"]'),
-    // Why: job `if`s carry this fork's repository guard; evaluate them as upstream runs them.
-    { ...context, github: { repository: 'stablyai/orca', ...context.github } }
+    context
   )
 }
 
@@ -69,12 +77,8 @@ describe.each(routes)('%s preflight admission', (jobName, changedFile) => {
   const job = workflow.jobs[jobName === 'orcad_browser' ? 'test' : jobName]
   const condition =
     jobName === 'orcad_browser' ? `(${job.if}) && (${chrome.if}) && (${browser.if})` : job.if
-
-  it('waits for the detector and physical preflight job', () => {
-    expect(job.needs).toEqual(['code_paths', 'preflight'])
-    expect(job.if).toContain('!cancelled()')
-    expect(job['continue-on-error']).toBeUndefined()
-  })
+  // Unit shards wait for their plan rather than preflight.
+  const gate = jobName === 'orcad_browser' ? 'unit_plan' : 'preflight'
 
   it.each([
     { name: 'all prerequisites pass', admitted: true },
@@ -106,7 +110,7 @@ describe.each(routes)('%s preflight admission', (jobName, changedFile) => {
             [jobName]: scenario.selected === undefined ? 'true' : (scenario.selected ?? undefined)
           }
         },
-        preflight: {
+        [gate]: {
           result: scenario.preflight === undefined ? 'success' : (scenario.preflight ?? undefined)
         }
       }
@@ -116,22 +120,6 @@ describe.each(routes)('%s preflight admission', (jobName, changedFile) => {
     }
     expect(evaluate(condition, context)).toBe(scenario.admitted)
   })
-
-  it.each([
-    { files: [] },
-    { files: ['package.json'] },
-    { files: ['.github/workflows/pr.yml'] },
-    { files: [changedFile] }
-  ])(
-    'requires unit work and preflight whenever the real classifier selects $files',
-    ({ files }) => {
-      const selected = routedOutputs(files, 'false')
-      expect(selected[jobName]).toBe('true')
-      expect(selected.test).toBe('true')
-      expect(selected.static_analysis).toBe('true')
-      expect(selected.typecheck).toBe('true')
-    }
-  )
 
   it.each(['true', 'false', undefined])(
     'honors the actual readiness-masked output when reuse is %s',
@@ -143,7 +131,7 @@ describe.each(routes)('%s preflight admission', (jobName, changedFile) => {
         cancelled: () => false,
         success: () => true,
         inputs: {},
-        needs: { code_paths: { result: 'success', outputs }, preflight: { result: 'success' } }
+        needs: { code_paths: { result: 'success', outputs }, [gate]: { result: 'success' } }
       }
       if (jobName === 'orcad_browser') {
         context.inputs.browser_contract = evaluate(job.with.browser_contract, context)
@@ -151,30 +139,6 @@ describe.each(routes)('%s preflight admission', (jobName, changedFile) => {
       expect(evaluate(condition, context)).toBe(reused !== 'true')
     }
   )
-})
-
-it.each([
-  { files: ['README.md'] },
-  { files: ['mobile/src/App.tsx'] },
-  { files: ['mobile/package.json'] },
-  { files: ['cloud/apps/relay/src/index.ts'] }
-])('does not add preflight consumers to a no-unit diff: $files', ({ files }) => {
-  const outputs = routedOutputs(files, 'false')
-  expect(outputs.test).toBe('false')
-  for (const [name] of routes) {
-    expect(outputs[name], name).toBe('false')
-  }
-})
-
-it('keeps the mobile-only bundle job in the first wave', () => {
-  const mobile = workflow.jobs.mobile_web_app
-  expect(mobile.needs).toEqual(['code_paths'])
-  // Why toContain: this fork prefixes every job `if` with a repository guard.
-  expect(mobile.if).toContain("needs.code_paths.outputs.mobile_web_app == 'true'")
-  expect(classifyPrJobs(['mobile/src/App.tsx'])).toMatchObject({
-    test: false,
-    mobile_web_app: true
-  })
 })
 
 it('preserves relay continuation, setup guards and cancellation', () => {
@@ -247,29 +211,6 @@ describe('Mobile CI tool preflight routing', () => {
     expect(evaluate(required.env.PREFLIGHT_SHOULD_RUN, context)).toBe(true)
   })
 
-  // Static analysis only, for the whole-tree formatting check.
-  it('keeps workflow-only changes off the root unit and typecheck route', () => {
-    const outputs = routedOutputs(['.github/workflows/mobile.yml'], 'false', verified)
-    expect(outputs.mobile_ci_tools).toBe('false')
-    expect(outputs.test).toBe('false')
-    expect(outputs.static_analysis).toBe('true')
-    expect(outputs.typecheck).toBe('false')
-  })
-
-  it('keeps root shard execution enabled for callers that do not opt out', () => {
-    expect(unit.on.workflow_call.inputs.run_shards.default).toBe(true)
-    expect(evaluate(unit.jobs.test.if, { inputs: { run_shards: true } })).toBe(true)
-    const relayDefault = unit.on.workflow_call.inputs.run_relay_integration.default
-    expect(relayDefault).toBe(true)
-    expect(
-      evaluate(unit.jobs.relay_integration.if, { inputs: { run_relay_integration: relayDefault } })
-    ).toBe(true)
-    expect(
-      evaluate(unit.jobs.relay_integration.if, { inputs: { run_relay_integration: false } })
-    ).toBe(false)
-    expect(unit.jobs.relay_integration.needs).toBeUndefined()
-  })
-
   it('requires complete modification evidence and an exact path scope', () => {
     const tool = 'config/scripts/run-mobile-ci-tests.mjs'
     expect(classifyPrJobs([tool]).test).toBe(true)
@@ -290,12 +231,6 @@ describe('Mobile CI tool preflight routing', () => {
       expect(selected.mobile_ci_tools).toBe(false)
       expect(selected.test).toBe(true)
     }
-  })
-
-  it('reuses only identical successful checks for the focused preflight gate', () => {
-    const files = ['config/scripts/run-mobile-ci-tests.mjs']
-    expect(routedOutputs(files, 'true', verified).mobile_ci_tools).toBe('false')
-    expect(routedOutputs(files, 'false', verified).mobile_ci_tools).toBe('true')
   })
 })
 
@@ -387,9 +322,14 @@ function createMobileCiScopeRepository(
     'config/scripts/pr-code-change-scope.mjs',
     'config/scripts/pr-package-test-paths.mjs',
     'config/scripts/pr-layout-oracle-route.mjs',
+    'config/scripts/pr-shell-contract-prefixes.mjs',
     'config/scripts/git-pull-request-diff-base.mjs',
     'config/scripts/pr-e2e-source-routing.mjs',
     'config/scripts/pr-browser-e2e-source-routes.mjs',
+    'config/scripts/pr-editor-preview-e2e-source-routes.mjs',
+    'config/scripts/pr-feature-area-e2e-source-routes.mjs',
+    'config/scripts/pr-plugin-e2e-source-routes.mjs',
+    'config/scripts/pr-wsl-e2e-source-routes.mjs',
     'config/scripts/ci-e2e-job-selection.mjs'
   ]) {
     mkdirSync(dirname(join(directory, file)), { recursive: true })

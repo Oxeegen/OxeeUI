@@ -530,7 +530,11 @@ export function registerPtyConnectionHibernationWakeTests(): void {
 
       deferredSpawn.resolve('pty-resumed')
       await flushAsyncTicks()
-      expect(mockStoreState.clearSleepingAgentSession).toHaveBeenCalledWith(paneKey)
+      expect(mockStoreState.sleepingAgentSessionsByPaneKey[paneKey]).toMatchObject({
+        paneKey,
+        origin: 'quit',
+        restoreOnTabOpenOnly: true
+      })
     })
 
     it('re-arms the exact hibernation target after a replacement spawn fails', async () => {
@@ -768,10 +772,14 @@ export function registerPtyConnectionHibernationWakeTests(): void {
       // The reply still reaches the shell; only the activity recording is gated.
       expect(transport.sendInput).toHaveBeenCalledWith('\x1b[O', 'query-reply')
 
-      // Real user input fires the core signal and records activity.
+      // Real user input fires the core signal before onData, as xterm does; the key must reach the PTY before the store publishes activity.
       for (const listener of userInputListeners) {
         listener()
       }
+      sendTerminalInputThroughPane(pane, 'x')
+      expect(transport.sendInput).toHaveBeenLastCalledWith('x', 'driving')
+      expect(mockStoreState.recordTerminalInput).not.toHaveBeenCalled()
+      await Promise.resolve()
       expect(mockStoreState.recordTerminalInput).toHaveBeenCalledTimes(1)
 
       binding.dispose()

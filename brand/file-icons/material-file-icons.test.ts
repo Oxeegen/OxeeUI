@@ -50,7 +50,7 @@ describe('file icons with the test gate on', () => {
 describe('getFileTypeIcon wiring', () => {
   it('asks the brand layer before any upstream mapping', () => {
     const brandCall = FILE_TYPE_ICONS.indexOf('getBrandFileIcon(filename)')
-    const upstreamLookup = FILE_TYPE_ICONS.indexOf('FILE_ICON_BY_NAME[lowerName]')
+    const upstreamLookup = FILE_TYPE_ICONS.indexOf('ownIcon(FILE_ICON_BY_NAME, lowerName)')
     expect(brandCall).toBeGreaterThan(-1)
     expect(upstreamLookup).toBeGreaterThan(brandCall)
   })

@@ -151,7 +151,7 @@ export function registerPtyConnectionColdRestoreResumeCommandTests(): void {
         expect(transport.connect).toHaveBeenNthCalledWith(
           2,
           expect.objectContaining({
-            command: "codex 'resume' 'codex-session-1'",
+            command: "codex '-c' 'disable_paste_burst=true' 'resume' 'codex-session-1'",
             env: expect.objectContaining({
               ORCA_PANE_KEY: paneKey,
               ORCA_AGENT_LAUNCH_TOKEN: expect.stringMatching(new RegExp(`^${UUID_RE}$`))
@@ -162,7 +162,11 @@ export function registerPtyConnectionColdRestoreResumeCommandTests(): void {
         expect(deps.clearTabPtyId).toHaveBeenCalledWith('tab-1', 'restored-session')
         expect(deps.syncPanePtyLayoutBinding).not.toHaveBeenCalledWith(2, 'restored-session')
         expect(deps.syncPanePtyLayoutBinding).toHaveBeenCalledWith(2, 'fresh-resume-pty')
-        expect(mockStoreState.clearSleepingAgentSession).toHaveBeenCalledWith(paneKey)
+        expect(mockStoreState.sleepingAgentSessionsByPaneKey[paneKey]).toMatchObject({
+          paneKey,
+          origin: 'quit',
+          restoreOnTabOpenOnly: true
+        })
         expect(window.api.pty.clearPendingPaneSerializer).toHaveBeenCalledWith(paneKey, 1)
       } finally {
         globalThis.setTimeout = originalSetTimeout
