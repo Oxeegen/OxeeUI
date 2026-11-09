@@ -11,9 +11,10 @@ import type {
   NativeChatMessage,
   NativeChatTurnLifecycle
 } from '../../../../src/shared/native-chat/native-chat-types'
+import type { NativeChatTranscriptPage } from '../../../../src/shared/native-chat/native-chat-transcript-frames'
 import { buildNativeChatSubscriptionId } from '../../../../src/shared/native-chat/native-chat-stream-unsubscribe'
-import type { RpcClient } from '../../transport/rpc-client'
-import { nativeChatSessionPageRead } from '../mobile-session-read-operations'
+import type { RpcClient } from '../../transport/rpc/rpc-client-contract'
+import { nativeChatSessionPageRead } from './agent-session/mobile-native-chat-page-read-operations'
 import {
   applyMobileNativeChatStreamFrame,
   type MobileNativeChatStreamFrame
@@ -26,14 +27,8 @@ import {
   mobileNativeChatTranscriptCache
 } from './mobile-native-chat-transcript-cache'
 
-export type MobileNativeChatStatus =
-  | 'idle'
-  | 'loading'
-  | 'waiting-session'
-  // No transcript file yet: render the empty chat while keeping its read unsettled.
-  | 'awaiting-transcript'
-  | 'ready'
-  | 'error'
+import type { MobileNativeChatStatus } from './mobile-native-chat-session-status'
+export type { MobileNativeChatStatus } from './mobile-native-chat-session-status'
 
 export type MobileNativeChatSession = {
   messages: NativeChatMessage[]
@@ -44,6 +39,8 @@ export type MobileNativeChatSession = {
   /** The read failed for good (damage, or a newer Orca's chat): the error says why, once, and
    *  there is nothing to send into. */
   readFailedFinally?: boolean
+  /** This phone's /clear is out and its divider has not landed: the old rows are hidden. */
+  clearing?: boolean
   hasMore: boolean
   /** `olderPages === 'loading'`, kept because recorded RPC fixtures read it. */
   loadingEarlier: boolean
@@ -68,7 +65,8 @@ function nextPageWindow(
 }
 
 type ReadSessionResult =
-  | { messages: NativeChatMessage[]; hasMore?: boolean; beforeOffset?: number }
+  | (Pick<NativeChatTranscriptPage, 'messages'> &
+      Partial<Pick<NativeChatTranscriptPage, 'hasMore' | 'beforeOffset'>>)
   | { error: string }
 // Retain paged history across contiguous replay; ordered read windows replace while live appends merge by id.
 export function useMobileNativeChatSession(args: {

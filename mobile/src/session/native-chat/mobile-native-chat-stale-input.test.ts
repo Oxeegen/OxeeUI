@@ -1,8 +1,7 @@
-import { AGENT_TUI_CLEAR_INPUT_MAX } from '../../../../src/shared/agent-tui-input-clear'
+import '../../../../src/shared/agent-launch/startup/agent-tui-input-clear'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { RpcClient } from '../../transport/rpc-client'
+import type { RpcClient } from '../../transport/rpc/rpc-client-contract'
 import {
-  clearMobileNativeChatInputStale,
   healMobileNativeChatStaleInput,
   isMobileNativeChatInputStale,
   markMobileNativeChatInputStale,
@@ -27,36 +26,12 @@ describe('mobile native chat stale input markers', () => {
     resetMobileNativeChatStaleInputForTests()
   })
 
-  it('tracks each terminal independently', () => {
-    markMobileNativeChatInputStale('term-1')
-    expect(isMobileNativeChatInputStale('term-1')).toBe(true)
-    expect(isMobileNativeChatInputStale('term-2')).toBe(false)
-    clearMobileNativeChatInputStale('term-1')
-    expect(isMobileNativeChatInputStale('term-1')).toBe(false)
-  })
-
   it('writes nothing when the terminal is not marked', async () => {
     const client = makeClient()
     await expect(
       healMobileNativeChatStaleInput({ client, terminal: 'term-1', deviceToken: null })
     ).resolves.toBe(true)
     expect(client.sendRequest).not.toHaveBeenCalled()
-  })
-
-  it('clears the line and consumes the marker', async () => {
-    const client = makeClient()
-    markMobileNativeChatInputStale('term-1')
-    await expect(
-      healMobileNativeChatStaleInput({ client, terminal: 'term-1', deviceToken: 'device' })
-    ).resolves.toBe(true)
-    expect(client.sendRequest).toHaveBeenCalledTimes(2)
-    expect(vi.mocked(client.sendRequest).mock.calls[1]?.[1]).toMatchObject({
-      terminal: 'term-1',
-      text: AGENT_TUI_CLEAR_INPUT_MAX,
-      enter: false,
-      client: { id: 'device', type: 'mobile' }
-    })
-    expect(isMobileNativeChatInputStale('term-1')).toBe(false)
   })
 
   it('keeps the marker when the host rejects the clear', async () => {

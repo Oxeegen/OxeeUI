@@ -22,7 +22,10 @@ const HOOKS: [file: string, markers: string[]][] = [
     ["find: '@brand', replacement: resolve('brand')", "'brand/**/*.test.ts'"]
   ],
   // Lint fails on any test file no runner collects; this row names the brand tests' runner.
-  ['config/scripts/check-test-file-runners.mjs', ["include: ['brand/**/*.test.ts']"]],
+  [
+    'config/scripts/ci/unit-selection/check-test-file-runners.mjs',
+    ["include: ['brand/**/*.test.ts']"]
+  ],
   ['tsconfig.json', ['"@brand/*"']],
   ['config/tsconfig.node.json', ['"@brand/*"', '"../brand/**/*"']],
   ['config/tsconfig.web.json', ['"@brand/*"', '"../brand/**/*"']],
@@ -70,11 +73,17 @@ const HOOKS: [file: string, markers: string[]][] = [
   ['src/main/startup/configure-process.ts', ['BRAND.artifactSlug']],
   // Plain-node dev path: these run outside the bundler, so they read the brand
   // JSON rather than resolving the @brand alias.
-  ['config/scripts/dev-electron-bundle-identity.mjs', ['brand.config.json', 'brand.productName']],
-  ['config/scripts/run-electron-vite-dev.mjs', ['BRAND_PRODUCT_NAME']],
+  [
+    'config/scripts/development/electron-bundle-cache/dev-electron-bundle-identity.mjs',
+    ['brand.config.json', 'brand.productName']
+  ],
+  ['config/scripts/development/launch/run-electron-vite-dev.mjs', ['BRAND_PRODUCT_NAME']],
   // Accepts the branded AppImage filename. Losing this fails the Linux release
   // build outright, at the very last step, after everything has compiled.
-  ['config/scripts/static-appimage-package-contract.cjs', ['brand.artifactSlug']],
+  [
+    'config/scripts/desktop-distribution/appimage/static-appimage-package-contract.cjs',
+    ['brand.artifactSlug']
+  ],
   // The window title, which is what the OS taskbar and window switcher show.
   // It never passes through i18next, so the render-time swap cannot reach it.
   ['electron.vite.config.ts', ['brandHtmlTitle']],

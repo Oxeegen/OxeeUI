@@ -3,6 +3,7 @@ import { getDefaultSettings, getDefaultVoiceSettings } from '../../src/shared/co
 import { getDefaultNotificationSettings } from '../../src/shared/notification-settings-defaults'
 import { BRAND_DEFAULT_SETTINGS } from '../../src/shared/brand-default-settings'
 import { buildDefaultSettings } from '../../src/shared/default-global-settings'
+import { DEFAULT_TERMINAL_FONT_WEIGHT } from '../../src/shared/terminal/appearance/terminal-fonts'
 
 const defaults = getDefaultSettings('/home/test')
 
@@ -27,6 +28,7 @@ describe('brand default settings', () => {
       primarySelectionMiddleClickPaste: false,
       primarySelectionDefaultedForLinux: false,
       terminalFontFamily: 'Cascadia Mono',
+      terminalFontWeight: DEFAULT_TERMINAL_FONT_WEIGHT,
       terminalInactivePaneOpacity: 0.9,
       terminalRightClickToPaste: true,
       notifications: getDefaultNotificationSettings(),

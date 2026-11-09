@@ -55,7 +55,9 @@ describe('release build inputs', () => {
   // whole app has been built, so the workflow has to provide it up front.
   it('provides cargo when Windows packaging compiles the CLI launcher', () => {
     const nativeHook = readFileSync(
-      resolve('config/scripts/electron-builder-native-rebuild.cjs'),
+      resolve(
+        'config/scripts/desktop-distribution/runtime-verification/electron-builder-native-rebuild.cjs'
+      ),
       'utf8'
     )
     if (!nativeHook.includes('build-windows-cli-launcher')) {

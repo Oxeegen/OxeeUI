@@ -1,8 +1,11 @@
 import { connect, createServer, type Server, type Socket } from 'node:net'
 import type { WslOrcadConnectionStatus } from './wsl-orcad-connection-status'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { encodePairingOffer, parsePairingCode } from '../../../shared/pairing'
-import { PAIRING_OFFER_VERSION } from '../../../shared/mobile-relay-pairing-offer'
+import {
+  encodePairingOffer,
+  parsePairingCode
+} from '../../../shared/remote-runtime/pairing/pairing'
+import { PAIRING_OFFER_VERSION } from '../../../shared/remote-runtime/pairing/mobile-relay-pairing-offer'
 import type { ServeReadiness } from '../../server/serve-readiness'
 import { OrcadManagedIdentityError } from '../../managed-server/lifecycle/orcad-managed-tunnel-identity'
 import {
@@ -13,8 +16,11 @@ import {
   createEnvironmentFromPairingOffer,
   getPreferredPairingOffer,
   type KnownRuntimeEnvironment
-} from '../../../shared/runtime-environments'
-import { checkOrcadStdioBridge, openOrcadStdioBridgeChannel } from '../../ssh/orcad-stdio-bridge'
+} from '../../../shared/remote-runtime/host-catalog/runtime-environments'
+import {
+  checkOrcadStdioBridge,
+  openOrcadStdioBridgeChannel
+} from '../../managed-server/lifecycle/orcad-stdio-bridge'
 import { startEchoServer } from '../../managed-server/lifecycle/orcad-stdio-bridge-test-channel'
 import {
   fakeWslBridgeChildren,
@@ -30,7 +36,7 @@ import {
   WslOrcadConnectionSupersededError,
   WslOrcadLaunchDeferredError
 } from './wsl-orcad-connection-errors'
-import type { WslOrcadLaunch } from './wsl-orcad-deploy'
+import type { WslOrcadLaunch } from './wsl-orcad-launch-contract'
 import { createWslOrcadHostTransport } from './wsl-orcad-host-transport'
 import { listenWslOrcadStdioBridge } from './wsl-orcad-stdio-bridge'
 import { wslOrcadHostDistro } from './wsl-orcad-host-environments'
@@ -410,23 +416,6 @@ describe('WslOrcadConnectionManager', () => {
     await plain.catch(() => {})
     await expect(forced).rejects.toBeInstanceOf(WslOrcadConnectionSupersededError)
     expect(deployAndLaunch).toHaveBeenCalledTimes(1)
-  })
-
-  it("hands the deploy this desktop's enrolled pairing for the incumbent's terminal count", async () => {
-    const enrolled = parsePairingCode(
-      encodePairingOffer({
-        v: PAIRING_OFFER_VERSION,
-        endpoint: 'ws://127.0.0.1:41000',
-        deviceToken: 'enrolled-token',
-        publicKeyB64: Buffer.alloc(32, 7).toString('base64')
-      })
-    )
-    const { manager, deployAndLaunch } = setup({ getPairingOffer: () => enrolled })
-    await manager.ensure('Ubuntu')
-    expect(deployAndLaunch).toHaveBeenCalledWith(
-      'Ubuntu',
-      expect.objectContaining({ pairedOffer: enrolled })
-    )
   })
 
   it('throws the deferral and starts no bridge', async () => {

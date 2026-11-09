@@ -1,20 +1,20 @@
 import {
   ORCA_SCRUB_SAFE_PANE_ENV,
   ORCA_SCRUB_SAFE_LAUNCH_ENV
-} from '../../../shared/agent-hook-scrub-safe-env'
+} from '../../../shared/agent-hook-listener/transport/agent-hook-scrub-safe-env'
 import {
   ORCHESTRATION_COMPATIBILITY_ATTACHMENT_ENV,
   ORCHESTRATION_COMPATIBILITY_HOST_ID_ENV,
   ORCHESTRATION_COMPATIBILITY_HOST_INCARNATION_ENV,
   ORCHESTRATION_COMPATIBILITY_HOST_KIND_ENV
-} from '../../../shared/orchestration-compatibility-evidence'
+} from '../../../shared/orchestration/orchestration-compatibility-evidence'
 import {
   SETUP_AGENT_SEQUENCE_SETUP_SCRIPT_ENV,
   SETUP_AGENT_SEQUENCE_STARTUP_COMMAND_ENV,
   SETUP_AGENT_SEQUENCE_STARTUP_SCRIPT_ENV
-} from '../../../shared/setup-agent-sequencing'
+} from '../../../shared/agent-launch/startup/setup-agent-sequencing'
 import { getShellReadyWrapperRoot } from '../../providers/local-pty/local-pty-shell-ready-wrapper-root'
-import { ORCA_IMAGE_PROTOCOL_ENV } from '../../../shared/terminal-image-protocol'
+import { ORCA_IMAGE_PROTOCOL_ENV } from '../../../shared/terminal/images/terminal-image-protocol'
 import {
   REMOTE_VIEWER_CLIPBOARD_ENV,
   CODEX_REMOTE_VIEWER_SSH_CONNECTION
