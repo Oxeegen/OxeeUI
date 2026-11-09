@@ -3,6 +3,10 @@ import { installNetRequestFetchAdapter } from './testing/updater-net-request.fix
 import './releases/updater-prerelease-feed-reproduction.fixture'
 import { loadUpdaterModule, warmUpdaterModule } from './testing/updater-test-module-loader'
 import './testing/updater-test-main-window'
+import { MAIN_RELEASE_REPO } from '../../shared/release-channel'
+
+// Why brand-derived: the feed repo follows the publish target, so a fork does not assert upstream URLs.
+const RELEASES_BASE = `https://github.com/${MAIN_RELEASE_REPO}`
 
 const { netFetchMock, netRequestMock } = vi.hoisted(() => ({
   netFetchMock: vi.fn(),
@@ -140,7 +144,9 @@ describe('updater check failure handling', () => {
       if (url.endsWith('/releases/latest')) {
         return new Response(null, {
           status: 302,
-          headers: { location: 'https://github.com/stablyai/orca/releases/tag/v1.0.51' }
+          // Why RELEASES_BASE: the stable lookup only follows this product's own Latest
+          // redirect, so a redirect into upstream's repo would be (rightly) refused.
+          headers: { location: `${RELEASES_BASE}/releases/tag/v1.0.51` }
         })
       }
       return new Response(

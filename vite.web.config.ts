@@ -7,6 +7,7 @@ import { createPdfjsViewerAssetsPlugin } from './config/build-plugins/pdfjs-view
 import { createViteCacheRetentionPlugin } from './config/build-plugins/vite-cache-retention'
 import { reactPluginOptions } from './config/build-plugins/react-compiler'
 import { resolveBuildSourceCommit } from './config/scripts/build-identity/build-source-commit.mjs'
+import { brandHtmlTitle } from './brand/vite/html-title'
 
 export default defineConfig({
   root: resolve('src/renderer'),
@@ -17,7 +18,8 @@ export default defineConfig({
     react(reactPluginOptions()),
     tailwindcss(),
     createPdfjsViewerAssetsPlugin(),
-    createViteCacheRetentionPlugin()
+    createViteCacheRetentionPlugin(),
+    brandHtmlTitle()
   ],
   define: {
     ORCA_FEATURE_WALL_ENABLED: 'true',
@@ -25,6 +27,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      '@brand': resolve('brand'),
       ...markdownParserAliases,
       '@renderer': resolve('src/renderer/src'),
       '@': resolve('src/renderer/src')

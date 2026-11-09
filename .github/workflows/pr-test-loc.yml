@@ -17,6 +17,7 @@ permissions:
 
 jobs:
   loc:
+    if: github.repository == 'stablyai/orca'
     name: test vs non-test LoC
     # API calls and a small Node script fit the free single-CPU container runner.
     runs-on: ubuntu-slim

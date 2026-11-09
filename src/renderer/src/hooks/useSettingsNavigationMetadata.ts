@@ -36,6 +36,7 @@ import { buildWorkflowSettingsSections } from './settings-navigation-workflow-se
 import { useWindowsTerminalCapabilityOwnerKey } from './useWindowsTerminalCapabilityOwnerKey'
 import { useUiLanguageRevision } from '@/i18n/use-ui-language-revision'
 import { useTranslate, type Translate } from '@/i18n/use-translate'
+import { isBrandSettingsSectionHidden } from '@brand/settings/hidden-sections'
 
 export { isWebClientLocation } from '@/lib/web-client-location'
 
@@ -186,7 +187,7 @@ export function useSettingsNavigationMetadata(): SettingsNavSection[] {
           }
         },
         t
-      ),
+      ).filter((section) => !isBrandSettingsSectionHidden(section.id)),
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- translate() inside buildSettingsNavigationMetadata reads the UI language and catalogs implicitly.
     [
       isMac,

@@ -12,6 +12,7 @@
     "../src/shared/**/*.spec.tsx"
   ],
   "include": [
+    "../brand/**/*",
     "../src/renderer/src/env.d.ts",
     "../src/renderer/src/**/*",
     "../src/renderer/src/**/*.tsx",
@@ -99,6 +100,7 @@
   ],
   "compilerOptions": {
     "paths": {
+      "@brand/*": ["../brand/*"],
       "@renderer/*": ["../src/renderer/src/*"],
       "@/*": ["../src/renderer/src/*"]
     }

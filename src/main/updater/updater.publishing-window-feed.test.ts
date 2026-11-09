@@ -2,6 +2,9 @@ import type { getReleaseDownloadUrl } from './releases/updater-release-readiness
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { loadUpdaterModule, warmUpdaterModule } from './testing/updater-test-module-loader'
 import { updaterMainWindow } from './testing/updater-test-main-window'
+// Why the brand constant: the initial feed is this fork's own releases, not
+// upstream's, so a literal upstream URL here would assert the fix away.
+import { LATEST_RELEASE_DOWNLOAD_URL } from '../../shared/release-channel'
 
 const {
   appMock,
@@ -72,7 +75,7 @@ describe('updater', () => {
     expect(autoUpdaterMock.setFeedURL.mock.calls.slice(feedCallsBeforeCheck)).not.toContainEqual([
       {
         provider: 'generic',
-        url: 'https://github.com/stablyai/orca/releases/latest/download'
+        url: LATEST_RELEASE_DOWNLOAD_URL
       }
     ])
   })

@@ -8,7 +8,8 @@
     "../src/preload/api/**/*",
     "../src/main/pi/rpc-model-schema.ts",
     "../src/main/pi/rpc-model-options.ts",
-    "../src/shared/**/*"
+    "../src/shared/**/*",
+    "../brand/**/*"
   ],
   "exclude": [
     "../src/renderer/src/lib/agent-session/launch/new-tab/launch-agent-in-new-tab-main-surface.test.ts",
@@ -21,6 +22,7 @@
     "composite": true,
     "jsx": "react-jsx",
     "paths": {
+      "@brand/*": ["../brand/*"],
       "@renderer/*": ["../src/renderer/src/*"],
       "@/*": ["../src/renderer/src/*"]
     }

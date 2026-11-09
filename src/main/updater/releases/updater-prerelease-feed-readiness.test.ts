@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { installNetRequestFetchAdapter } from '../testing/updater-net-request.fixture'
 import { publishingIncident } from './updater-prerelease-feed-reproduction.fixture'
+import { MAIN_RELEASE_REPO } from '../../../shared/release-channel'
+
+// Why brand-derived: the feed repo follows the publish target, so a fork does not assert upstream URLs.
+const RELEASES_BASE = `https://github.com/${MAIN_RELEASE_REPO}`
 
 const ORIGINAL_PLATFORM = process.platform
 
@@ -17,7 +21,7 @@ function buildAtomFeed(tags: string[]): string {
   return `<?xml version="1.0" encoding="UTF-8"?><feed>${tags
     .map(
       (tag) =>
-        `<entry><link rel="alternate" type="text/html" href="https://github.com/stablyai/orca/releases/tag/${tag}"/><title>${tag}</title></entry>`
+        `<entry><link rel="alternate" type="text/html" href="${RELEASES_BASE}/releases/tag/${tag}"/><title>${tag}</title></entry>`
     )
     .join('')}</feed>`
 }
@@ -62,7 +66,7 @@ function respondWithAtom(
   const missingAssets = new Set(missingAssetTags)
   const unavailableManifests = new Set(unavailableManifestTags)
   netFetchMock.mockImplementation((url: string, init?: { method?: string }) => {
-    if (url === 'https://github.com/stablyai/orca/releases.atom') {
+    if (url === `${RELEASES_BASE}/releases.atom`) {
       return Promise.resolve({
         ok: true,
         status: 200,
@@ -120,7 +124,7 @@ describe('fetchNewerReleaseTagsWithReadiness', () => {
 
     netFetchMock.mockImplementation(
       (url: string, init?: { method?: string; redirect?: string }) => {
-        if (url === 'https://github.com/stablyai/orca/releases.atom') {
+        if (url === `${RELEASES_BASE}/releases.atom`) {
           return Promise.resolve({
             ok: true,
             status: 200,
@@ -159,7 +163,7 @@ describe('fetchNewerReleaseTagsWithReadiness', () => {
       resolveAsset = () => resolve({ ok: false, status: 503 })
     })
     netFetchMock.mockImplementation((url: string, init?: { method?: string }) => {
-      if (url === 'https://github.com/stablyai/orca/releases.atom') {
+      if (url === `${RELEASES_BASE}/releases.atom`) {
         return Promise.resolve({
           ok: true,
           status: 200,
@@ -236,7 +240,7 @@ describe('fetchNewerReleaseTagsWithReadiness', () => {
 
   it('requires every asset referenced by the manifest files list to be reachable', async () => {
     netFetchMock.mockImplementation((url: string, init?: { method?: string }) => {
-      if (url === 'https://github.com/stablyai/orca/releases.atom') {
+      if (url === `${RELEASES_BASE}/releases.atom`) {
         return Promise.resolve({
           ok: true,
           status: 200,
@@ -292,7 +296,7 @@ describe('fetchNewerReleaseTagsWithReadiness', () => {
 
   it('treats malformed updater manifests as not ready', async () => {
     netFetchMock.mockImplementation((url: string, init?: { method?: string }) => {
-      if (url === 'https://github.com/stablyai/orca/releases.atom') {
+      if (url === `${RELEASES_BASE}/releases.atom`) {
         return Promise.resolve({
           ok: true,
           text: () => Promise.resolve(buildAtomFeed(['v1.4.28', 'v1.4.27']))

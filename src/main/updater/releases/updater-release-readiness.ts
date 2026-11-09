@@ -1,7 +1,10 @@
 import { net } from 'electron'
 import { parse } from 'yaml'
+import { MAIN_RELEASE_REPO } from '../../../shared/release-channel'
 
-const RELEASES_DOWNLOAD_BASE = 'https://github.com/stablyai/orca/releases/download'
+// Why derived rather than literal: updates must download from this product's own
+// releases; upstream's literal would fetch another product's installers.
+const RELEASES_DOWNLOAD_BASE = `https://github.com/${MAIN_RELEASE_REPO}/releases/download`
 export const FETCH_TIMEOUT_MS = 5000
 
 export function getReleaseDownloadUrl(tag: string): string {
@@ -107,7 +110,9 @@ async function getReleaseAssetReadiness(tag: string, assetName: string): Promise
   const isGitHubReleaseAsset =
     process.platform === 'win32' &&
     (isRelativeAsset ||
-      /^https:\/\/github\.com\/stablyai\/orca\/releases\/download\//i.test(assetName))
+      // Why derived: a literal here named upstream's repo, so an absolute asset URL
+      // on this product's own releases took the slower non-GitHub probe instead.
+      assetName.toLowerCase().startsWith(`${RELEASES_DOWNLOAD_BASE}/`.toLowerCase()))
   const assetUrl = isRelativeAsset
     ? getReleaseAssetUrl(tag, assetName.split('/').findLast(Boolean) ?? assetName)
     : assetName
