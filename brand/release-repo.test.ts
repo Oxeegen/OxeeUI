@@ -3,7 +3,7 @@ import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { BRAND } from './config/brand'
 
-const RELEASE_CHANNEL = resolve('src/shared/release-channel.ts')
+const RELEASE_CHANNEL = resolve('src/shared/updater/release-channel.ts')
 
 describe('release repo', () => {
   // Why pinned rather than imported: see the comment on MAIN_RELEASE_REPO. The

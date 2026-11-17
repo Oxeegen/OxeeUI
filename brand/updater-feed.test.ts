@@ -71,7 +71,7 @@ describe('update feed', () => {
   })
 
   it('derives the fallback feed from the brand publish target', () => {
-    const channel = readFileSync(resolve('src/shared/release-channel.ts'), 'utf8')
+    const channel = readFileSync(resolve('src/shared/updater/release-channel.ts'), 'utf8')
     expect(channel).toContain(
       `export const MAIN_RELEASE_REPO = '${brand.publish.owner}/${brand.publish.repo}'`
     )
@@ -83,7 +83,7 @@ describe('update feed', () => {
     expect(setup).toContain('LATEST_RELEASE_DOWNLOAD_URL')
     // Why the import location matters: upstream's updater tests mock the
     // updater modules, and an export pulled from a mocked module is undefined.
-    expect(setup).toMatch(/from '\.\.\/\.\.\/\.\.\/shared\/release-channel'/)
+    expect(setup).toMatch(/from '\.\.\/\.\.\/\.\.\/shared\/updater\/release-channel'/)
   })
 
   // Why: since v1.4.243 the stable fallback resolves the Latest release through

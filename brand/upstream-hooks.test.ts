@@ -30,13 +30,16 @@ const HOOKS: [file: string, markers: string[]][] = [
   ['config/tsconfig.node.json', ['"@brand/*"', '"../brand/**/*"']],
   ['config/tsconfig.web.json', ['"@brand/*"', '"../brand/**/*"']],
   ['config/tsconfig.tc.web.json', ['"@brand/*"', '"../brand/**/*"']],
-  ['src/main/startup/dev-instance-identity.ts', ['BRAND.productName', 'BRAND.appId']],
+  [
+    'src/main/startup/profile-startup/dev-instance-identity.ts',
+    ['BRAND.productName', 'BRAND.appId']
+  ],
   ['src/renderer/src/i18n/i18n.ts', ['brandNamePostProcessor', 'BRAND_POST_PROCESS']],
   ['src/main/i18n/main-i18n.ts', ['brandNamePostProcessor', 'BRAND_POST_PROCESS']],
   ['src/renderer/src/assets/main.css', ['brand/assets/brand-theme.css']],
   // Not the @brand alias: shared code compiles without a bundler. See release-repo.test.ts.
   [
-    'src/shared/release-channel.ts',
+    'src/shared/updater/release-channel.ts',
     [
       'MAIN_RELEASE_REPO',
       'LATEST_RELEASE_DOWNLOAD_URL',
@@ -90,7 +93,7 @@ const HOOKS: [file: string, markers: string[]][] = [
   ['vite.web.config.ts', ['brandHtmlTitle']],
   ['src/main/window/createMainWindow.ts', ['BRAND.productName']],
   ['src/main/window/dashboard-popout-window.ts', ['BRAND.productName']],
-  ['src/main/window/main-window-close-lifecycle.ts', ['BRAND.productName']],
+  ['src/main/window/main-window/main-window-close-lifecycle.ts', ['BRAND.productName']],
   // OS notifications built from literals: the i18n rebrand never sees them, so
   // the Settings test button announced upstream's name.
   ['src/main/ipc/notification-options.ts', ['BRAND.productName']],
@@ -101,7 +104,7 @@ const HOOKS: [file: string, markers: string[]][] = [
   // Material Icon Theme icons. Files resolve in the one shared helper, folders in
   // the one FolderIcon component every tree row draws. Losing either is silent:
   // the trees just go back to grey glyphs.
-  ['src/renderer/src/lib/file-type-icons.ts', ['getBrandFileIcon']],
+  ['src/renderer/src/lib/file-icons/file-type-icons.ts', ['getBrandFileIcon']],
   ['src/renderer/src/components/FileTypeIcon.tsx', ['BrandFolderIcon']],
   // The updater's fallback feed. brand/updater-feed.test.ts also fails on any
   // upstream release URL anywhere in shipped code, which catches new call sites.
@@ -109,7 +112,7 @@ const HOOKS: [file: string, markers: string[]][] = [
   // App icon: OxeeUI offers only its own mark. Losing the load hook lets a
   // profile carried over from upstream keep upstream's artwork as the app icon.
   [
-    'src/main/persistence/loading-store/normalize-loaded-global-settings.ts',
+    'src/main/persistence/loading-store/profile-loading/normalize-loaded-global-settings.ts',
     ['resolveBrandAppIconId']
   ],
   [

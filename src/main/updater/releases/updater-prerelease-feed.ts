@@ -17,7 +17,7 @@ import {
   MAIN_RELEASE_TAG_HREF_RE,
   normalizeTagToVersion,
   selectOwnReleaseTags
-} from '../../../shared/release-channel'
+} from '../../../shared/updater/release-channel'
 
 // Why re-exported: callers and tests import it from this module; the brand-aware
 // version (it reads this product's `oxeeui-v` tags) lives with the release helpers.

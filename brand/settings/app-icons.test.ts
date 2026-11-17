@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { APP_ICON_OPTIONS } from '../../src/shared/app-icon'
+import { APP_ICON_OPTIONS } from '../../src/shared/app-lifecycle/identity/app-icon'
 import { BRAND_APP_ICON_IDS, IS_APP_ICON_CHOICE_OFFERED, resolveBrandAppIconId } from './app-icons'
 
 describe('brand app icons', () => {
@@ -37,7 +37,9 @@ describe('app icon hooks', () => {
 
   it('resolves a loaded profile through the brand before storing it', () => {
     expect(
-      source('src/main/persistence/loading-store/normalize-loaded-global-settings.ts')
+      source(
+        'src/main/persistence/loading-store/profile-loading/normalize-loaded-global-settings.ts'
+      )
     ).toContain('appIcon: resolveBrandAppIconId(normalizeAppIconId(parsed.settings?.appIcon))')
   })
 

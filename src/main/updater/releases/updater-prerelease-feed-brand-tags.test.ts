@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { installNetRequestFetchAdapter } from '../testing/updater-net-request.fixture'
-import { MAIN_RELEASE_REPO, MAIN_RELEASE_TAG_PREFIX } from '../../../shared/release-channel'
+import { MAIN_RELEASE_REPO, MAIN_RELEASE_TAG_PREFIX } from '../../../shared/updater/release-channel'
 
 /**
  * This product publishes `oxeeui-v<version>` tags, but the repo also carries the

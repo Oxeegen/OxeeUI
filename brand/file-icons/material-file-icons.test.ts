@@ -14,7 +14,10 @@ import {
 // type-checked by the node project, which does not own renderer files, so a brand
 // test importing one breaks the project boundary. Same approach as
 // brand/upstream-hooks.test.ts.
-const FILE_TYPE_ICONS = readFileSync(resolve('src/renderer/src/lib/file-type-icons.ts'), 'utf8')
+const FILE_TYPE_ICONS = readFileSync(
+  resolve('src/renderer/src/lib/file-icons/file-type-icons.ts'),
+  'utf8'
+)
 
 const savedVitest = process.env.VITEST
 

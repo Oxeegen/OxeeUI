@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { MAIN_RELEASE_REPO } from '../../../shared/release-channel'
+import { MAIN_RELEASE_REPO } from '../../../shared/updater/release-channel'
 
 /**
  * The stable fallback resolves "the Latest release" through GitHub's

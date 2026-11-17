@@ -4,7 +4,7 @@ import { loadUpdaterModule, warmUpdaterModule } from './testing/updater-test-mod
 import { updaterMainWindow } from './testing/updater-test-main-window'
 // Why the brand constant: the initial feed is this fork's own releases, not
 // upstream's, so a literal upstream URL here would assert the fix away.
-import { LATEST_RELEASE_DOWNLOAD_URL } from '../../shared/release-channel'
+import { LATEST_RELEASE_DOWNLOAD_URL } from '../../shared/updater/release-channel'
 
 const {
   appMock,

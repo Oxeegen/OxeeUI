@@ -4,18 +4,18 @@ import {
   LATEST_RELEASE_DOWNLOAD_URL,
   type ReleaseBuild,
   type ReleaseChannel
-} from '../../../shared/release-channel'
+} from '../../../shared/updater/release-channel'
 import type { ReleaseBuildListOptions } from '../releases/updater-release-build-cache'
 import type {
   LinuxPackageInstallInstructions,
   UpdateCheckOptions,
   UpdateStatus
-} from '../../../shared/update-status-types'
+} from '../../../shared/updater/update-status-types'
 import type {
   RemoteServerUpdateInstallResult,
   RemoteServerUpdaterSnapshot,
   RemoteServerUpdateSupport
-} from '../../../shared/remote-server-update'
+} from '../../../shared/remote-runtime/host-catalog/remote-server-update'
 import { getLinuxPackageType } from '../linux-package/linux-update-package-type'
 import { createUpdaterDiagnosticLogger } from '../linux-package/linux-package-install-diagnostic'
 import { registerAutoUpdaterHandlers } from '../updater-events'

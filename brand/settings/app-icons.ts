@@ -1,4 +1,4 @@
-import type { AppIconId } from '../../src/shared/app-icon'
+import type { AppIconId } from '../../src/shared/app-lifecycle/identity/app-icon'
 
 /**
  * The app icons OxeeUI offers in Settings → Appearance → App Icon.

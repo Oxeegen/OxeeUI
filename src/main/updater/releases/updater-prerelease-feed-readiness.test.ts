@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { installNetRequestFetchAdapter } from '../testing/updater-net-request.fixture'
 import { publishingIncident } from './updater-prerelease-feed-reproduction.fixture'
-import { MAIN_RELEASE_REPO } from '../../../shared/release-channel'
+import { MAIN_RELEASE_REPO } from '../../../shared/updater/release-channel'
 
 // Why brand-derived: the feed repo follows the publish target, so a fork does not assert upstream URLs.
 const RELEASES_BASE = `https://github.com/${MAIN_RELEASE_REPO}`

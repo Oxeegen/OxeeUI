@@ -1,6 +1,6 @@
 import { net } from 'electron'
 import { parse } from 'yaml'
-import { MAIN_RELEASE_REPO } from '../../../shared/release-channel'
+import { MAIN_RELEASE_REPO } from '../../../shared/updater/release-channel'
 
 // Why derived rather than literal: updates must download from this product's own
 // releases; upstream's literal would fetch another product's installers.
