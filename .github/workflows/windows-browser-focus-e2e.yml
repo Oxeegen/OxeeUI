@@ -20,6 +20,7 @@ concurrency:
 
 jobs:
   windows-browser-focus:
+    if: github.repository == 'stablyai/orca'
     name: Agent browser input leaves Orca behind the user's app
     runs-on: windows-2022
     timeout-minutes: 30

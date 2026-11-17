@@ -25,6 +25,7 @@ concurrency:
 
 jobs:
   wsl-terminal:
+    if: github.repository == 'stablyai/orca'
     runs-on: windows-2022
     # The E9 guard adds three ~2-5 minute runs to the launch, paste and image checks.
     timeout-minutes: 50

@@ -12,6 +12,7 @@ permissions:
 
 jobs:
   apply-os-label:
+    if: github.repository == 'stablyai/orca'
     runs-on: ubuntu-slim
     timeout-minutes: 5
     # Serialize runs per issue; each run reconciles from current state, so order does not matter.

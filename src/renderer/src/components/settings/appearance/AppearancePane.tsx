@@ -34,6 +34,7 @@ import type { UseTerminalConfigImportReturn } from '../terminal/configuration/us
 import type { UseWarpThemeImportReturn } from '../terminal/themes/useWarpThemeImport'
 import { AppIconSelector } from './AppIconSelector'
 import { normalizeAppIconId } from '../../../../../shared/app-lifecycle/identity/app-icon'
+import { IS_APP_ICON_CHOICE_OFFERED } from '@brand/settings/app-icons'
 import { getRendererAppPlatform } from '@/app-shell/platform/renderer-app-platform'
 import { isWebClientLocation } from '@/app-shell/platform/web-client-location'
 import { SHOW_UI_LANGUAGE_SETTING } from '@/i18n/supported-languages'
@@ -182,7 +183,9 @@ export function AppearancePane({
       ) : null}
 
       {/* Keep the App Icon easter egg at the bottom instead of inside Interface advanced. */}
-      {appIconMatches ? (
+      {/* Why gated: OxeeUI offers a single icon, so there is nothing to pick.
+          See brand/settings/app-icons.ts. */}
+      {IS_APP_ICON_CHOICE_OFFERED && appIconMatches ? (
         <SettingsGroup>
           <SearchableSetting
             title={t('auto.components.settings.AppearancePane.907888cd09', 'App icon')}

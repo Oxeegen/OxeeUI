@@ -27,6 +27,7 @@ permissions:
 
 jobs:
   plan:
+    if: github.repository == 'stablyai/orca'
     runs-on: ${{ inputs.defer_shadow && 'ubuntu-slim' || 'ubuntu-24.04' }}
     timeout-minutes: 5
     env:
