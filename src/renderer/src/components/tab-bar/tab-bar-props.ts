@@ -1,10 +1,13 @@
 import type { BrowserWorkspace } from '../../../../shared/browser/workspaces/browser-workspace-types'
 import type { ClientHostedBrowserRow } from '../../../../shared/browser/client-hosting/client-hosted-browser-rows'
-import type { Tab, WorkspaceVisibleTabType } from '../../../../shared/tab-types'
+import type {
+  Tab,
+  WorkspaceVisibleTabType
+} from '../../../../shared/workspace-layout/tab-groups/tab-types'
 import type { TerminalTab } from '../../../../shared/workspace-layout/terminal-tab-types'
 import type { OpenFile } from '../../store/slices/editor/types/open-file'
-import type { HoveredTabInsertion } from '../tab-group/useTabDragSplit'
-import type { TabCreateEntryArgs } from './tab-create-entry-action'
+import type { HoveredTabInsertion } from '../tab-group/drag/tab-insertion'
+import type { TabCreateEntryArgs } from './create-entry/tab-create-entry-action'
 import type { NewTabMenuSurface } from '../../../../shared/new-tab-menu/new-tab-menu-layout'
 
 export type TabBarProps = {

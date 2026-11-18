@@ -1,7 +1,7 @@
 import type { MessageRow } from '../../db/orchestration-records'
 import { ORCHESTRATION_LEGACY_RUN_ID } from '../../../../../shared/orchestration/orchestration-rpc-contract'
 import type { OrchestrationCliCommand } from '../../workers/launch/orchestration-cli-command'
-import type { OrchestrationMailContent } from '../../../../../shared/agent-session/agent-session-message-source'
+import type { OrchestrationMailContent } from '../../../../../shared/agent-session/journal/agent-session-message-source'
 import {
   formatReportFollowUpLine,
   type ReportFollowUpAction
@@ -135,14 +135,16 @@ export function formatMessagePointer(
   count: number,
   mailboxHandle?: string,
   cliCommand: OrchestrationCliCommand = 'orca',
-  heldDeliveryId?: string
+  heldDeliveryId?: string,
+  terminalHandle?: string
 ): string {
   const noun = count === 1 ? 'message' : 'messages'
   const runFlag = mailboxHandle?.startsWith('run:')
     ? ` --run ${mailboxHandle.slice('run:'.length)}`
     : ''
+  const checkCommand = `${cliCommand} orchestration check${runFlag}${terminalHandle ? ` --terminal ${terminalHandle}` : ''}`
   if (heldDeliveryId) {
-    return `\nYou have ${count} new orchestration ${noun} after delivery ${heldDeliveryId}, which you have not acknowledged. If you no longer have it, run \`${cliCommand} orchestration check${runFlag}\` to see it again; once it is handled, run \`${cliCommand} orchestration check${runFlag} --ack ${heldDeliveryId}\`, then \`${cliCommand} orchestration check${runFlag}\` for the new mail.\n`
+    return `\nYou have ${count} new orchestration ${noun} after delivery ${heldDeliveryId}, which you have not acknowledged. If you no longer have it, run \`${checkCommand}\` to see it again; once it is handled, run \`${checkCommand} --ack ${heldDeliveryId}\`, then \`${checkCommand}\` for the new mail.\n`
   }
-  return `\nYou have ${count} orchestration ${noun}. Run \`${cliCommand} orchestration check${runFlag}\`.\n`
+  return `\nYou have ${count} orchestration ${noun}. Run \`${checkCommand}\`.\n`
 }

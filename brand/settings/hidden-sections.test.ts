@@ -12,7 +12,7 @@ import { HIDDEN_SETTINGS_SECTIONS } from './hidden-sections'
 // settings-navigation-*-sections.ts modules, which left every id declared
 // somewhere this test did not read. Globbing the directory means the next such
 // split fails loudly on a genuinely missing id instead of an empty scrape.
-const HOOKS_DIR = resolve('src/renderer/src/hooks')
+const HOOKS_DIR = resolve('src/renderer/src/components/settings/navigation')
 
 const REGISTRY = readdirSync(HOOKS_DIR)
   .filter((name) => /^(useSettingsNavigationMetadata|settings-navigation-.*)\.ts$/.test(name))

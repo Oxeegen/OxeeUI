@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { PersistedState } from '../shared/persisted-state-types'
-import { getDefaultPersistedState } from '../shared/constants'
+import type { PersistedState } from '../shared/orca-profiles/persisted-state-types'
+import { getDefaultPersistedState } from '../shared/orca-profiles/constants'
 import {
   closeTestStores,
   createStore,

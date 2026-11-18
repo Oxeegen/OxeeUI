@@ -17,12 +17,12 @@ import {
   getTranslationResourceVersion
 } from './translation-resource-version'
 import { resolveUiLocale } from './supported-languages'
-import type { SupportedUiLocale } from '../../../shared/ui-locale'
-import type { UiLanguage } from '../../../shared/ui-language'
+import type { SupportedUiLocale } from '../../../shared/i18n/ui-locale'
+import type { UiLanguage } from '../../../shared/i18n/ui-language'
 import type { PluginLanguagePackRegistration } from '../../../shared/plugins/artifacts/plugin-language-pack-artifact'
 import { withTimeout } from '../../../shared/concurrency/promise-timeout-fallback'
 import { supportedIntlLocale } from './intl-locale-support'
-import { createOrcaI18n } from '../../../shared/orca-i18n-instance'
+import { createOrcaI18n } from '../../../shared/i18n/orca-i18n-instance'
 import { BRAND_POST_PROCESS, brandNamePostProcessor } from '@brand/i18n/rebrand'
 
 // Fetch catalogs as data: Chromium caches rejected module imports for the document's lifetime.

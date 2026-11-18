@@ -68,7 +68,10 @@ const HOOKS: [file: string, markers: string[]][] = [
   // it. Upstream wrote its own download base here, so every update would have
   // been probed, and judged, against another product's release assets.
   ['src/main/updater/releases/updater-release-readiness.ts', ['MAIN_RELEASE_REPO']],
-  ['src/renderer/src/hooks/useSettingsNavigationMetadata.ts', ['isBrandSettingsSectionHidden']],
+  [
+    'src/renderer/src/components/settings/navigation/useSettingsNavigationMetadata.ts',
+    ['isBrandSettingsSectionHidden']
+  ],
   // Keeps the packaged and dev profiles out of upstream's %APPDATA%/orca, so an
   // installed Orca and an installed OxeeUI do not share one settings store and
   // one daemon endpoint. Losing this hook is silent: the app still boots, just
@@ -96,16 +99,16 @@ const HOOKS: [file: string, markers: string[]][] = [
   ['src/main/window/main-window/main-window-close-lifecycle.ts', ['BRAND.productName']],
   // OS notifications built from literals: the i18n rebrand never sees them, so
   // the Settings test button announced upstream's name.
-  ['src/main/ipc/notification-options.ts', ['BRAND.productName']],
-  ['src/main/ipc/notification-permission-probe.ts', ['BRAND.productName']],
+  ['src/main/ipc/notifications/notification-options.ts', ['BRAND.productName']],
+  ['src/main/ipc/notifications/notification-permission-probe.ts', ['BRAND.productName']],
   // The appearance layer a fresh profile starts with. Relative import, not the
   // @brand alias: shared code is compiled by plain tsc for the packaged CLI.
-  ['src/shared/constants.ts', ['./brand-default-settings']],
+  ['src/shared/orca-profiles/constants.ts', ['../settings/brand-default-settings']],
   // Material Icon Theme icons. Files resolve in the one shared helper, folders in
   // the one FolderIcon component every tree row draws. Losing either is silent:
   // the trees just go back to grey glyphs.
   ['src/renderer/src/lib/file-icons/file-type-icons.ts', ['getBrandFileIcon']],
-  ['src/renderer/src/components/FileTypeIcon.tsx', ['BrandFolderIcon']],
+  ['src/renderer/src/components/icons/FileTypeIcon.tsx', ['BrandFolderIcon']],
   // The updater's fallback feed. brand/updater-feed.test.ts also fails on any
   // upstream release URL anywhere in shipped code, which catches new call sites.
   ['src/main/updater/lifecycle/updater-setup.ts', ['LATEST_RELEASE_DOWNLOAD_URL']],

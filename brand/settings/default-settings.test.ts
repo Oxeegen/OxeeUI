@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { getDefaultSettings, getDefaultVoiceSettings } from '../../src/shared/constants'
-import { getDefaultNotificationSettings } from '../../src/shared/notification-settings-defaults'
-import { BRAND_DEFAULT_SETTINGS } from '../../src/shared/brand-default-settings'
-import { buildDefaultSettings } from '../../src/shared/default-global-settings'
+import {
+  getDefaultSettings,
+  getDefaultVoiceSettings
+} from '../../src/shared/orca-profiles/constants'
+import { getDefaultNotificationSettings } from '../../src/shared/notifications/notification-settings-defaults'
+import { BRAND_DEFAULT_SETTINGS } from '../../src/shared/settings/brand-default-settings'
+import { buildDefaultSettings } from '../../src/shared/settings/default-global-settings'
 import { DEFAULT_TERMINAL_FONT_WEIGHT } from '../../src/shared/terminal/appearance/terminal-fonts'
 
 const defaults = getDefaultSettings('/home/test')

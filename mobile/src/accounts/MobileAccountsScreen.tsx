@@ -42,6 +42,14 @@ import { NavBarButton } from '../components/nav-bar/NavBarButton'
 import { ListGroup, SectionHeader, ListRow } from '../components/list/ListGroup'
 import { useRouteHandoff } from '../navigation/route-handoff'
 import { useMobileAccountsSnapshot } from './use-mobile-accounts-snapshot'
+import {
+  getManagedAccountInlineLabel,
+  getManagedAccountPrimaryLabel
+} from '../../../src/shared/agent-accounts/managed-account-display-names'
+import {
+  getCodexAccountDisplayDetail,
+  getCodexAccountDisplayLabel
+} from '../../../src/shared/agent-accounts/codex-account-display-label'
 
 type AccountsNotice = { title: string; message: string }
 
@@ -221,10 +229,24 @@ export function MobileAccountsScreen() {
             const isFetching =
               (isActive && usage?.status === 'fetching') ||
               (!isActive && inactiveEntry?.isFetching === true)
+            const title = getManagedAccountPrimaryLabel(account)
+            // Codex logins can share an email across workspaces; desktop tells them apart the same way.
+            const detail =
+              provider === 'codex' ? getCodexAccountDisplayDetail(account, state.accounts) : null
             return (
               <ListRow
                 key={account.id}
-                title={account.email}
+                title={title}
+                subtitle={
+                  [title === account.email ? null : account.email, detail]
+                    .filter(Boolean)
+                    .join(' · ') || undefined
+                }
+                accessibilityLabel={
+                  provider === 'codex'
+                    ? getCodexAccountDisplayLabel(account, state.accounts)
+                    : getManagedAccountInlineLabel(account)
+                }
                 detail={
                   <>
                     <ProviderUsageWindows

@@ -3,7 +3,7 @@ import { translate } from '../../../i18n/mobile-i18n'
 import type {
   DiffComment,
   MobileDiffReviewState
-} from '../../../../../src/shared/diff-comment-types'
+} from '../../../../../src/shared/file-review/diff-comment-types'
 import { triggerError, triggerSuccess } from '../../../platform/haptics/haptics'
 import type { ConnectionState } from '../../../transport/connection/connection-state'
 import type { RpcClient } from '../../../transport/rpc/rpc-client-contract'
@@ -87,12 +87,7 @@ export function useMobileDiffReviewCommentActions(input: CommentActionsInput) {
       reviewState: MobileDiffReviewState
     ) => {
       if (!client || connState !== 'connected') {
-        throw new Error(
-          translate(
-            'session.useDiffReviewCommentActions.waitingForDesktop',
-            'Waiting for desktop...'
-          )
-        )
+        throw new Error(translate('common.waitingForHost', 'Waiting for host…'))
       }
       const response = await sessionWorktreeNotesWrite.request(client, {
         worktree: `id:${worktreeId}`,
