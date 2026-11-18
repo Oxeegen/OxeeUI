@@ -20,7 +20,7 @@ permissions:
 jobs:
   # Keep required verify present for docs-only PRs while routing expensive jobs by inputs; empty diffs fail closed to full checks.
   code_paths:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft != true
+    if: github.repository == 'stablyai/orca' && (github.event_name != 'pull_request' || github.event.pull_request.draft != true)
     name: detect changes and check repository guards
     # Hosted runners start faster than Blacksmith's (~5s vs ~13s) and this sparse checkout fits one vCPU.
     runs-on: ubuntu-slim
@@ -176,7 +176,7 @@ jobs:
   preflight:
     name: static analysis and typecheck
     needs: [code_paths]
-    if: needs.code_paths.outputs.static_analysis == 'true' || needs.code_paths.outputs.typecheck == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.code_paths.outputs.static_analysis == 'true' || needs.code_paths.outputs.typecheck == 'true')
     # Free hosted ARM: no job on the gate's critical path waits for preflight.
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 180
@@ -583,10 +583,12 @@ jobs:
     name: Git compatibility
     needs: [code_paths, preflight]
     if: >-
+      github.repository == 'stablyai/orca' && (
       !cancelled() &&
       needs.code_paths.result == 'success' &&
       needs.code_paths.outputs.git_compatibility == 'true' &&
       needs.preflight.result == 'success'
+      )
     # One free hosted runner per lane: three lanes sharing one 4-vCPU runner pushed real-Git tests past their timeouts.
     strategy:
       fail-fast: false
@@ -633,10 +635,12 @@ jobs:
     name: Codex index-heal contract
     needs: [code_paths, preflight]
     if: >-
+      github.repository == 'stablyai/orca' && (
       !cancelled() &&
       needs.code_paths.result == 'success' &&
       needs.code_paths.outputs.codex_index_heal_contract == 'true' &&
       needs.preflight.result == 'success'
+      )
     # Why ARM: @openai/codex ships @openai/codex-linux-arm64.
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 180
@@ -722,10 +726,12 @@ jobs:
     name: xterm patch sync
     needs: [code_paths, preflight]
     if: >-
+      github.repository == 'stablyai/orca' && (
       !cancelled() &&
       needs.code_paths.result == 'success' &&
       needs.code_paths.outputs.xterm_patch_sync == 'true' &&
       needs.preflight.result == 'success'
+      )
     # Use ARM for four-package pristine/patched rebuild byte comparison: output generated on Linux x64 reproduces on darwin-arm64.
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 180
@@ -755,10 +761,12 @@ jobs:
     name: shell contracts
     needs: [code_paths, preflight]
     if: >-
+      github.repository == 'stablyai/orca' && (
       !cancelled() &&
       needs.code_paths.result == 'success' &&
       needs.code_paths.outputs.shell_contracts == 'true' &&
       needs.preflight.result == 'success'
+      )
     # Exercise Linux ARM with the standalone aarch64 release and Ubuntu's zsh.
     runs-on: ubuntu-24.04-arm
     # Bound stalled prerequisite downloads instead of waiting for GitHub's 6-hour default.
@@ -851,7 +859,7 @@ jobs:
   # Shards wait only for the plan, not preflight, which moves them about two minutes earlier.
   unit_plan:
     needs: [code_paths]
-    if: needs.code_paths.outputs.test == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.code_paths.outputs.test == 'true')
     uses: ./.github/workflows/unit-plan.yml
     with:
       selection_mode: ${{ vars.ORCA_UNIT_SELECTION_MODE || 'shadow' }}
@@ -861,10 +869,12 @@ jobs:
   test:
     needs: [code_paths, unit_plan]
     if: >-
+      github.repository == 'stablyai/orca' && (
       !cancelled() &&
       needs.code_paths.result == 'success' &&
       needs.code_paths.outputs.test == 'true' &&
       needs.unit_plan.result == 'success'
+      )
     uses: ./.github/workflows/unit-tests.yml
     with:
       node_versions: '["24"]'
@@ -880,7 +890,7 @@ jobs:
   # Keep advisory evidence sibling to tests and outside verify.needs; reusable-workflow dependency otherwise added ~36s after last shard.
   unit_selection_evidence:
     needs: [unit_plan, test]
-    if: ${{ !cancelled() && (needs.test.result == 'success' || needs.test.result == 'failure') }}
+    if: ${{ github.repository == 'stablyai/orca' && (!cancelled() && (needs.test.result == 'success' || needs.test.result == 'failure')) }}
     uses: ./.github/workflows/unit-selection-evidence.yml
     with:
       rebuild_plan: ${{ needs.unit_plan.outputs.selection_planned != 'true' }}
@@ -889,7 +899,7 @@ jobs:
   mobile_web_app:
     name: mobile web app bundle
     needs: [code_paths]
-    if: needs.code_paths.outputs.mobile_web_app == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.code_paths.outputs.mobile_web_app == 'true')
     runs-on: ubuntu-24.04
     timeout-minutes: 180
 
@@ -965,10 +975,12 @@ jobs:
     name: cross-version wire compatibility
     needs: [code_paths, preflight]
     if: >-
+      github.repository == 'stablyai/orca' && (
       !cancelled() &&
       needs.code_paths.result == 'success' &&
       needs.code_paths.outputs.cross-version-wire == 'true' &&
       needs.preflight.result == 'success'
+      )
     # Why ARM: source-only: tagged checkout plus in-process vitest, no docker or browser.
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 180
@@ -1009,10 +1021,12 @@ jobs:
     name: managed hooks on Node 18
     needs: [code_paths, preflight]
     if: >-
+      github.repository == 'stablyai/orca' && (
       !cancelled() &&
       needs.code_paths.result == 'success' &&
       needs.code_paths.outputs.managed_hook_node18 == 'true' &&
       needs.preflight.result == 'success'
+      )
     # Retain the required check while sharing preflight's checkout and built packages.
     runs-on: ubuntu-slim
     timeout-minutes: 5
@@ -1030,7 +1044,7 @@ jobs:
   package:
     name: package
     needs: [code_paths]
-    if: needs.code_paths.outputs.package == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.code_paths.outputs.package == 'true')
     runs-on: ubuntu-24.04
     # Let the serial Docker gates reach their own deadlines and report cleanup failures.
     timeout-minutes: 90
@@ -1265,7 +1279,7 @@ jobs:
   package_windows:
     name: package (windows)
     needs: [code_paths]
-    if: needs.code_paths.outputs.package_windows == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.code_paths.outputs.package_windows == 'true')
     runs-on: windows-2022
     timeout-minutes: 30
 
@@ -1405,6 +1419,7 @@ jobs:
     name: e2e
     needs: [code_paths, preflight]
     if: >-
+      github.repository == 'stablyai/orca' && (
       !cancelled() &&
       needs.code_paths.result == 'success' &&
       needs.code_paths.outputs.e2e_should_run == 'true' &&
@@ -1415,6 +1430,7 @@ jobs:
           needs.code_paths.outputs.static_analysis == 'false' &&
           needs.code_paths.outputs.typecheck == 'false'
         )
+      )
       )
     # Why: reusable e2e.yml only checkouts, builds, and uploads artifacts.
     permissions:
@@ -1432,7 +1448,7 @@ jobs:
   terminal_ime_native:
     name: real IME
     needs: code_paths
-    if: needs.code_paths.outputs.native_ime_source_changed == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.code_paths.outputs.native_ime_source_changed == 'true')
     # Why: the reusable workflow only checks out, builds, and uploads artifacts.
     permissions:
       contents: read
@@ -1441,7 +1457,7 @@ jobs:
   windows_wsl:
     name: real WSL terminal
     needs: code_paths
-    if: needs.code_paths.outputs.wsl_source_changed == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.code_paths.outputs.wsl_source_changed == 'true')
     permissions:
       contents: read
     uses: ./.github/workflows/windows-wsl-e2e.yml
@@ -1453,9 +1469,11 @@ jobs:
     name: dependency isolation under the global virtual store
     needs: [code_paths]
     if: >-
+      github.repository == 'stablyai/orca' && (
       !cancelled() &&
       needs.code_paths.result == 'success' &&
       needs.code_paths.outputs.dependency_isolation == 'true'
+      )
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
@@ -1506,7 +1524,7 @@ jobs:
   verify:
     name: PR checks passed
     # Publish an explicit result after every required dependency settles.
-    if: ${{ !cancelled() && github.event.pull_request.draft != true }}
+    if: ${{ github.repository == 'stablyai/orca' && (!cancelled() && github.event.pull_request.draft != true) }}
     needs:
       - code_paths
       - preflight

@@ -36,7 +36,7 @@ concurrency:
 
 jobs:
   qualification-template:
-    if: inputs.qualification_only
+    if: github.repository == 'stablyai/orca' && (inputs.qualification_only)
     permissions:
       contents: read
       actions: read

@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { installNetRequestFetchAdapter } from '../testing/updater-net-request.fixture'
+import { MAIN_RELEASE_REPO } from '../../../shared/updater/release-channel'
+
+// Why brand-derived: the feed repo follows the publish target, so a fork does not assert upstream URLs.
+const RELEASES_BASE = `https://github.com/${MAIN_RELEASE_REPO}`
 
 const { netFetchMock, netRequestMock } = vi.hoisted(() => ({
   netFetchMock: vi.fn(),
@@ -14,7 +18,7 @@ function buildAtomFeed(tags: string[], updatedAt: Record<string, string> = {}): 
   const entries = tags
     .map(
       (tag) =>
-        `<entry>${updatedAt[tag] ? `<updated>${updatedAt[tag]}</updated>` : ''}<link rel="alternate" type="text/html" href="https://github.com/stablyai/orca/releases/tag/${tag}"/><title>${tag}</title></entry>`
+        `<entry>${updatedAt[tag] ? `<updated>${updatedAt[tag]}</updated>` : ''}<link rel="alternate" type="text/html" href="${RELEASES_BASE}/releases/tag/${tag}"/><title>${tag}</title></entry>`
     )
     .join('')
   return `<?xml version="1.0" encoding="UTF-8"?><feed>${entries}</feed>`
@@ -42,7 +46,7 @@ function respondWithAtom(
   const missingAssets = new Set(missingAssetTags)
   const unavailableManifests = new Set(unavailableManifestTags)
   netFetchMock.mockImplementation((url: string, init?: { method?: string }) => {
-    if (url === 'https://github.com/stablyai/orca/releases.atom') {
+    if (url === `${RELEASES_BASE}/releases.atom`) {
       return Promise.resolve({
         ok: true,
         text: () => Promise.resolve(buildAtomFeed(tags, updatedAt))

@@ -26,7 +26,10 @@ import {
 import { DEFAULT_USAGE_PERCENTAGE_DISPLAY } from '../agent-usage/display/usage-percentage-display'
 import { DEFAULT_STATUS_BAR_USAGE_MODE } from '../status-bar/status-bar-usage-mode'
 import { DEFAULT_STATUS_BAR_USAGE_FORMAT } from '../status-bar/status-bar-usage-format'
-import { buildDefaultSettings } from '../settings/default-global-settings'
+// Why this path and not '../settings/default-global-settings': the brand module
+// re-exports buildDefaultSettings with this fork's appearance layer applied. Same
+// signature, same call below. See src/shared/settings/brand-default-settings.ts.
+import { buildDefaultSettings } from '../settings/brand-default-settings'
 import { DEFAULT_SETUP_AGENT_STARTUP_POLICY } from '../agent-launch/startup/setup-agent-startup-policy'
 import { DEFAULT_BROWSER_PAGE_ZOOM_LEVEL } from '../browser/site-settings/browser-page-zoom'
 import { getDefaultNotificationSettings } from '../notifications/notification-settings-defaults'

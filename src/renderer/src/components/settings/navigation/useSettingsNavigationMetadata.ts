@@ -37,6 +37,7 @@ import type { SettingsNavSection } from '@/components/settings/navigation/settin
 import type { ProjectGroupingModel } from '../../../../../shared/sidebar-list/sections/project-section-grouping'
 import type { Repo } from '../../../../../shared/repository/repo-types'
 import type { SettingsNavigationBuildOptions } from './settings-navigation-build-options'
+import { isBrandSettingsSectionHidden } from '@brand/settings/hidden-sections'
 
 // Share Settings/Cmd+J visibility without Settings pane UI imports; an architecture test enforces this boundary.
 // Share Settings/Cmd+J visibility without Settings pane UI imports; an architecture test enforces this boundary.
@@ -193,7 +194,7 @@ export function useSettingsNavigationMetadata(): SettingsNavSection[] {
           }
         },
         t
-      ),
+      ).filter((section) => !isBrandSettingsSectionHidden(section.id)),
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- translate() inside buildSettingsNavigationMetadata reads the UI language and catalogs implicitly.
     [
       isMac,
