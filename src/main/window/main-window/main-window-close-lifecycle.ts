@@ -11,7 +11,7 @@ import { syncTrafficLightPosition } from './main-window-visual-lifecycle'
 import { consumeUserQuitWindowClose } from './user-quit-window-close'
 import {
   getWindowCloseInFlight,
-  replacePendingReloadWithClose,
+  settleRendererPreparationBeforeClose,
   setWindowCloseInFlight
 } from '../renderer-relays/native-unload-coordinator'
 
@@ -81,14 +81,14 @@ export function installMainWindowCloseLifecycle(args: {
     }
   }
 
-  // A reload's checkpoint already holds the renderer; asking it to close mid-way would skip that durable verdict.
-  const sendCloseRequestAfterPendingReload = (send: () => void): void => {
-    const pendingReload = replacePendingReloadWithClose(mainWindow.webContents)
-    if (!pendingReload) {
+  // The renderer may already be waiting on a durable checkpoint.
+  const sendCloseRequestAfterPreparation = (send: () => void): void => {
+    const preparation = settleRendererPreparationBeforeClose(mainWindow.webContents)
+    if (!preparation) {
       send()
       return
     }
-    void pendingReload.then(() => {
+    void preparation.then(() => {
       if (mainWindow.isDestroyed()) {
         return
       }
@@ -157,7 +157,7 @@ export function installMainWindowCloseLifecycle(args: {
     }
     e.preventDefault()
     const isQuitting = opts?.getIsQuitting?.() ?? false
-    sendCloseRequestAfterPendingReload(() => {
+    sendCloseRequestAfterPreparation(() => {
       const requestId = trackCloseRequest(isQuitting || userQuitClose)
       // User Quit on serve closes windows without quitting the host; still bound frozen-renderer acknowledgement.
       if (isQuitting || userQuitClose) {
@@ -253,7 +253,7 @@ export function installMainWindowCloseLifecycle(args: {
     if (hideToTrayIfEnabled()) {
       return
     }
-    sendCloseRequestAfterPendingReload(() => {
+    sendCloseRequestAfterPreparation(() => {
       const requestId = trackCloseRequest(false)
       mainWindow.webContents.send('window:close-requested', { isQuitting: false, requestId })
     })

@@ -20,9 +20,27 @@ const REGISTRY = readdirSync(HOOKS_DIR)
   .map((name) => readFileSync(resolve(HOOKS_DIR, name), 'utf8'))
   .join('\n')
 
-const declaredIds = new Set(
-  Array.from(REGISTRY.matchAll(/\n\s+id: '([a-z0-9-]+)',/g)).map((match) => match[1])
+// Some builders name their id through an exported constant instead of a literal
+// (the Bots page: `id: BOTS_SETTINGS_SECTION_ID`). Resolve those against the
+// `export const NAME = '...'` declarations in the settings components, so a
+// hidden section declared that way is checked like any other.
+const SETTINGS_DIR = resolve('src/renderer/src/components/settings')
+const SETTINGS_SOURCES = readdirSync(SETTINGS_DIR, { recursive: true, encoding: 'utf8' })
+  .filter((name) => name.endsWith('.ts') && !name.endsWith('.test.ts'))
+  .map((name) => readFileSync(resolve(SETTINGS_DIR, name), 'utf8'))
+  .join('\n')
+const ID_CONSTANTS = new Map(
+  Array.from(SETTINGS_SOURCES.matchAll(/export const ([A-Z][A-Z0-9_]*) = '([a-z0-9-]+)'/g)).map(
+    (match) => [match[1], match[2]] as const
+  )
 )
+
+const declaredIds = new Set([
+  ...Array.from(REGISTRY.matchAll(/\n\s+id: '([a-z0-9-]+)',/g)).map((match) => match[1]),
+  ...Array.from(REGISTRY.matchAll(/\n\s+id: ([A-Z][A-Z0-9_]*),/g))
+    .map((match) => ID_CONSTANTS.get(match[1]))
+    .filter((id): id is string => id !== undefined)
+])
 
 // A scrape that finds nothing would pass every `toContain` below vacuously only
 // if the set were compared the other way round; assert it is populated anyway,

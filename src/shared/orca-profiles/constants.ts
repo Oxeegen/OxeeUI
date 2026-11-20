@@ -7,7 +7,6 @@ import {
 } from '../workspace-view/sleeping-workspace-visibility'
 import { DEFAULT_AGENT_ACTIVITY_DISPLAY_MODE } from '../agent-status/presentation/agent-activity-display-mode'
 import type { GlobalSettings } from '../settings/global-settings-types'
-import type { RepoHookSettings } from '../workspace-setup/orca-yaml-hook-types'
 import type { PersistedState } from './persisted-state-types'
 import type { PersistedUIState } from './persisted-ui-state-types'
 
@@ -19,6 +18,7 @@ import { DICTATION_LANGUAGE_AUTO } from '../speech/models/dictation-language'
 import { DEFAULT_UNLOAD_MODEL_AFTER_MINUTES } from '../speech/models/voice-model-unload'
 import { cloneDefaultWorkspaceStatuses } from '../workspace/status/workspace-statuses'
 import { DEFAULT_WORKTREE_CARD_PROPERTIES } from '../worktree/row-display/card-properties'
+import { DEFAULT_BOT_SIDEBAR_VIEW } from '../bots/bot-sidebar-view'
 import {
   DEFAULT_AGENTS_GROUP_BY,
   DEFAULT_AGENTS_READ_FILTER
@@ -30,7 +30,6 @@ import { DEFAULT_STATUS_BAR_USAGE_FORMAT } from '../status-bar/status-bar-usage-
 // re-exports buildDefaultSettings with this fork's appearance layer applied. Same
 // signature, same call below. See src/shared/settings/brand-default-settings.ts.
 import { buildDefaultSettings } from '../settings/brand-default-settings'
-import { DEFAULT_SETUP_AGENT_STARTUP_POLICY } from '../agent-launch/startup/setup-agent-startup-policy'
 import { DEFAULT_BROWSER_PAGE_ZOOM_LEVEL } from '../browser/site-settings/browser-page-zoom'
 import { getDefaultNotificationSettings } from '../notifications/notification-settings-defaults'
 import { getDefaultOnboardingState } from '../onboarding/onboarding-defaults'
@@ -85,18 +84,6 @@ export function getDefaultVoiceSettings(): VoiceSettings {
     microphoneDeviceId: null,
     microphoneDeviceLabel: null,
     unloadModelAfterMinutes: DEFAULT_UNLOAD_MODEL_AFTER_MINUTES
-  }
-}
-
-export function getDefaultRepoHookSettings(): RepoHookSettings {
-  return {
-    mode: 'auto',
-    setupRunPolicy: 'run-by-default',
-    setupAgentStartupPolicy: DEFAULT_SETUP_AGENT_STARTUP_POLICY,
-    scripts: {
-      setup: '',
-      archive: ''
-    }
   }
 }
 
@@ -175,6 +162,8 @@ export function getDefaultUIState(): PersistedUIState {
     agentsHideWorkspacesFromOtherDevices: false,
     agentsHideAutomationGeneratedWorkspaces: false,
     agentsHideCliCreatedWorkspaces: false,
+    hideBotCreatedWorkspaces: true,
+    botSidebarView: DEFAULT_BOT_SIDEBAR_VIEW,
     agentsShowChildAgents: false,
     agentsCompactMode: true,
     agentsShowSearch: true,

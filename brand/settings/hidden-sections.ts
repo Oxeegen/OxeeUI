@@ -24,7 +24,11 @@ const UPSTREAM_SERVICES = [
   // Publishes to share.onorca.dev (artifact-cloud-config.ts).
   'artifacts',
   // Marketplace defaults to the stablyai/orca-plugins catalog.
-  'plugins'
+  'plugins',
+  // Bots: connectors and share links go through stablyai's cloud
+  // (connector-origin.ts, app.orca.dev) under an upstream account. The page
+  // holds the on switch, so hiding it keeps the brand default (off) in place.
+  'bots'
 ]
 
 /** Development and first-run scaffolding a shipped product has no use for. */

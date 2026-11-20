@@ -48,7 +48,15 @@ export const BRAND_DEFAULT_SETTINGS: Partial<GlobalSettings> = {
 
   // Tinted sidebar, lighter than upstream's near-black tint.
   leftSidebarAppearanceMode: 'tinted',
-  leftSidebarTintColor: '#4f4f4f'
+  leftSidebarTintColor: '#4f4f4f',
+
+  // Bots stay off: their connectors and share links run through upstream's own
+  // cloud and account, and their avatars are upstream's mascots. Upstream's
+  // switch gates every bot surface (sidebar, tips, menus, deep links, the
+  // connector); `brand/settings/hidden-sections.ts` hides the page holding it.
+  // Unlike the appearance values above, this also reaches existing profiles:
+  // they predate the key, and loading fills missing keys from these defaults.
+  botsEnabled: false
 }
 
 /**

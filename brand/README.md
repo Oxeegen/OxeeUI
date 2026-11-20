@@ -207,11 +207,12 @@ real one is now `com.oxeegen.oxeeui`.
 
 ## Settings pruning
 
-`brand/settings/hidden-sections.ts` removes 13 of the 33 Settings sections. Three
-reach an upstream first-party service and are not merely off-brand — a fork build
-would authenticate with someone else's OAuth client (`orca-account`) or publish to
-someone else's host (`artifacts`, `plugins`). Three are development and first-run
-scaffolding. Seven are capabilities outside what this product ships.
+`brand/settings/hidden-sections.ts` removes 14 Settings sections. Four reach an
+upstream first-party service and are not merely off-brand — a fork build would
+authenticate with someone else's OAuth client (`orca-account`), or publish to or
+connect through someone else's host (`artifacts`, `plugins`, `bots`). Three are
+development and first-run scaffolding. Seven are capabilities outside what this
+product ships.
 
 The filter lives in the `useSettingsNavigationMetadata` hook, not in
 `buildSettingsNavigationMetadata`. Both the Settings sidebar and the Cmd+J palette
@@ -227,6 +228,13 @@ not in the nav (the `visibleSectionIds` effect in `Settings.tsx`).
 
 `hidden-sections.test.ts` asserts every hidden id still exists in the upstream
 registry, so a rename upstream fails loudly instead of quietly restoring a pane.
+
+**Bots are switched off, not only hidden.** `botsEnabled: false` in
+`src/shared/settings/brand-default-settings.ts` turns off upstream's own switch,
+which gates every bot surface (sidebar, feature tip, menus, deep links and the
+connector connection); hiding the `bots` page removes the only place to turn it
+back on. Profiles saved before bots existed lack the key and load the default;
+`src/main/persistence-brand-bots-off.test.ts` drives that load path.
 
 ## GitHub Actions
 
