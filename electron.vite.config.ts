@@ -5,6 +5,7 @@ import { defineConfig, type UserConfig } from 'electron-vite'
 import type { Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import { brandHtmlTitle } from './brand/vite/html-title'
 import { createInheritedOrcaIdentityFirstGuardPlugin } from './config/build-plugins/inherited-orca-identity-banner'
 import { createMainEntryPostBanner } from './config/build-plugins/main-entry-post-banner'
 import {
@@ -234,6 +235,7 @@ export const electronViteConfig: UserConfig = {
     // @xterm/headless declares exports:null; point Vite directly at its published CJS main to permit inlining.
     resolve: {
       alias: {
+        '@brand': resolve('brand'),
         '@xterm/headless': resolve('node_modules/@xterm/headless/lib-headless/xterm-headless.js'),
         '@xterm/addon-serialize': resolve(
           'node_modules/@xterm/addon-serialize/lib/addon-serialize.js'
@@ -256,6 +258,7 @@ export const electronViteConfig: UserConfig = {
     },
     resolve: {
       alias: {
+        '@brand': resolve('brand'),
         ...markdownParserAliases,
         // Pin the browser-safe UMD entry so an unpatched package.json cannot bundle lib/addon-ligatures.mjs (which imports node:diagnostics_channel).
         '@xterm/addon-ligatures': resolve(
@@ -269,7 +272,8 @@ export const electronViteConfig: UserConfig = {
       react(reactPluginOptions()),
       tailwindcss(),
       createPdfjsViewerAssetsPlugin(),
-      createViteCacheRetentionPlugin()
+      createViteCacheRetentionPlugin(),
+      brandHtmlTitle()
     ],
     worker: {
       format: 'es',

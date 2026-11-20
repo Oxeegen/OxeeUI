@@ -17,6 +17,7 @@ concurrency:
 
 jobs:
   windows-terminal-restart:
+    if: github.repository == 'stablyai/orca'
     name: Windows terminal restart regressions
     runs-on: windows-2022
     timeout-minutes: 30

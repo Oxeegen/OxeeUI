@@ -13,6 +13,7 @@ permissions:
   contents: read
 jobs:
   lock:
+    if: github.repository == 'stablyai/orca'
     timeout-minutes: 20
     strategy:
       fail-fast: false
