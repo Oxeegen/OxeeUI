@@ -1,6 +1,8 @@
-import { app, powerMonitor } from 'electron'
-import type { BrowserWindow } from 'electron'
+// Why the electron imports share a line: upstream keeps this file at its 300-line cap,
+// so the brand's feed-URL import below has to cost nothing net.
+import { app, powerMonitor, type BrowserWindow } from 'electron'
 import type { ReleaseBuild, ReleaseChannel } from '../../../shared/updater/release-channel'
+import { LATEST_RELEASE_DOWNLOAD_URL } from '../../../shared/updater/release-channel'
 import type { ReleaseBuildListOptions } from '../releases/updater-release-build-cache'
 import {
   managesUpdates,
@@ -204,7 +206,7 @@ export class UpdaterSetup extends UpdaterDownloadInstall {
     if (this.activeUpdateSource === 'release') {
       autoUpdater.setFeedURL({
         provider: 'generic',
-        url: 'https://github.com/stablyai/orca/releases/latest/download'
+        url: LATEST_RELEASE_DOWNLOAD_URL
       })
     }
     if (this.autoUpdaterInitialized) {

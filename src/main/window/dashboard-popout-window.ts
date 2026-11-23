@@ -1,5 +1,6 @@
 import { mainI18n, translateMain } from '../i18n/main-i18n'
 import { app, BrowserWindow, nativeTheme, type WebContents, type Event } from 'electron'
+import { BRAND } from '@brand/config/brand'
 import { join } from 'node:path'
 import type { NativeSettingsProjection } from '../core-desktop/native-settings-projection'
 import {
@@ -156,7 +157,8 @@ export function createOrFocusDashboardPopout(
     ...(savedBounds ? { x: savedBounds.x, y: savedBounds.y } : {}),
     minWidth: MIN_WIDTH,
     minHeight: MIN_HEIGHT,
-    title: translateMain('native.dialog.dashboardTitle', 'Orca Agent Dashboard'),
+    // Why BRAND in the fallback: belt and braces with the rebrand post-processor.
+    title: translateMain('native.dialog.dashboardTitle', `${BRAND.productName} Agent Dashboard`),
     show: false,
     autoHideMenuBar: true,
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#0a0a0a' : '#ffffff',

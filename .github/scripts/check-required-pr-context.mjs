@@ -17,7 +17,12 @@ export function verifyRequiredPrContext(parseYaml) {
     throw new Error(`Required PR context must belong only to pr.yml:verify; found ${owners}`)
   }
   const gate = providers[0].job
-  const condition = gate.if?.replace(/^\$\{\{\s*|\s*\}\}$/g, '').trim()
+  // Why the second replace: this fork wraps every job `if` in a repository guard, so
+  // the condition upstream requires is checked inside it.
+  const condition = gate.if
+    ?.replace(/^\$\{\{\s*|\s*\}\}$/g, '')
+    .replace(/^github\.repository == 'stablyai\/orca' && \(\s*([\s\S]*?)\s*\)$/, '$1')
+    .trim()
   if (condition !== '!cancelled() && github.event.pull_request.draft != true') {
     throw new Error('Required PR aggregate must run unless cancelled or the PR is a draft.')
   }

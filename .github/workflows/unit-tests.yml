@@ -53,6 +53,7 @@ permissions:
 
 jobs:
   test:
+    if: github.repository == 'stablyai/orca'
     name: ${{ inputs.artifact_prefix != 'unit' && format('{0} ', inputs.artifact_prefix) || '' }}tests node ${{ matrix.node }} ${{ matrix.shard.index }}/${{ matrix.shard.count }}
     runs-on: ${{ inputs.runner }}
     timeout-minutes: 60

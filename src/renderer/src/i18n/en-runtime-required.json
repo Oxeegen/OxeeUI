@@ -3459,6 +3459,20 @@
     "unhide": "Show All",
     "zoom": "Zoom"
   },
+  "native": {
+    "dialog": {
+      "dashboardTitle": "Orca Agent Dashboard"
+    }
+  },
+  "notifications": {
+    "permissionProbe": {
+      "body": "Orca will alert you when agents finish or terminals need attention."
+    },
+    "test": {
+      "body": "This is a test notification from Orca.",
+      "title": "Orca notifications are on"
+    }
+  },
   "perfNotices": {
     "hiddenTabs": {
       "descriptionOneHour_one": "You have {{count}} tab you haven't viewed in over an hour. Turn on Memory Saver to free up its memory.",
