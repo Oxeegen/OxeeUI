@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { installNetRequestFetchAdapter } from '../testing/updater-net-request.fixture'
+import { installNetRequestFetchAdapter } from './updater-net-request-brand.fixture'
 import { MAIN_RELEASE_REPO, MAIN_RELEASE_TAG_PREFIX } from '../../../shared/updater/release-channel'
 
 /**

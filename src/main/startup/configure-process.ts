@@ -120,10 +120,6 @@ export function isDevParentShutdownRequested(): boolean {
   return devParentShutdownRequested
 }
 
-export function resetDevParentShutdownRequestForTests(): void {
-  devParentShutdownRequested = false
-}
-
 function resolvePackagedHome(): string {
   try {
     return homedir()

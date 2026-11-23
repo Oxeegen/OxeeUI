@@ -2,7 +2,7 @@ import { ipcMain, Menu, Notification, type BrowserWindow } from 'electron'
 import { BRAND } from '@brand/config/brand'
 import { QUIT_RENDERER_ACK_TIMEOUT_MS } from '../../../shared/app-lifecycle/shutdown/quit-teardown-deadline'
 import { translateMain } from '../../i18n/main-i18n'
-import type { Store } from '../../persistence/loading-store/store'
+import type { NativeSettingsProjection } from '../../core-desktop/native-settings-projection'
 import { resolveWindowCloseAction } from './window-close-decision'
 import type { CreateMainWindowOptions } from './main-window-contracts'
 import type { MainWindowFocusLifecycle } from './main-window-focus-lifecycle'
@@ -21,9 +21,9 @@ export function installMainWindowCloseLifecycle(args: {
   opts?: CreateMainWindowOptions
   rendererWebContentsId: number
   state: MainWindowStateLifecycle
-  store: Store | null
+  nativeSettings: NativeSettingsProjection | null
 }): { dispose: () => void } {
-  const { focus, mainWindow, opts, rendererWebContentsId, state, store } = args
+  const { focus, mainWindow, opts, rendererWebContentsId, state, nativeSettings } = args
   // Renderer confirms save/process guards through window:confirm-close.
   let windowCloseConfirmed = false
   const confirmCloseChannel = 'window:confirm-close'
@@ -109,13 +109,13 @@ export function installMainWindowCloseLifecycle(args: {
       focus.isRendererProcessGone() ||
       isRendererCrashed ||
       opts?.getIsQuitting?.() === true ||
-      store?.getSettings().minimizeToTrayOnClose !== true
+      nativeSettings?.getSettings().minimizeToTrayOnClose !== true
     ) {
       return false
     }
     mainWindow.hide()
     // Persist the one-time tray notice so later minimize actions stay quiet.
-    if (store.getUI().trayMinimizeNoticeShown !== true) {
+    if (nativeSettings.getUI().trayMinimizeNoticeShown !== true) {
       try {
         new Notification({
           title: BRAND.productName,
@@ -127,7 +127,10 @@ export function installMainWindowCloseLifecycle(args: {
       } catch {
         // Notification is best-effort — never block hiding the window.
       }
-      store.updateUI({ trayMinimizeNoticeShown: true })
+      void nativeSettings.requestCoreWrite({
+        kind: 'ui',
+        updates: { trayMinimizeNoticeShown: true }
+      })
     }
     return true
   }

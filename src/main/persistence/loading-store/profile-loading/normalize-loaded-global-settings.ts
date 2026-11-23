@@ -1,4 +1,5 @@
 import { normalizeAgentDefaultSurface } from '../../../../shared/native-chat/settings/native-chat-providers'
+import { normalizeUsageLimitAutoContinueDefaultOn } from '../../../../shared/native-chat/settings/native-chat-usage-limit-auto-continue'
 import { normalizeNativeChatAppearanceSettings } from '../../../../shared/native-chat/settings/native-chat-appearance-settings'
 import { getDefaultVoiceSettings } from '../../../../shared/orca-profiles/constants'
 import { normalizePRBotAuthorOverrides } from '../../../../shared/source-control/review-comments/pr-bot-author-overrides'
@@ -119,6 +120,7 @@ export function normalizeLoadedGlobalSettings(
       primarySelectionDefaultedForTerminalDefaults || stampPrimarySelectionTerminalDefaults,
     ...migratedAutoRenameBranchFromWork,
     ...migratedPluginSystemEnabled,
+    ...normalizeUsageLimitAutoContinueDefaultOn(parsed.settings),
     ...migratedNestedWorkerMaxDepth,
     ...migratedTerminalCursorStyle,
     terminalLineHeight: migratedTerminalLineHeight,
@@ -172,6 +174,7 @@ export function normalizeLoadedGlobalSettings(
     minimizeToTrayOnClose: parsed.settings?.minimizeToTrayOnClose === true,
     // Default-on values round-trip off-platform; macOS consumers gate the actual effect.
     showMenuBarIcon: parsed.settings?.showMenuBarIcon !== false,
+    linuxTilingWindowMode: parsed.settings?.linuxTilingWindowMode === true,
     ...migratedPortugueseUiLanguage,
     nativeChatInheritShellEnvironment: parsed.settings?.nativeChatInheritShellEnvironment !== false,
     nativeChatShellEnvironmentVariables: normalizeNativeChatShellEnvironmentVariables(
