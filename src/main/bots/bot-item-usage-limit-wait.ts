@@ -59,34 +59,44 @@ export type BotItemUsageLimitDeps = {
 }
 
 /** Each In progress or Waiting item with workers waits or goes back as its workers' stops say.
- *  `moved` is told of each item moved, even when a later one fails, which then rejects the whole. */
+ *  Report each move even if a later write fails. Return true if a concurrent edit needs a new pass. */
 export async function moveItemsOnUsageLimits(
   store: BotItemUsageLimitStore,
   join: BotItemUsageLimitDeps['join'],
   sessionOf: BotItemUsageLimitDeps['sessionOf'],
   cuts: ReadonlyMap<string, BotUsageLimitCut>,
   moved: (items: readonly BotItemRecord[]) => void
-): Promise<void> {
-  const refs = await store.linkedDispatchRefs()
-  const workers = refs.length > 0 ? await join.readLinkedWorkers(refs) : new Map()
-  // Orca's own waits too, so one whose stopped worker was unlinked goes back.
-  const uids = [
-    ...new Set([
-      ...(await store.linksTo('dispatch', refs)).map((link) => link.itemUid),
-      ...(await store.usageLimitWaitUids())
-    ])
-  ]
-  if (uids.length === 0) {
-    return
-  }
-  const rows = await store.viewRows(uids)
-  const done: BotItemRecord[] = []
-  let failure: unknown = null
-  for (const item of rows.items) {
-    if (item.status !== 'working' && item.status !== 'waiting') {
-      continue
+): Promise<boolean> {
+  const savedWaits = new Set(await store.usageLimitWaitUids())
+  const uids = new Set(savedWaits)
+  if (cuts.size > 0) {
+    const links = await store.linksTo('dispatch', await store.linkedDispatchRefs())
+    for (const link of links) {
+      uids.add(link.itemUid)
     }
-    const live = (rows.links[item.uid] ?? []).flatMap((link) => {
+  }
+  if (uids.size === 0) {
+    return false
+  }
+  const rows = await store.viewRows([...uids])
+  const items = rows.items.filter(
+    (item) => item.status === 'working' || (item.status === 'waiting' && savedWaits.has(item.uid))
+  )
+  const links: typeof rows.links = cuts.size > 0 ? rows.links : {}
+  const refs = [
+    ...new Set(
+      items.flatMap((item) =>
+        (links[item.uid] ?? []).flatMap((link) => (link.kind === 'dispatch' ? [link.ref] : []))
+      )
+    )
+  ]
+  const workers =
+    refs.length > 0 ? await join.readLinkedWorkers(refs, { pullRequests: false }) : new Map()
+  const done: BotItemRecord[] = []
+  let stale = false
+  let failure: unknown = null
+  for (const item of items) {
+    const live = (links[item.uid] ?? []).flatMap((link) => {
       const read = workers.get(link.ref)
       const view = link.kind === 'dispatch' ? join.linkView(link, read) : null
       return view?.kind === 'dispatch' && isLiveBotItemWorker(view.state)
@@ -94,8 +104,14 @@ export async function moveItemsOnUsageLimits(
         : []
     })
     const text = botItemUsageLimitWaitText(live, cuts)
-    await store.usageLimitWait(item.uid, text).then(
-      (eventId) => eventId !== null && done.push(item),
+    await store.usageLimitWait(item.uid, text, undefined, item.version).then(
+      (result) => {
+        if (result === 'stale') {
+          stale = true
+        } else if (result !== null) {
+          done.push(item)
+        }
+      },
       (error: unknown) => (failure ??= error)
     )
   }
@@ -103,6 +119,7 @@ export async function moveItemsOnUsageLimits(
   if (failure !== null) {
     throw failure
   }
+  return stale
 }
 
 function cutOf(summary: AgentSessionStatusSummary, now: number): BotUsageLimitCut | null {
@@ -117,8 +134,8 @@ export class BotItemUsageLimitWaits {
   private readonly summaries = new Map<string, AgentSessionStatusSummary>()
   private running: Promise<void> | null = null
   private again = false
-  /** The last pass failed: the next tick or change tries again, even with no stop left. */
-  private failed = false
+  /** Retry a failed or stale pass on the next trigger, even with no stop left. */
+  private retry = false
   private unwatch: (() => void) | null = null
 
   constructor(private readonly deps: BotItemUsageLimitDeps) {}
@@ -168,14 +185,14 @@ export class BotItemUsageLimitWaits {
 
   /** A minute passed: a stop whose time has come ends even when its session says nothing new. */
   tick(now = Date.now()): void {
-    if (this.cuts.size > 0 || this.failed) {
-      this.read(now, this.failed)
+    if (this.cuts.size > 0 || this.retry) {
+      this.read(now, this.retry)
     }
   }
 
   /** A worker or an item changed: while any session is stopped, its items are looked at again. */
   recheck(): void {
-    if (this.cuts.size > 0 || this.failed) {
+    if (this.cuts.size > 0 || this.retry) {
       this.run()
     }
   }
@@ -224,16 +241,16 @@ export class BotItemUsageLimitWaits {
         if (!store) {
           return
         }
-        this.failed = false
-        await moveItemsOnUsageLimits(
+        this.retry = false
+        this.retry = await moveItemsOnUsageLimits(
           store,
           this.deps.join,
           this.deps.sessionOf,
           new Map(this.cuts),
           this.deps.changed
         ).catch((error: unknown) => {
-          this.failed = true
           console.warn('[bots] items: usage-limit wait failed', error)
+          return true
         })
       }
     })().finally(() => {

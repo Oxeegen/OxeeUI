@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { AgentSessionStatusSummary } from '../../shared/agent-session/agent-session-wire'
 import type { BotItemLinkView, BotItemWorkerState } from '../../shared/bots/bot-items'
 import { type BotItemUsageLimitStore, BotItemUsageLimitWaits } from './bot-item-usage-limit-wait'
@@ -17,11 +17,11 @@ function remote(store: BotItemsStore, down: { writes: boolean }): BotItemUsageLi
     linkedDispatchRefs: async () => store.linkedDispatchRefs(),
     linksTo: async (kind, refs) => store.linksTo(kind, refs),
     viewRows: async (uids) => store.viewRows(uids),
-    usageLimitWait: async (uid, text) => {
+    usageLimitWait: async (...args) => {
       if (down.writes) {
         throw new Error('database is locked')
       }
-      return store.usageLimitWait(uid, text)
+      return store.usageLimitWait(...args)
     },
     usageLimitWaitUids: async () => store.usageLimitWaitUids()
   }
@@ -65,10 +65,13 @@ describe('usage-limit Waiting', () => {
       BOT
     )
     const down = { writes: false }
+    const readLinkedWorkers = vi.fn(
+      async (_refs: readonly string[]) => new Map<string, WorkerRead>()
+    )
     const waits = new BotItemUsageLimitWaits({
       store: () => remote(store, down),
       join: {
-        readLinkedWorkers: async () => new Map<string, WorkerRead>(),
+        readLinkedWorkers,
         linkView: (link: BotItemLinkRecord): BotItemLinkView => ({
           kind: 'dispatch',
           ref: link.ref,
@@ -93,8 +96,63 @@ describe('usage-limit Waiting', () => {
         item.waitEvent === null ? undefined : store.events(uid, item.waitEvent - 1, 1)[0]
       return item.status === 'waiting' ? String(event?.data.note) : item.status
     }
-    return { store, uid, waits, note, down }
+    return { store, uid, waits, note, down, readLinkedWorkers }
   }
+
+  it('only resolves workers whose usage stop can change an item', async () => {
+    const { store, uid, waits, readLinkedWorkers } = setup({
+      active: { session: 'a', state: 'working' }
+    })
+    store.add(
+      {
+        ownerBotId: BOT.botId,
+        chatId: BOT.chatId,
+        source: { kind: 'home', title: null },
+        title: 'Later',
+        status: 'planned',
+        links: [{ kind: 'dispatch', ref: 'later' }]
+      },
+      BOT
+    )
+    waits.saw({ type: 'snapshot', sessions: [summary('a')] }, NOW)
+    await waits.settled()
+    expect(readLinkedWorkers).not.toHaveBeenCalled()
+    waits.saw(
+      { type: 'status', session: summary('a', { resetsAt: NOW + HOUR, state: 'off' }) },
+      NOW
+    )
+    await waits.settled()
+    expect(readLinkedWorkers.mock.calls.map((call) => call[0])).toEqual([['active']])
+    expect(store.get(uid)?.status).toBe('waiting')
+  })
+
+  it.each([false, true])(
+    'uses the worker linked during a lookup before recording a wait (new worker stopped: %s)',
+    async (stopped) => {
+      const workers: Workers = { first: { session: 'a', state: 'working' } }
+      const { store, uid, waits, readLinkedWorkers } = setup(workers)
+      readLinkedWorkers.mockImplementationOnce(async () => {
+        workers.second = { session: 'b', state: 'working' }
+        store.link(uid, [{ kind: 'dispatch', ref: 'second' }], BOT)
+        return new Map<string, WorkerRead>()
+      })
+      const first = summary('a', { resetsAt: NOW + 2 * HOUR, state: 'off' })
+      const second = stopped
+        ? summary('b', { resetsAt: NOW + HOUR, continueAt: NOW + HOUR, state: 'scheduled' })
+        : summary('b')
+      waits.saw({ type: 'snapshot', sessions: [first, second] }, NOW)
+      await waits.settled()
+      // No change notification was delivered during the lookup.
+      waits.tick(NOW + 60_000)
+      await waits.settled()
+
+      const moves = store.events(uid, 0, 10).filter((event) => event.kind === 'status')
+      expect(moves.map((event) => event.data.note)).toEqual(
+        stopped ? [expect.stringMatching(/^Claude continues /)] : []
+      )
+      expect(store.get(uid)?.status).toBe(stopped ? 'waiting' : 'working')
+    }
+  )
 
   it('waits on the stopped worker’s own session, not another session in its worktree', async () => {
     const { waits, note } = setup({ ctx_a: { session: 'a', state: 'working' } })
