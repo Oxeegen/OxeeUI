@@ -1,6 +1,7 @@
 import { getSystemLanguageDetection } from './system-language'
 import type { i18n as I18nInstance } from 'i18next'
 
+import { BRAND_POST_PROCESS, brandNamePostProcessor } from '@brand/i18n/rebrand'
 import { createOrcaI18n } from '../../shared/i18n/orca-i18n-instance'
 import {
   DEFAULT_UI_LOCALE,
@@ -34,7 +35,10 @@ const LAZY_LOCALE_LOADER_MAP = new Map<string, () => Promise<{ default: Record<s
 // Initializes synchronously, so startup dialogs can translate before settings load.
 const orcaI18n = createOrcaI18n({
   loadCatalog: (language) => LAZY_LOCALE_LOADER_MAP.get(language)?.().then((mod) => mod.default),
-  englishResources: {}
+  englishResources: {},
+  // Why: every translated string, including English fallbacks, carries the brand name.
+  modules: [brandNamePostProcessor],
+  initOptions: { postProcess: BRAND_POST_PROCESS }
 })
 
 export const mainI18n: I18nInstance = orcaI18n.i18n

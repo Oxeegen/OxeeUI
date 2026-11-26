@@ -26,7 +26,7 @@ concurrency:
 
 jobs:
   publish-next:
-    if: github.ref == 'refs/heads/main' && inputs.action == 'publish-next'
+    if: github.repository == 'stablyai/orca' && (github.ref == 'refs/heads/main' && inputs.action == 'publish-next')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: agent-state-rules
@@ -48,7 +48,7 @@ jobs:
           node config/scripts/release/agent-state-rules/agent-state-rules-bundle.mjs publish-next "${flags[@]}"
 
   promote-stable:
-    if: github.ref == 'refs/heads/main' && inputs.action == 'promote-stable'
+    if: github.repository == 'stablyai/orca' && (github.ref == 'refs/heads/main' && inputs.action == 'promote-stable')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: agent-state-rules

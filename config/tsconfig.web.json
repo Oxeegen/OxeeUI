@@ -9,12 +9,14 @@
     "../src/main/pi/rpc/options/rpc-model-schema.ts",
     "../src/main/pi/rpc/options/rpc-model-options.ts",
     "../src/shared/**/*",
-    "../cloud/packages/connector-contract/src/connect-messages.ts"
+    "../cloud/packages/connector-contract/src/connect-messages.ts",
+    "../brand/**/*"
   ],
   "compilerOptions": {
     "composite": true,
     "jsx": "react-jsx",
     "paths": {
+      "@brand/*": ["../brand/*"],
       "@renderer/*": ["../src/renderer/src/*"],
       "@/*": ["../src/renderer/src/*"]
     }
