@@ -118,9 +118,8 @@ function formatDevInstanceLabel(branch, worktreeName) {
   return branch || worktreeName || null
 }
 
-function createDockTitle(branch, label) {
-  return `${BRAND_PRODUCT_NAME}: ${branch || label || 'dev'}`
-}
+// Why one line: upstream keeps this file at its 600-line cap, so the brand import above must cost nothing net.
+const createDockTitle = (branch, label) => `${BRAND_PRODUCT_NAME}: ${branch || label || 'dev'}`
 
 function seedDevInstanceIdentityEnv() {
   const branch =
@@ -262,7 +261,8 @@ function prepareMacDevElectronApp() {
   const requiredResourcePaths = [
     chromiumResourcePath,
     path.join(appPath, 'Contents', 'MacOS', 'orca-keyboard-layout'),
-    path.join(appPath, 'Contents', 'MacOS', 'orca-process-footprint')
+    path.join(appPath, 'Contents', 'MacOS', 'orca-process-footprint'),
+    path.join(appPath, 'Contents', 'MacOS', 'orca-socket-owner')
   ]
 
   function copiedAppIsUsable() {

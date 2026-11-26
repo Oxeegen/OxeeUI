@@ -19,12 +19,12 @@ import {
   gitHistorySlots,
   latestGitHistoryRequest,
   mountedHistoryConsumers,
-  releasedHistorySlots,
-  claimGitHistoryCatalogSweep,
-  retireGitHistorySlot,
   nextGitHistoryRequestId,
   publishGitHistory,
+  releasedHistorySlots,
+  retireGitHistorySlot,
   subscribeGitHistory,
+  takeRetirementCandidates,
   presentGitHistoryEntry,
   pageKeyFor,
   type GitHistoryFence,
@@ -99,27 +99,25 @@ export function useSourceControlGitHistory({
     compareBaseRef,
     compareBaseOid
   ])
-  const subscribeHistorySlot = useCallback(
+  const subscribeSlot = useCallback(
     (listener: () => void) => subscribeGitHistory(slotKey, listener),
     [slotKey]
   )
-  const entry = useSyncExternalStore(subscribeHistorySlot, () =>
+  const entry = useSyncExternalStore(subscribeSlot, () =>
     activeWorktreeId ? gitHistorySlots.get(slotKey) : undefined
   )
   const gitHistoryState = activeWorktreeId
     ? presentGitHistoryEntry(entry, historyFence)
     : EMPTY_GIT_HISTORY_STATE
 
+  const consumesSlot = activeWorktreeId !== null && worktreeMap.has(activeWorktreeId)
   useEffect(() => {
-    const mounted = activeWorktreeId && worktreeMap.has(activeWorktreeId)
-    if (mounted) {
-      mountedHistoryConsumers.set(slotKey, (mountedHistoryConsumers.get(slotKey) ?? 0) + 1)
-      releasedHistorySlots.delete(slotKey)
+    if (!consumesSlot) {
+      return
     }
+    mountedHistoryConsumers.set(slotKey, (mountedHistoryConsumers.get(slotKey) ?? 0) + 1)
+    releasedHistorySlots.delete(slotKey)
     return () => {
-      if (!mounted) {
-        return
-      }
       const remaining = (mountedHistoryConsumers.get(slotKey) ?? 1) - 1
       if (remaining) {
         mountedHistoryConsumers.set(slotKey, remaining)
@@ -128,28 +126,23 @@ export function useSourceControlGitHistory({
         releasedHistorySlots.add(slotKey)
       }
     }
-  }, [activeWorktreeId, slotKey, worktreeMap])
+  }, [consumesSlot, slotKey])
 
+  // Only the ordinary panel's catalog says which worktrees exist. A folder section's lists just its
+  // owner, so a section never sweeps and never retires another worktree's page or pending read.
+  // A catalog change sweeps every retained request; otherwise only the slots released since the last sweep.
+  // Declared after registration so a consumer whose worktree left the catalog has already released its slot.
   const ownsWorktreeCatalog = scope === null
   useEffect(() => {
     if (!ownsWorktreeCatalog) {
       return
     }
-    if (claimGitHistoryCatalogSweep(worktreeMap)) {
-      for (const [key, request] of latestGitHistoryRequest) {
-        if (!worktreeMap.has(request.worktreeId) && !mountedHistoryConsumers.has(key)) {
-          retireGitHistorySlot(key)
-        }
-      }
-    } else {
-      for (const key of releasedHistorySlots) {
-        const request = latestGitHistoryRequest.get(key)
-        if (request && !worktreeMap.has(request.worktreeId) && !mountedHistoryConsumers.has(key)) {
-          retireGitHistorySlot(key)
-        }
+    for (const key of takeRetirementCandidates(worktreeMap)) {
+      const request = latestGitHistoryRequest.get(key)
+      if (request && !worktreeMap.has(request.worktreeId) && !mountedHistoryConsumers.has(key)) {
+        retireGitHistorySlot(key)
       }
     }
-    releasedHistorySlots.clear()
   }, [ownsWorktreeCatalog, slotKey, worktreeMap])
 
   const refreshGitHistory = useCallback(
@@ -167,6 +160,10 @@ export function useSourceControlGitHistory({
       const worktreeId = activeWorktreeId
       const requestId = nextGitHistoryRequestId()
       latestGitHistoryRequest.set(slotKey, { worktreeId, id: requestId })
+      if (!mountedHistoryConsumers.has(slotKey)) {
+        // No consumer holds this slot, so the next switch may retire it.
+        releasedHistorySlots.add(slotKey)
+      }
       const isLatest = (): boolean => latestGitHistoryRequest.get(slotKey)?.id === requestId
       const previous = gitHistorySlots.get(slotKey)
       // Keep the previous page while refreshing; the read fence hides it if it no longer applies.
@@ -188,7 +185,7 @@ export function useSourceControlGitHistory({
           {
             limit: GIT_HISTORY_DEFAULT_LIMIT,
             baseRef: compareBaseRef,
-            // Commits the base lacks, without per-row pushed/stat work the menu never shows.
+            // Commits the base lacks, without the pushed state, statistics or counts the menu never shows.
             branchOnly: true,
             branchListOnly: true,
             ...(options?.wakeWslDistro ? { wakeWslDistro: true } : {})

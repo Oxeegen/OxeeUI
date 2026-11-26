@@ -3,7 +3,7 @@ import { compareVersions, isPrereleaseVersion, isValidVersion } from './updater-
 import {
   FETCH_TIMEOUT_MS,
   getPlatformManifestReadiness,
-  requestGitHubReleaseHead
+  requestReleaseHead
 } from './updater-release-readiness'
 
 import {
@@ -94,7 +94,7 @@ export async function fetchLatestStableReleaseTag(): Promise<string | null> {
     // Why derived: the stable fallback must resolve this product's own Latest release;
     // upstream's literal pointed it at another product's tag, which this repo never has.
     const latestUrl = `https://github.com/${MAIN_RELEASE_REPO}/releases/latest`
-    const response = await requestGitHubReleaseHead(latestUrl)
+    const response = await requestReleaseHead(latestUrl)
     if (!response?.redirectUrl || response.statusCode < 300 || response.statusCode >= 400) {
       return null
     }

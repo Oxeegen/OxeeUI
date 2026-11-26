@@ -1,6 +1,6 @@
 import type { SettingsSearchEntry } from '../search/settings-search'
 import { getTerminalAppearanceSearchEntries } from '../terminal/terminal-search'
-import { getSidebarEntries } from './appearance-sidebar-search'
+import { getSidebarEntries, getWorkspaceCardLayoutEntry } from './appearance-sidebar-search'
 import { createLocalizedCatalog } from '@/i18n/localized-catalog'
 import { translate } from '@/i18n/i18n'
 import type { Translate } from '@/i18n/use-translate'
@@ -285,6 +285,7 @@ type AppearancePaneSearchOptions = {
   showSystemTray?: boolean
   showMenuBarIcon?: boolean
   showTilingWindowMode?: boolean
+  showWorkspaceCardLayout?: boolean
 }
 
 export function getAppearancePaneSearchEntries(
@@ -304,6 +305,7 @@ export function getAppearancePaneSearchEntries(
     ...getReduceVisualEffectsEntries(),
     ...getStatusBarEntries(),
     ...getSidebarEntries(),
+    ...(options.showWorkspaceCardLayout ? [getWorkspaceCardLayoutEntry()] : []),
     ...(IS_APP_ICON_CHOICE_OFFERED ? getAppIconEntries() : []),
     ...getSystemTrayEntries(options),
     ...getMenuBarIconEntries(options)

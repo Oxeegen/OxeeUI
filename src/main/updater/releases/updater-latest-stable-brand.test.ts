@@ -23,7 +23,10 @@ const { netFetchMock, netRequestMock } = vi.hoisted(() => ({
 
 vi.mock('electron', () => ({ net: { fetch: netFetchMock, request: netRequestMock } }))
 
-/** GitHub answers the Latest page with a redirect to the release's tag page. */
+/**
+ * GitHub answers the Latest page with a redirect to the release's tag page, and
+ * an installer HEAD (followed through its redirect) with 200.
+ */
 function serveLatestRedirect(redirectPath: string, requested: string[]): void {
   netRequestMock.mockImplementation((options: { url: string }) => {
     requested.push(options.url)
@@ -33,6 +36,10 @@ function serveLatestRedirect(redirectPath: string, requested: string[]): void {
       queueMicrotask(() => {
         if (options.url === LATEST_URL) {
           request.emit('redirect', 302, 'HEAD', `https://github.com${redirectPath}`, {})
+        } else if (
+          /\/releases\/download\/[^/]+\/oxeeui-linux-x86_64\.AppImage$/.test(options.url)
+        ) {
+          request.emit('response', { statusCode: 200 })
         } else {
           request.emit('response', { statusCode: 404 })
         }
@@ -42,9 +49,9 @@ function serveLatestRedirect(redirectPath: string, requested: string[]): void {
   })
 }
 
-/** Every release in this repo carries a Linux manifest and its AppImage. */
+/** Every release in this repo carries a Linux manifest naming its AppImage. */
 function serveManifests(): void {
-  netFetchMock.mockImplementation((url: string, init?: { method?: string }) => {
+  netFetchMock.mockImplementation((url: string) => {
     if (/\/releases\/download\/[^/]+\/latest-linux\.yml$/.test(url)) {
       return Promise.resolve({
         ok: true,
@@ -55,9 +62,6 @@ function serveManifests(): void {
           )
       })
     }
-    if (init?.method === 'HEAD') {
-      return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') })
-    }
     return Promise.resolve({ ok: false, status: 404, text: () => Promise.resolve('') })
   })
 }
@@ -67,7 +71,7 @@ describe('latest stable release lookup under the brand', () => {
     vi.resetModules()
     netFetchMock.mockReset()
     netRequestMock.mockReset()
-    // Pinned so asset readiness takes the net.fetch path on every host.
+    // Pinned so asset readiness follows redirects (the non-Windows path) on every host.
     Object.defineProperty(process, 'platform', { value: 'linux' })
   })
 
