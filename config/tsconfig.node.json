@@ -63,11 +63,15 @@
     "../cloud/packages/connector-contract/src/wake-messages.ts",
     "../src/packages/process-host/src/__fixtures__/**/*",
     "../src/wsl-guest/**/*",
-    "../src/types/**/*"
+    "../src/types/**/*",
+    "../brand/**/*"
   ],
   "compilerOptions": {
     "composite": true,
     "rewriteRelativeImportExtensions": true,
-    "types": ["electron-vite/node"]
+    "types": ["electron-vite/node"],
+    "paths": {
+      "@brand/*": ["../brand/*"]
+    }
   }
 }

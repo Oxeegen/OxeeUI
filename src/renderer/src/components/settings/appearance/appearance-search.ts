@@ -12,6 +12,7 @@ import { getStatusBarUsageFormatEntry } from './appearance-status-bar-usage-form
 import { getMenuBarIconEntries, getSystemTrayEntries } from './appearance-system-presence-search'
 import { getReduceVisualEffectsEntries } from './appearance-reduce-visual-effects-search'
 import { getAppIconEntries } from './appearance-app-icon-search'
+import { IS_APP_ICON_CHOICE_OFFERED } from '@brand/settings/app-icons'
 
 export const getThemeEntries = createLocalizedCatalog((): SettingsSearchEntry[] => [
   {
@@ -303,7 +304,7 @@ export function getAppearancePaneSearchEntries(
     ...getReduceVisualEffectsEntries(),
     ...getStatusBarEntries(),
     ...getSidebarEntries(),
-    ...getAppIconEntries(),
+    ...(IS_APP_ICON_CHOICE_OFFERED ? getAppIconEntries() : []),
     ...getSystemTrayEntries(options),
     ...getMenuBarIconEntries(options)
   ]
