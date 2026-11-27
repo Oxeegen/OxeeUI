@@ -20,6 +20,7 @@ on:
 
 jobs:
   android-build:
+    if: github.repository == 'stablyai/orca'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -119,6 +120,7 @@ jobs:
   # Its own job so a Play outage can be rerun without rebuilding. Play rejects a versionCode it has
   # seen, so a missed versionCode bump fails here, before anything is published.
   play-internal-upload:
+    if: github.repository == 'stablyai/orca'
     needs: android-build
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -176,7 +178,7 @@ jobs:
   # app signing key as Play installs and either channel can update the other.
   github-release:
     needs: [android-build, play-internal-upload]
-    if: needs.android-build.outputs.publish_release == 'true'
+    if: github.repository == 'stablyai/orca' && (needs.android-build.outputs.publish_release == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -351,6 +353,7 @@ jobs:
 
   # Advisory: a failed mirror only leaves the R2 copy of this APK missing.
   release-mirror-r2:
+    if: github.repository == 'stablyai/orca'
     needs: [android-build, github-release]
     uses: ./.github/workflows/release-mirror-r2.yml
     with:

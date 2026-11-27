@@ -1,43 +1,45 @@
-# Contributing to Orca
+# Contributing to OxeeUI
 
-Thanks for contributing to Orca.
+Thanks for contributing to OxeeUI.
 
-Found a security vulnerability? Do not open a public issue or PR; report it privately as described in [`SECURITY.md`](./SECURITY.md).
+## Before You Start
+
+- Keep changes scoped to a clear user-facing improvement, bug fix, or refactor.
+- OxeeUI releases ship for Windows and Linux, but the codebase targets macOS, Linux, and Windows. Every change must stay compatible with all three platforms unless the code is explicitly guarded by a runtime platform check.
+- For keyboard shortcuts, use runtime platform checks in renderer code and `CmdOrCtrl` in Electron menu accelerators.
+- For shortcut labels, show `⌘` and `⇧` on macOS, and `Ctrl+` and `Shift+` on Linux and Windows.
+- For file paths, use Node or Electron path utilities such as `path.join`.
+- OxeeUI must work against local repositories, remote servers, and SSH worktrees. Do not assume a process, file, credential, shell, or network path exists only on the local machine.
+- OxeeUI supports many CLI agents and git providers. Keep generic behavior provider-neutral; guard integration-specific logic behind explicit checks.
+- Keep changes well-engineered and performant: follow existing architecture, avoid unnecessary work in hot paths, clean up owned resources, and use concrete module names.
+- For UI work, follow [`docs/STYLEGUIDE.md`](../docs/STYLEGUIDE.md), use the tokens and shadcn primitives it specifies, and verify polished behavior across platforms, light/dark mode, and SSH latency.
 
 ## Local Setup
 
-Install Node 24, the pnpm version in `packageManager` in [`package.json`](../package.json), and the Bun version in [`config/.bun-version`](../config/.bun-version). `pnpm install` compiles native modules, so you also need a C++ toolchain and Python 3 (Xcode Command Line Tools on macOS, Visual Studio Build Tools on Windows, `build-essential` and Electron's libraries on Linux).
-
 ```bash
 pnpm install
-pnpm -C mobile install --frozen-lockfile   # mobile/ has its own lockfile; build and lint need it
 pnpm dev
 ```
 
-`pnpm dev` in a linked Git worktree uses its own profile and ports, so instances in different worktrees run side by side.
-
-See [`docs/development.md`](../docs/development.md) for per-OS packages, Corepack and Windows notes, dev profiles and seeding, cross-architecture and Linux (Docker) builds, and troubleshooting.
+Ordinary installs include native optional dependencies for the current OS and CPU only.
+Before a cross-architecture build, run `pnpm install:release` to add the other CPU's variants.
+See [the install policy](../docs/reference/pnpm-install-policy.md).
 
 ## Branch Naming
 
-Use a clear, descriptive branch name that reflects the change, such as `fix/ctrl-backspace-delete-word`, `feat/shift-enter-newline`, or `chore/update-contributor-guide`. Avoid vague names like `test`, `misc`, or `changes`.
+Use a clear, descriptive branch name that reflects the change.
 
-## Code Guidelines
+Good examples:
 
-- Keep changes scoped to a clear user-facing improvement, bug fix, or refactor.
-- Orca targets macOS, Linux, and Windows. Guard platform-specific code with runtime checks, use `CmdOrCtrl` in Electron menu accelerators, show `⌘`/`⇧` labels on macOS and `Ctrl+`/`Shift+` elsewhere, and build paths with `path.join`. See [cross-platform support](../docs/agents-md-refs/cross-platform-support.md).
-- Orca must work against local repositories, remote servers, and SSH worktrees. Do not assume a process, file, credential, shell, or network path exists only on the local machine.
-- Keep generic behavior provider-neutral across CLI agents, integrations, and git providers; guard integration-specific logic behind explicit checks.
-- Follow existing architecture, avoid unnecessary work in hot paths, clean up owned resources, and use concrete module names.
-- For UI work, follow [`docs/STYLEGUIDE.md`](../docs/STYLEGUIDE.md) and verify behavior across platforms, light/dark mode, and SSH latency.
+- `fix/ctrl-backspace-delete-word`
+- `feat/shift-enter-newline`
+- `chore/update-contributor-guide`
 
-### Type Declarations: Prefer `.ts` Over `.d.ts`
+Avoid vague names like `test`, `misc`, or `changes`.
 
-Put project-owned types in `.ts` files. `.d.ts` is reserved for ambient shims (e.g., `env.d.ts`). `skipLibCheck: true` applies to our own `.d.ts` files too, so an unresolved type reference there silently becomes `any`. CI enforces this for `src/preload/` and `src/shared/`.
+## Before Opening a PR
 
-## Checks Before Opening a PR
-
-Run the same checks CI runs, after the `mobile/` install above:
+Run the checks:
 
 ```bash
 pnpm lint
@@ -46,30 +48,57 @@ pnpm test
 pnpm build
 ```
 
-For faster repeat typechecks use `pnpm tc` (or `pnpm tc:node`, `pnpm tc:web`, `pnpm tc:cli`); run `pnpm tc:node` after editing shared tests.
+Add high-quality tests for behavior changes and bug fixes. Prefer tests that would actually catch a regression, not shallow coverage that only exercises the happy path.
 
-Tests are the exception: add one only for logic where a silent regression is costly (parsers, security boundaries, data integrity, concurrency invariants), never for UI behavior or wiring; see [test anti-patterns](../docs/agents-md-refs/test-antipatterns.md). If your change affects UI or interaction behavior, verify it on the platforms it could impact.
+On Windows, part of the suite fails for environmental reasons (file locks, keychain access, line endings). Compare against a baseline run on `main` before attributing a failure to your change.
 
-### Targeting Local Tests
+If your change affects UI or interaction behavior, verify it on the platforms it could impact.
 
-On macOS and Linux, set `git config --local orca.serializeChangedChecks true` to queue full `pnpm check:changed` runs across worktrees. Eligible runs using this queue start in arrival order within each lane, with normal runs before yielding runs; silent tickets can be passed. Runs from older checkouts share the same lock but not the order. A waiting run prints its approximate place in line, recounted when the line moves and otherwise about every 10 seconds while it can poll, and, when the queue's last record of the run holding the slot is recent, that run's pid, folder and claim time. A queued run whose process has exited is removed. A run that has not checked in for 30 seconds stops holding up the others; it keeps its place if it checks in again within 5 minutes, and after that rejoins at the back. A run whose launching process, up to 16 levels above it when it joined, is found to have exited (checked about every 10 seconds) waits behind runs whose launchers are still running for the rest of its wait. If the queue file cannot be used (it cannot be opened or written for any reason other than being busy), a run prints one warning and waits for the slot directly, as before the queue existed: still one run at a time, but without a place in line. No run is ever stopped by the queue. On Ctrl+C, SIGTERM, or terminal hangup, the runner waits for its active check process groups to stop before admitting another run. Processes that detach from those groups, or survive a force-kill of the runner, can continue independently. Windows uses the standard concurrent runner.
+## Type Declarations: Prefer `.ts` Over `.d.ts`
 
-Use `pnpm test`, not raw `vitest`: only it keeps the transform cache that makes repeat runs fast.
+Project-owned type declarations belong in `.ts` files. `.d.ts` is reserved for ambient shims (e.g., `env.d.ts`, `vite/client.d.ts`). TypeScript's `skipLibCheck: true` setting applies globally, including to our own `.d.ts` files, which means any unresolved type reference in a `.d.ts` silently becomes `any` at its call sites. Write your types in `.ts` files so the compiler actually checks them.
 
-```bash
-pnpm test src/shared/automations/scheduling/automation-cron-input-validation.test.ts --maxWorkers=2
-pnpm test:changed src/main/runtime --maxWorkers=2   # staged, unstaged, and untracked changes
-pnpm test --changed=origin/main --maxWorkers=2      # also commits since the merge base
-```
-
-Affected tests follow Vitest's static import graph, so run suites explicitly for dynamic imports, fixtures, or subprocess inputs. Local affected tests do not replace CI. If a file passes alone but fails after others, add `// @orca-isolated-worker` to it.
+CI enforces this for `src/preload/` and `src/shared/`.
 
 ## Pull Requests
 
-Fill in every section of [`.github/pull_request_template.md`](./pull_request_template.md): an ELI5, what changed and why, a linked issue (required for outside contributors), a before and after (screenshots or videos) for any UI or behavior change (only if there is truly no visual or interaction change, write exactly `N/A` and briefly say why), how you tested it, the risk, its performance impact (one line such as `None, because …` is fine when nothing gets slower or heavier), and under Review a short summary from your AI coding agent covering cross-platform, SSH/remote, agent and integration compatibility, performance, UI quality, and security. Keep each PR small and focused on one topic.
+Each pull request should follow [`.github/pull_request_template.md`](./pull_request_template.md). In particular:
 
-Version bumps, tags, and releases are maintainer-managed. Do not include release version changes unless a maintainer asks. Maintainers cut releases with the [Cut Release](https://github.com/stablyai/orca/actions/workflows/release-cut.yml) workflow.
+- open with a plain-language summary of the change (the PR title is the one-liner)
+- explain what changed and why, and stay focused on a single topic when possible
+- for any UI or interaction change, attach **before and after** screenshots (or short videos); if there is no visual change, say `No visual change` and why
+- include high-quality tests when behavior changes or bug fixes warrant them
+- include a brief code review summary from your AI coding agent that explicitly checks cross-platform compatibility, SSH/remote/local compatibility, supported agent and integration compatibility, performance risk, UI quality when applicable, and basic security risk
+- mention any platform-specific, remote/SSH-specific, agent-specific, integration-specific, or git-provider-specific behavior and testing notes
 
-## Getting Help
+## Building Installers
 
-Ask questions on [Discord](https://discord.gg/fzjDKHxv8Q), or open an [issue](https://github.com/stablyai/orca/issues/new/choose) for bugs and feature requests.
+```bash
+pnpm run build:win:brand     # Windows installer
+pnpm run build:linux:brand   # Linux AppImage
+```
+
+Both run `brand:assets` first and never publish. Builds are unsigned: Windows SmartScreen warns on install, and macOS is not built until an Apple Developer certificate exists.
+
+## Release Process
+
+Version bumps, tags, and releases are maintainer-managed. Do not include release version changes in a normal contribution unless a maintainer asks for them.
+
+### Cutting a release (maintainers)
+
+OxeeUI has its own version line. A release is an annotated `oxeeui-v<version>` tag:
+
+```bash
+git tag -a oxeeui-v0.4.205 -m "OxeeUI 0.4.205 ..."
+git push origin oxeeui-v0.4.205
+```
+
+Pushing the tag runs [`release-brand.yml`](./workflows/release-brand.yml), which builds Windows and Linux and publishes one GitHub Release. The tag name sets the packaged version, and the tag message becomes the release notes.
+
+**Before tagging:**
+
+- Run `pnpm run typecheck` as well as the tests. Vitest does not typecheck, so a type error in a test passes locally and fails the release build after a full compile on both platforms.
+- Run `pnpm run brand:verify`. It checks that the OxeeUI identity, assets and settings are still applied.
+- Green unit tests are not evidence that packaging will succeed; the release build is the only step that exercises the packaging contracts.
+
+The release job refuses to publish when `latest.yml` or `latest-linux.yml` is missing, because a release without those manifests can never be seen by an installed client.

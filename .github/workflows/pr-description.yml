@@ -13,6 +13,7 @@ concurrency:
 
 jobs:
   performance:
+    if: github.repository == 'stablyai/orca'
     name: Performance section
     runs-on: ubuntu-slim
     timeout-minutes: 2

@@ -28,6 +28,7 @@ env:
 
 jobs:
   compare:
+    if: github.repository == 'stablyai/orca'
     name: Native preparation comparison (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60

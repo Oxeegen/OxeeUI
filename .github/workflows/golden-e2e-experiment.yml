@@ -13,6 +13,7 @@ permissions:
 
 jobs:
   golden-e2e:
+    if: github.repository == 'stablyai/orca'
     name: golden e2e ${{ matrix.platform }} experiment
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30

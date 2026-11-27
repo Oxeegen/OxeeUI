@@ -10,6 +10,7 @@
 @import './mobile-page.css';
 @import './text-shimmer.css';
 @import '../../../shared/styles/scrollbar-sleek.css';
+@import '../../../../brand/assets/brand-theme.css';
 
 @font-face {
   font-family: 'Geist';

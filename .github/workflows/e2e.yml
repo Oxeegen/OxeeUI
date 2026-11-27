@@ -56,6 +56,7 @@ on:
 
 jobs:
   build:
+    if: github.repository == 'stablyai/orca'
     name: build e2e app
     runs-on: ${{ inputs.fast_runners && 'blacksmith-8vcpu-ubuntu-2404' || 'ubuntu-24.04' }}
     timeout-minutes: 15
@@ -185,7 +186,7 @@ jobs:
   e2e:
     name: e2e
     needs: [build]
-    if: inputs.test_files == ''
+    if: github.repository == 'stablyai/orca' && (inputs.test_files == '')
     runs-on: ${{ inputs.fast_runners && 'blacksmith-4vcpu-ubuntu-2404' || 'ubuntu-24.04' }}
     timeout-minutes: 30
 
@@ -240,7 +241,7 @@ jobs:
     env:
       ORCA_BACKGROUND_LAUNCH: ${{ inputs.background_launch && '1' || '' }}
     needs: [build]
-    if: inputs.test_files != ''
+    if: github.repository == 'stablyai/orca' && (inputs.test_files != '')
     runs-on: ${{ inputs.fast_runners && 'blacksmith-4vcpu-ubuntu-2404' || 'ubuntu-24.04' }}
     timeout-minutes: 45
 

@@ -25,6 +25,7 @@ concurrency:
 
 jobs:
   wsl-terminal:
+    if: github.repository == 'stablyai/orca'
     runs-on: windows-2022
     # Retain the original WSL launch; paste, image and stopped-distro alarms are retired.
     timeout-minutes: 50

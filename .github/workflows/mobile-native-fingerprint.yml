@@ -26,7 +26,7 @@ concurrency:
 jobs:
   native-fingerprint:
     name: Mobile native fingerprint
-    if: github.event.pull_request.draft != true
+    if: github.repository == 'stablyai/orca' && (github.event.pull_request.draft != true)
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     continue-on-error: true

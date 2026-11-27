@@ -1,0 +1,24 @@
+{
+  "productName": "OxeeUI",
+  "appId": "com.oxeegen.oxeeui",
+  "artifactSlug": "oxeeui",
+  "executableName": "OxeeUI",
+  "linuxExecutableName": "oxeeui",
+  "startupWmClass": "oxeeui",
+  "maintainer": "Oxeegen",
+  "upstream": {
+    "productName": "Orca",
+    "appId": "com.stablyai.orca"
+  },
+  "description": "Agentic development environment",
+  "author": "Oxeegen",
+  "homepage": "https://github.com/Oxeegen/OxeeUI",
+  "copyright": "Copyright © 2026 Oxeegen. Based on Orca, © Lovecast Inc., MIT licensed.",
+  "license": "MIT",
+  "publish": {
+    "provider": "github",
+    "owner": "Oxeegen",
+    "repo": "OxeeUI",
+    "releaseType": "release"
+  }
+}

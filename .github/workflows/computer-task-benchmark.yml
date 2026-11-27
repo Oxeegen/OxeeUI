@@ -28,7 +28,7 @@ env:
 
 jobs:
   linux:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft != true
+    if: github.repository == 'stablyai/orca' && (github.event_name != 'pull_request' || github.event.pull_request.draft != true)
     runs-on: ubuntu-latest
     timeout-minutes: 40
     strategy:
@@ -103,7 +103,7 @@ jobs:
           if-no-files-found: warn
 
   windows:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft != true
+    if: github.repository == 'stablyai/orca' && (github.event_name != 'pull_request' || github.event.pull_request.draft != true)
     runs-on: windows-latest
     timeout-minutes: 40
     strategy:

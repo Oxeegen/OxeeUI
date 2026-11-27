@@ -47,6 +47,7 @@ import { withDevRolldownRuntimeEnv } from './dev-rolldown-runtime-env.mjs'
 import { copyPrivateTree } from '../../artifact-storage/reflink-copy/space-sharing-copy.mjs'
 import { buildDevSwiftCliHelpers } from '../../native-build/macos/swift-cli-helper-macos.mjs'
 import {
+  BRAND_PRODUCT_NAME,
   DEV_BUNDLE_ID,
   getDevBundlePlistPatches,
   getDevHelperPlistPatches
@@ -117,9 +118,8 @@ function formatDevInstanceLabel(branch, worktreeName) {
   return branch || worktreeName || null
 }
 
-function createDockTitle(branch, label) {
-  return `Orca: ${branch || label || 'dev'}`
-}
+// Why one line: upstream keeps this file at its 600-line cap, so the brand import above must cost nothing net.
+const createDockTitle = (branch, label) => `${BRAND_PRODUCT_NAME}: ${branch || label || 'dev'}`
 
 function seedDevInstanceIdentityEnv() {
   const branch =
@@ -216,7 +216,7 @@ function prepareMacDevElectronApp() {
     electronVersion = JSON.parse(readFileSync(electronPackagePath, 'utf8')).version ?? null
   } catch {}
 
-  const title = process.env.ORCA_DEV_DOCK_TITLE || 'Orca: dev'
+  const title = process.env.ORCA_DEV_DOCK_TITLE || `${BRAND_PRODUCT_NAME}: dev`
   const identityKey = process.env.ORCA_DEV_INSTANCE_KEY || repoRoot
   // v11 stabilizes Info.plist/cdhash; ignored stale marker fields permit schema narrowing without another bump.
   const bundleLayoutVersion = 'stable-cdhash-dock-name-from-bundle-dir-v11'

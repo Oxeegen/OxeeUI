@@ -12,14 +12,24 @@ export const aggregateSelectors = PR_CHECK_JOBS.filter((job) => job !== 'orcad_b
 export const aggregateRequiredJobs = aggregateJob.needs.filter((job) => job !== 'code_paths')
 export const aggregateVariable = (job) => job.replaceAll('-', '_').toUpperCase()
 
+// Why `github` is always admitted and carries upstream's repository: this fork prefixes
+// every job `if` with `github.repository == 'stablyai/orca' && (...)`, so conditions are
+// evaluated as they run in upstream's repository. Test-only helper; nothing ships it.
 export function compileAggregateExpression(expression, contexts = ['needs']) {
   const source = expression.replace(/^\$\{\{\s*|\s*\}\}$/g, '')
   const functions = [{ name: 'cancelled', minArgs: 0, maxArgs: 0 }]
-  const ast = new Parser(new Lexer(source).lex().tokens, contexts, functions).parse()
+  const named = contexts.includes('github') ? contexts : [...contexts, 'github']
+  const ast = new Parser(new Lexer(source).lex().tokens, named, functions).parse()
   return (context, cancelled = false) =>
     new Evaluator(
       ast,
-      JSON.parse(JSON.stringify(context), data.reviver),
+      JSON.parse(
+        JSON.stringify({
+          ...context,
+          github: { repository: 'stablyai/orca', ...context?.github }
+        }),
+        data.reviver
+      ),
       new Map([['cancelled', { ...functions[0], call: () => new data.BooleanData(cancelled) }]])
     ).evaluate()
 }

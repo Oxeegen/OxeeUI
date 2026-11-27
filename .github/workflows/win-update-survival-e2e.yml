@@ -55,7 +55,7 @@ concurrency:
 
 jobs:
   survival:
-    if: ${{ !inputs.scenarios }}
+    if: ${{ github.repository == 'stablyai/orca' && (!inputs.scenarios) }}
     name: update ${{ inputs.from_release || 'branch' }} to branch (${{ inputs.expect || 'survival' }}, policy=${{ inputs.policy || 'inherited' }})
     runs-on: windows-2022
     timeout-minutes: 50
@@ -167,7 +167,7 @@ jobs:
 
   # Real installers, run silently the way electron-updater runs them; see tests/tools/win-update-e2e/scenarios.mjs.
   scenarios:
-    if: ${{ inputs.scenarios }}
+    if: ${{ github.repository == 'stablyai/orca' && (inputs.scenarios) }}
     name: update scenario matrix (from ${{ inputs.scenarios_release }})
     runs-on: windows-2022
     timeout-minutes: 150

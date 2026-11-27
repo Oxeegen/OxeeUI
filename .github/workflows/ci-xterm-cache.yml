@@ -22,7 +22,7 @@ env:
   ORCA_BACKGROUND_LAUNCH: '1'
 jobs:
   seed:
-    if: github.ref == 'refs/heads/main'
+    if: github.repository == 'stablyai/orca' && (github.ref == 'refs/heads/main')
     # Blacksmith and GitHub keep separate cache stores; seed the same key in both for either consumer pool.
     strategy:
       fail-fast: false

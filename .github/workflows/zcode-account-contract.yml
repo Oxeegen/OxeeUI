@@ -8,6 +8,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   account-contract:
+    if: github.repository == 'stablyai/orca'
     uses: ./.github/workflows/zcode-credential-contract.yml
     with:
       contract: account

@@ -1,0 +1,58 @@
+/* OxeeUI brand tokens.
+ *
+ * Overrides a deliberately small slice of the token set defined in
+ * src/renderer/src/assets/main.css — only the roles that carry brand identity
+ * (primary fill, focus ring, sidebar primary). Every structural gray, radius,
+ * and elevation tier stays upstream so the design system keeps working and
+ * upstream merges stay clean.
+ *
+ * Selectors are doubled (:root:root) to outrank main.css regardless of @import
+ * order — PostCSS hoists @import to the top of the file, so source order alone
+ * would let upstream win.
+ */
+
+:root:root {
+  --primary: #5e4af5;
+  --primary-foreground: #fafafa;
+  --ring: #5e4af5;
+  --sidebar-primary: #5e4af5;
+  --sidebar-primary-foreground: #fafafa;
+  --sidebar-ring: #5e4af5;
+}
+
+/* Why a lighter purple in dark mode: #5e4af5 on a #171717 surface reads as a
+   muddy block. #6e5af6 keeps 4.7:1 against its white foreground (AA) while
+   staying legible as an accent against dark chrome. */
+:root:root.dark {
+  --primary: #6e5af6;
+  --primary-foreground: #ffffff;
+  --ring: #6e5af6;
+  --sidebar-primary: #6e5af6;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-ring: #6e5af6;
+}
+
+/* Material file icons (brand/file-icons/material-file-icons.tsx).
+ *
+ * Icons that Material Icon Theme redraws for light backgrounds are emitted as a
+ * dark and a light image side by side; exactly one is shown, off the `dark`
+ * class that src/renderer/src/lib/document-theme.ts sets on the root. Icons with
+ * no light variant are a single image and never hidden.
+ *
+ * object-fit keeps the SVG's own proportions inside the square the caller's
+ * `size-*` utility sets, as Lucide's glyphs did. */
+.oxee-file-icon {
+  object-fit: contain;
+}
+
+:root:root .oxee-file-icon--light {
+  display: none;
+}
+
+:root:root:not(.dark) .oxee-file-icon--light {
+  display: inline-block;
+}
+
+:root:root:not(.dark) .oxee-file-icon--has-light {
+  display: none;
+}
